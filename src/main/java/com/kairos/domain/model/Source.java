@@ -2,6 +2,10 @@ package com.kairos.domain.model;
 
 import java.util.UUID;
 
+/**
+ * Represents a source of information, such as a document or a piece of content, that can be stored and retrieved from a repository.
+ * Each source has a unique identifier, a title, content, and an embedding vector for semantic search purposes.
+ */
 public class Source {
 
     private final UUID id;
