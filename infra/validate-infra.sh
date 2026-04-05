@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # validate-infra.sh — smoke-tests for Kairos dual storage
-# Usage: ./infra/validate-infra.sh
+# Compatible with Git Bash (Windows), macOS and Linux
 set -euo pipefail
 
 PG_HOST="${POSTGRES_HOST:-localhost}"
@@ -22,83 +22,72 @@ NC='\033[0m'
 ok()   { echo -e "${GREEN}[PASS]${NC} $*"; }
 fail() { echo -e "${RED}[FAIL]${NC} $*"; exit 1; }
 
-# ── Wait helpers ──────────────────────────────────────────────
-wait_for() {
-  local name=$1 host=$2 port=$3 retries=30
-  echo "Waiting for $name at $host:$port..."
-  for i in $(seq 1 $retries); do
-    nc -z "$host" "$port" 2>/dev/null && return 0
-    sleep 2
-  done
-  fail "$name did not become reachable after $((retries * 2))s"
-}
-
-# ── PostgreSQL checks ─────────────────────────────────────────
+# ── PostgreSQL checks (via docker exec — sem precisar de psql local) ──
 check_postgres() {
-  wait_for "PostgreSQL" "$PG_HOST" "$PG_PORT"
+  echo "Checking PostgreSQL..."
 
-  PGPASSWORD="$PG_PASS" psql \
-    -h "$PG_HOST" -p "$PG_PORT" \
-    -U "$PG_USER" -d "$PG_DB" \
-    -c "SELECT 1;" -q --no-align --tuples-only > /dev/null \
+  docker exec kairos-postgres \
+    env PGPASSWORD="$PG_PASS" \
+    psql -h localhost -U "$PG_USER" -d "$PG_DB" \
+    -tAc "SELECT 1;" > /dev/null 2>&1 \
     && ok "PostgreSQL connection" \
-    || fail "PostgreSQL connection"
+    || fail "PostgreSQL connection falhou — rode: docker logs kairos-postgres"
 
-  VECTOR_EXT=$(PGPASSWORD="$PG_PASS" psql \
-    -h "$PG_HOST" -p "$PG_PORT" \
-    -U "$PG_USER" -d "$PG_DB" \
+  VECTOR_EXT=$(docker exec kairos-postgres \
+    env PGPASSWORD="$PG_PASS" \
+    psql -h localhost -U "$PG_USER" -d "$PG_DB" \
     -tAc "SELECT extname FROM pg_extension WHERE extname = 'vector';")
 
   [[ "$VECTOR_EXT" == "vector" ]] \
     && ok "pgvector extension enabled" \
-    || fail "pgvector extension NOT found — check infra/init/postgres/01_extensions.sql"
+    || fail "pgvector extension NOT found"
 
-  # Quick functional test: create a temp table with a vector column
-  PGPASSWORD="$PG_PASS" psql \
-    -h "$PG_HOST" -p "$PG_PORT" \
-    -U "$PG_USER" -d "$PG_DB" -q <<'SQL'
-CREATE TEMP TABLE _kairos_vec_test (embedding vector(3));
-INSERT INTO _kairos_vec_test VALUES ('[1,2,3]');
-SELECT embedding <-> '[1,2,3]' AS distance FROM _kairos_vec_test;
-SQL
-  ok "pgvector functional test (cosine distance query)"
+  docker exec kairos-postgres \
+    env PGPASSWORD="$PG_PASS" \
+    psql -h localhost -U "$PG_USER" -d "$PG_DB" -q -c "
+      CREATE TEMP TABLE _kairos_vec_test (embedding vector(3));
+      INSERT INTO _kairos_vec_test VALUES ('[1,2,3]');
+      SELECT embedding <-> '[1,2,3]' AS distance FROM _kairos_vec_test;
+    " > /dev/null \
+    && ok "pgvector functional test (distance query)" \
+    || fail "pgvector functional test falhou"
 }
 
-# ── Neo4j checks ──────────────────────────────────────────────
+# ── Neo4j checks (via curl HTTP — sem cypher-shell) ───────────
 check_neo4j() {
-  wait_for "Neo4j HTTP" "$NEO4J_HOST" "$NEO4J_HTTP_PORT"
-  wait_for "Neo4j Bolt" "$NEO4J_HOST" "$NEO4J_BOLT_PORT"
+  echo "Waiting for Neo4j HTTP at $NEO4J_HOST:$NEO4J_HTTP_PORT (pode levar ~60s)..."
 
-  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-    "http://$NEO4J_HOST:$NEO4J_HTTP_PORT")
+  HTTP_STATUS="000"
+  for i in $(seq 1 40); do
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+      --connect-timeout 2 \
+      "http://$NEO4J_HOST:$NEO4J_HTTP_PORT" 2>/dev/null || echo "000")
+    [[ "$HTTP_STATUS" == "200" ]] && break
+    printf "."
+    sleep 3
+  done
+  echo ""
+
   [[ "$HTTP_STATUS" == "200" ]] \
-    && ok "Neo4j HTTP reachable (status $HTTP_STATUS)" \
-    || fail "Neo4j HTTP returned status $HTTP_STATUS"
+    && ok "Neo4j HTTP reachable" \
+    || fail "Neo4j HTTP nao respondeu apos 120s — rode: docker logs kairos-neo4j"
 
-  if command -v cypher-shell &>/dev/null; then
-    echo "RETURN 'kairos' AS ping;" \
-      | cypher-shell -a "bolt://$NEO4J_HOST:$NEO4J_BOLT_PORT" \
-          -u "$NEO4J_USER" -p "$NEO4J_PASS" --format plain > /dev/null \
-      && ok "Neo4j Bolt connection (cypher-shell)" \
-      || fail "Neo4j Bolt connection"
-  else
-    # Fallback: HTTP transactional endpoint
-    CYPHER_RESP=$(curl -s -o /dev/null -w "%{http_code}" \
-      -u "$NEO4J_USER:$NEO4J_PASS" \
-      -H "Content-Type: application/json" \
-      -d '{"statements":[{"statement":"RETURN 1 AS n"}]}' \
-      "http://$NEO4J_HOST:$NEO4J_HTTP_PORT/db/neo4j/tx/commit")
-    [[ "$CYPHER_RESP" == "200" ]] \
-      && ok "Neo4j Bolt reachable via HTTP transaction API" \
-      || fail "Neo4j transaction API returned status $CYPHER_RESP"
-  fi
+  CYPHER_RESP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -u "$NEO4J_USER:$NEO4J_PASS" \
+    -H "Content-Type: application/json" \
+    -d '{"statements":[{"statement":"RETURN 1 AS n"}]}' \
+    "http://$NEO4J_HOST:$NEO4J_HTTP_PORT/db/neo4j/tx/commit")
+
+  [[ "$CYPHER_RESP" == "200" ]] \
+    && ok "Neo4j Cypher query succeeded" \
+    || fail "Neo4j Cypher falhou — status $CYPHER_RESP (verifique credenciais no .env)"
 }
 
 # ── Run ───────────────────────────────────────────────────────
-echo "═══════════════════════════════════════"
+echo "======================================="
 echo " Kairos infrastructure validation"
-echo "═══════════════════════════════════════"
+echo "======================================="
 check_postgres
 check_neo4j
-echo "═══════════════════════════════════════"
+echo "======================================="
 echo -e "${GREEN}All checks passed.${NC}"
