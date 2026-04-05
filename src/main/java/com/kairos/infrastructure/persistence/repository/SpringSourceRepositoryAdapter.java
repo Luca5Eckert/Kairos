@@ -3,6 +3,7 @@ package com.kairos.infrastructure.persistence.repository;
 import com.kairos.domain.model.Source;
 import com.kairos.domain.port.SourceRepository;
 import com.kairos.infrastructure.persistence.entity.SourceEntity;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -31,10 +32,14 @@ public class SpringSourceRepositoryAdapter implements SourceRepository {
     }
 
     @Override
-    public List<Source> findAll() {
-        var entities = jpaSourceRepository.findAll();
+    public List<Source> findAll(int k) {
+        var pageable = PageRequest.of(0, k);
+
+        var entities = jpaSourceRepository.findAll(pageable);
+
         return entities.stream()
                 .map(SourceEntity::toDomain)
                 .toList();
     }
+
 }
