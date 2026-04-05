@@ -12,9 +12,9 @@ Kairos is a personal knowledge engine built around that problem. Not a note-taki
 
 Every piece of knowledge you ingest goes through two parallel paths:
 
-**Semantic path** — text is chunked with overlap, embedded via a local ONNX model, and stored in pgvector. Queries return results by meaning, not keyword.
+**Semantic path** — content is chunked with overlap, embedded via a local ONNX model, and stored in pgvector. Queries return results by meaning, not keyword.
 
-**Relational path** — concepts are extracted from the text and stored as nodes in a graph. Connections between concepts form automatically as your knowledge grows.
+**Relational path** — concepts are extracted from the content and stored as nodes in a graph. Connections between concepts form automatically as your knowledge grows.
 
 A query triggers both paths in parallel. Results are merged and ranked via Reciprocal Rank Fusion — giving you chunks that are semantically close *and* conceptually connected to your question.
 
