@@ -9,10 +9,7 @@ import java.util.UUID;
 
 public interface JpaSourceRepository extends JpaRepository<SourceEntity, UUID> {
 
-    @Query(
-            value = "SELECT * FROM sources ORDER BY embedding <=> CAST(:embedding AS vector) LIMIT :k",
-            nativeQuery = true
-    )
+    @Query("FROM SourceEntity ORDER BY cosine_distance(embedding, :embedding) LIMIT :k")
     List<SourceEntity> searchByEmbedding(float[] embedding, int k);
 
 }
