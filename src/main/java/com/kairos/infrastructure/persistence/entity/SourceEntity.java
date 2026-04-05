@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Array;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -28,7 +31,9 @@ public class SourceEntity {
     @Column(nullable = false)
     private String content;
 
-    @Column(nullable = false)
+    @Column
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 384)
     private float[] embedding;
 
     public SourceEntity(String title, String content, float[] embedding) {
