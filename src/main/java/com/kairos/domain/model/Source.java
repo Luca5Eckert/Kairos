@@ -12,7 +12,7 @@ public class Source {
     private final String content;
     private SourceStatus status;
 
-    public Source(String title, String content) {
+    public Source(String title, String content, SourceStatus status) {
         this.id = UUID.randomUUID();
         this.title = title;
         this.content = content;
@@ -24,6 +24,10 @@ public class Source {
         this.title = title;
         this.content = content;
         this.status = status;
+    }
+
+    public static Source create(String title, String content) {
+        return new Source(title, content, SourceStatus.PENDING);
     }
 
     public void markProcessing() {
