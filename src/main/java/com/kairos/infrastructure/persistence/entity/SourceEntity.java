@@ -6,9 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.Array;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -28,33 +25,23 @@ public class SourceEntity {
     @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column
-    @JdbcTypeCode(SqlTypes.VECTOR)
-    @Array(length = 384)
-    private float[] embedding;
-
-    public SourceEntity(String title, String content, float[] embedding) {
-        this.title = title;
-        this.content = content;
-        this.embedding = embedding;
-    }
+    @Column(nullable = false)
+    private String status;
 
     public static SourceEntity of(Source source) {
         return new SourceEntity(
+                source.getId(),
                 source.getTitle(),
                 source.getContent(),
-                source.getEmbedding()
+                source.getStatus()
         );
     }
 
     public Source toDomain() {
-        return new Source(
-                this.title,
-                this.content,
-                this.embedding
-        );
+        return new Source(this.id, this.title, this.content, this.status);
     }
+
 }
