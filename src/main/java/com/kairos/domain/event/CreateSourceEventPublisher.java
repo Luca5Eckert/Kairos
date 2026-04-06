@@ -1,4 +1,4 @@
-package com.kairos.domain.port;
+package com.kairos.domain.event;
 
 import com.kairos.domain.model.Source;
 

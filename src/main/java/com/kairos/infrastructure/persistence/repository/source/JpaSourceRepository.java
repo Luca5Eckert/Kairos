@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface JpaSourceRepository extends JpaRepository<SourceEntity, UUID> {
 
-    @Query("FROM SourceEntity ORDER BY cosine_distance(embedding, :embedding) LIMIT :k")
+    @Query("FROM SourceEntity ORDER BY cosine_distance(semantic, :semantic) LIMIT :k")
     List<SourceEntity> searchByEmbedding(float[] embedding, int k);
 
 }
