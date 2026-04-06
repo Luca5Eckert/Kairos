@@ -3,7 +3,6 @@ package com.kairos.application.use_case;
 import com.kairos.application.command.UploadSourceCommand;
 import com.kairos.domain.extractor.info.Triple;
 import com.kairos.domain.extractor.port.TripleExtractor;
-import com.kairos.domain.model.Concept;
 import com.kairos.domain.model.Source;
 import com.kairos.domain.port.ConceptRepository;
 import com.kairos.domain.port.EmbeddingProvider;

@@ -3,52 +3,47 @@ package com.kairos.domain.model;
 import java.util.UUID;
 
 /**
- * Represents a source of information, such as a document or a piece of content, that can be stored and retrieved from a repository.
- * Each source has a unique identifier, a title, content, and an embedding vector for semantic search purposes.
+ * Represents a source document that can be processed to extract concepts and relationships.
  */
 public class Source {
 
     private final UUID id;
+    private final String title;
+    private final String content;
+    private SourceStatus status;
 
-    private String title;
-
-    private String content;
-
-    private float[] embedding;
-
-    public Source(String title, String content, float[] embedding) {
+    public Source(String title, String content) {
         this.id = UUID.randomUUID();
         this.title = title;
         this.content = content;
-        this.embedding = embedding;
+        this.status = SourceStatus.PENDING;
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
+    public Source(UUID id, String title, String content, SourceStatus status) {
+        this.id = id;
         this.title = title;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
         this.content = content;
+        this.status = status;
     }
 
-    public float[] getEmbedding() {
-        return embedding;
+    public void markProcessing() {
+        this.status = SourceStatus.PROCESSING;
     }
 
-    public void setEmbedding(float[] embedding) {
-        this.embedding = embedding;
+    public void markCompleted() {
+        this.status = SourceStatus.COMPLETED;
     }
 
+    public void markPartialFailure() {
+        this.status = SourceStatus.PARTIAL_FAILURE;
+    }
+
+    public void markFailed() {
+        this.status = SourceStatus.FAILED;
+    }
+
+    public UUID getId() { return id; }
+    public String getTitle() { return title; }
+    public String getContent() { return content; }
+    public SourceStatus getStatus() { return status; }
 }
