@@ -1,14 +1,15 @@
 package com.kairos.domain.model;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class Concept {
 
     private final UUID id;
-
     private final String name;
-
     private double centrality;
+    private List<Relationship> relationships = new ArrayList<>(); // Corrigido de relatedConcepts
 
     public Concept(UUID id, String name) {
         this.id = id;
@@ -31,4 +32,11 @@ public class Concept {
         this.centrality = centrality;
     }
 
+    public List<Relationship> getRelationships() {
+        return relationships;
+    }
+
+    public void setRelationships(List<Relationship> relationships) {
+        this.relationships = relationships;
+    }
 }

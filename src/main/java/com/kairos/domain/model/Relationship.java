@@ -1,28 +1,20 @@
 package com.kairos.domain.model;
 
-import java.util.UUID;
-
 public class Relationship {
 
-    private final UUID sourceId;
-    private final UUID targetId;
+    private final Concept target; // Renomeado de targetId, pois o tipo é Concept
     private final String predicate;
 
-    public Relationship(UUID sourceId, UUID targetId, String predicate) {
-        this.sourceId = sourceId;
-        this.targetId = targetId;
+    public Relationship(Concept target, String predicate) {
+        this.target = target;
         this.predicate = predicate;
     }
 
-    public UUID getSourceId() {
-        return sourceId;
-    }
-
-    public UUID getTargetId() {
-        return targetId;
+    public Concept getTarget() {
+        return target;
     }
 
     public String getPredicate() {
-        return predicate;
+        return predicate; // Faltava o getter do predicate
     }
 }
