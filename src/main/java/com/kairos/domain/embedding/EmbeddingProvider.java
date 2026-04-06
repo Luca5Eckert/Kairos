@@ -1,4 +1,4 @@
-package com.kairos.domain.semantic;
+package com.kairos.domain.embedding;
 
 public interface EmbeddingProvider {
 
