@@ -1,4 +1,4 @@
-package com.kairos.domain.application.command;
+package com.kairos.application.command;
 
 import java.util.UUID;
 

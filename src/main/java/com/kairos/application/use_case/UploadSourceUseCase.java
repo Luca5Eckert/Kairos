@@ -1,6 +1,6 @@
-package com.kairos.domain.application.use_case;
+package com.kairos.application.use_case;
 
-import com.kairos.domain.application.command.UploadSourceCommand;
+import com.kairos.application.command.UploadSourceCommand;
 import com.kairos.domain.model.Source;
 import com.kairos.domain.port.EmbeddingProvider;
 import com.kairos.domain.port.SourceRepository;
