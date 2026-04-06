@@ -2,7 +2,7 @@ package com.kairos.application.use_case;
 
 import com.kairos.application.command.UploadSourceCommand;
 import com.kairos.domain.model.Source;
-import com.kairos.domain.port.CreateSourceEventPublisher;
+import com.kairos.domain.event.CreateSourceEventPublisher;
 import com.kairos.domain.port.SourceRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,6 +1,5 @@
 package com.kairos.infrastructure.persistence.repository.concept;
 
-import com.kairos.domain.port.ConceptRepository;
 import com.kairos.infrastructure.persistence.entity.ConceptNode;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
