@@ -52,7 +52,6 @@ public class SourceEntity {
 
     public Source toDomain() {
         return new Source(
-                this.id,
                 this.title,
                 this.content,
                 this.embedding

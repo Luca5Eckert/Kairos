@@ -16,8 +16,8 @@ public class Source {
 
     private float[] embedding;
 
-    public Source(UUID id, String title, String content, float[] embedding) {
-        this.id = id;
+    public Source(String title, String content, float[] embedding) {
+        this.id = UUID.randomUUID();
         this.title = title;
         this.content = content;
         this.embedding = embedding;
