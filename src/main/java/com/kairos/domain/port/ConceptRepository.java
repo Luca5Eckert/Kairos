@@ -1,7 +1,6 @@
 package com.kairos.domain.port;
 
 import com.kairos.domain.model.Concept;
-import com.kairos.domain.model.Source;
 
 import java.util.List;
 import java.util.Optional;
