@@ -8,30 +8,29 @@ import java.util.UUID;
 public class Chunk {
 
     private final UUID id;
-    private final UUID sourceId;
+    private final Source source;
     private final String content;
     private final int index;
+    private final float[] embedding;
 
-    public Chunk(UUID sourceId, String content, int index) {
-        this.id = UUID.randomUUID();
-        this.sourceId = sourceId;
+    public Chunk(UUID id, Source source, String content, int index, float[] embedding) {
+        this.id = id;
+        this.source = source;
         this.content = content;
         this.index = index;
+        this.embedding = embedding;
     }
 
-    public Chunk(UUID id, UUID sourceId, String content, int index) {
-        this.id = id;
-        this.sourceId = sourceId;
-        this.content = content;
-        this.index = index;
+    public static Chunk create(Source source, String content, int index, float[] embedding) {
+        return new Chunk(UUID.randomUUID(), source, content, index, embedding);
     }
 
     public UUID getId() {
         return id;
     }
 
-    public UUID getSourceId() {
-        return sourceId;
+    public Source getSource() {
+        return source;
     }
 
     public String getContent() {
@@ -40,6 +39,10 @@ public class Chunk {
 
     public int getIndex() {
         return index;
+    }
+
+    public float[] getEmbedding() {
+        return embedding;
     }
 
 }
