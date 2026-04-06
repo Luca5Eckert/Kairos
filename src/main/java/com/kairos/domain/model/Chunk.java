@@ -2,6 +2,9 @@ package com.kairos.domain.model;
 
 import java.util.UUID;
 
+/**
+ * Represents a chunk of text extracted from a source document.
+ */
 public class Chunk {
 
     private final UUID id;

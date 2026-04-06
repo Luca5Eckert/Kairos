@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.event;
+package com.kairos.infrastructure.event.publisher;
 
 import com.kairos.domain.event.CreatedSourceEvent;
 import com.kairos.domain.event.SourceEventPublisher;
