@@ -1,6 +1,7 @@
 package com.kairos.infrastructure.persistence.entity;
 
 import com.kairos.domain.model.Source;
+import com.kairos.domain.model.SourceStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -36,12 +37,12 @@ public class SourceEntity {
                 source.getId(),
                 source.getTitle(),
                 source.getContent(),
-                source.getStatus()
+                source.getStatus().name()
         );
     }
 
     public Source toDomain() {
-        return new Source(this.id, this.title, this.content, this.status);
+        return new Source(this.id, this.title, this.content, SourceStatus.valueOf(this.status));
     }
 
 }

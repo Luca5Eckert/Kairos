@@ -42,8 +42,19 @@ public class Source {
         this.status = SourceStatus.FAILED;
     }
 
-    public UUID getId() { return id; }
-    public String getTitle() { return title; }
-    public String getContent() { return content; }
-    public SourceStatus getStatus() { return status; }
+    public UUID getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public SourceStatus getStatus() {
+        return status;
+    }
 }
