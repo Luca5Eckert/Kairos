@@ -1,5 +1,9 @@
 package com.kairos.domain.embedding;
 
+import com.kairos.domain.model.Triple;
+
+import java.util.List;
+
 public interface EmbeddingProvider {
 
     /**
@@ -8,4 +12,5 @@ public interface EmbeddingProvider {
      * @return A float array representing the embedding vector for the input text.
      */
     float[] embed(String text);
+
 }
