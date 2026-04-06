@@ -14,4 +14,5 @@ public interface ConceptRepository {
 
     List<Concept> findAll(int k);
 
+    void saveAll(List<Concept> concepts);
 }
