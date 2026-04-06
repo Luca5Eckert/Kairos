@@ -2,7 +2,7 @@ package com.kairos.domain.model;
 
 public class Relationship {
 
-    private final Concept target; // Renomeado de targetId, pois o tipo é Concept
+    private final Concept target;
     private final String predicate;
 
     public Relationship(Concept target, String predicate) {
@@ -15,6 +15,6 @@ public class Relationship {
     }
 
     public String getPredicate() {
-        return predicate; // Faltava o getter do predicate
+        return predicate;
     }
 }

@@ -9,7 +9,7 @@ public class Concept {
     private final UUID id;
     private final String name;
     private double centrality;
-    private List<Relationship> relationships = new ArrayList<>(); // Corrigido de relatedConcepts
+    private List<Relationship> relationships = new ArrayList<>();
 
     public Concept(UUID id, String name) {
         this.id = id;
