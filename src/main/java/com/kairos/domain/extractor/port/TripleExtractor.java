@@ -4,7 +4,7 @@ import com.kairos.domain.extractor.info.Triple;
 
 import java.util.List;
 
-public interface ConceptsExtractor {
+public interface TripleExtractor {
 
     List<Triple> extract(String chunkText);
 
