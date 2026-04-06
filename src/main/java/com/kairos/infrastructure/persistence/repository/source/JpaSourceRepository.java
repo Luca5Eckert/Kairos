@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.persistence.repository;
+package com.kairos.infrastructure.persistence.repository.source;
 
 import com.kairos.infrastructure.persistence.entity.SourceEntity;
 import org.springframework.data.jpa.repository.JpaRepository;

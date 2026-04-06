@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.persistence.repository;
+package com.kairos.infrastructure.persistence.repository.source;
 
 import com.kairos.domain.model.Source;
 import com.kairos.domain.port.SourceRepository;
