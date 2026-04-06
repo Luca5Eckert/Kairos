@@ -1,7 +1,5 @@
 package com.kairos.domain.port;
 
-import com.kairos.domain.model.Concept;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,5 +12,5 @@ public interface ConceptRepository {
 
     List<Concept> findAll(int k);
 
-    void saveAll(List<Concept> concepts);
+    void saveAll(List concepts);
 }
