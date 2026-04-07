@@ -4,63 +4,48 @@ import com.kairos.application.command.GenerateSourceContextCommand;
 import com.kairos.domain.embedding.EmbeddingProvider;
 import com.kairos.domain.extractor.ChunkerExtractor;
 import com.kairos.domain.extractor.TripleExtractor;
-import com.kairos.domain.model.Chunk;
-import com.kairos.domain.model.Concept;
-import com.kairos.domain.model.Source;
-import com.kairos.domain.model.Triple;
+import com.kairos.domain.model.*;
 import com.kairos.domain.port.ChunkRepository;
+import com.kairos.domain.port.KnowledgeGraphStore;
 import com.kairos.domain.port.SourceRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class GenerateSourceContextUseCase {
 
     private final ChunkerExtractor chunkerExtractor;
     private final TripleExtractor tripleExtractor;
     private final EmbeddingProvider embeddingProvider;
 
+    private final KnowledgeGraphStore knowledgeGraphStore;
     private final ChunkRepository chunkRepository;
     private final SourceRepository sourceRepository;
 
-    public GenerateSourceContextUseCase(ChunkerExtractor chunkerExtractor, TripleExtractor tripleExtractor, EmbeddingProvider embeddingProvider, ChunkRepository chunkRepository, SourceRepository sourceRepository) {
-        this.chunkerExtractor = chunkerExtractor;
-        this.tripleExtractor = tripleExtractor;
-        this.embeddingProvider = embeddingProvider;
-        this.chunkRepository = chunkRepository;
-        this.sourceRepository = sourceRepository;
-    }
-
     public void execute(GenerateSourceContextCommand command) {
-        var chunks = chunkerExtractor.extract(command.content(), 200, 46);
+        Source source = sourceRepository.findById(command.sourceId())
+                .orElseThrow(() -> new RuntimeException("Source not found for id: " + command.sourceId()));
 
-        var triples = chunks.stream()
-                .map(tripleExtractor::extract)
-                .toList();
+        List<String> chunks = chunkerExtractor.extract(command.content(), 200, 50);
 
         for (int i = 0; i < chunks.size(); i++) {
-            generateContext(chunks.get(i), triples.get(i), command.sourceId(), i);
+            generateContext(source, chunks.get(i), i);
         }
-
     }
 
-    private void generateContext(String text, List<Triple> triples, UUID sourceId, int index) {
-        Source source = sourceRepository.findById(sourceId)
-                .orElseThrow(() -> new RuntimeException("Source not found for id: " + sourceId));
-
-        var chunk = Chunk.create(source, text, index, embeddingProvider.embed(text));
-
+    private void generateContext(Source source, String text, int index) {
+        Chunk chunk = Chunk.create(source, text, index, embeddingProvider.embed(text));
         chunkRepository.save(chunk);
 
-
-        var concepts = triples.stream()
-                .map(Concept::create)
+        List<Triple> triples = tripleExtractor.extract(text);
+        List<KnowledgeTriple> knowledgeTriples = triples.stream()
+                .map(triple -> KnowledgeTriple.create(triple, chunk.getId()))
                 .toList();
 
-
+        knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
     }
-
 
 }
