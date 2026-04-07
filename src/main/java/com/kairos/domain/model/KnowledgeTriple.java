@@ -16,4 +16,13 @@ public record KnowledgeTriple(
                 chunkId
         );
     }
+
+    public static KnowledgeTriple create(String subject, String predicate, String object, UUID chunkId) {
+        return new KnowledgeTriple(
+                Concept.create(subject),
+                predicate,
+                Concept.create(object),
+                chunkId
+        );
+    }
 }
