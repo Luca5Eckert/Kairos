@@ -73,9 +73,7 @@ public class SearchSourceUseCase {
      * @return a list of fully hydrated {@link Chunk} objects preserving the input order.
      */
     private List<Chunk> fetchAndSortExpandedContext(List<UUID> orderedChunkIds) {
-        if (orderedChunkIds.isEmpty()) {
-            return List.of();
-        }
+        if (orderedChunkIds.isEmpty()) return List.of();
 
         List<Chunk> unsortedChunks = semanticSearchPort.findChunks(orderedChunkIds);
 
