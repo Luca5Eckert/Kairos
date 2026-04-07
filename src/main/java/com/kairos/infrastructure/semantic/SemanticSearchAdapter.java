@@ -1,12 +1,9 @@
 package com.kairos.infrastructure.semantic;
 
 import com.kairos.domain.model.Chunk;
-import com.kairos.domain.model.Source;
 import com.kairos.domain.semantic.SemanticSearchPort;
 import com.kairos.infrastructure.persistence.entity.relation.ChunkEntity;
-import com.kairos.infrastructure.persistence.entity.relation.SourceEntity;
 import com.kairos.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
-import com.kairos.infrastructure.persistence.repository.relation.source.JpaSourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +18,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SemanticSearchAdapter implements SemanticSearchPort {
 
-    private final JpaSourceRepository jpaSourceRepository;
     private final JpaChunkRepository jpaChunkRepository;
 
     /**
