@@ -17,10 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +36,11 @@ class KnowledgeGraphSearchAdapterTest {
 
     private static final UUID CHUNK_ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID CHUNK_ID_2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    // Adapter constants to verify the correct parameters are passed
+    private static final int MAX_ITERATIONS = 20;
+    private static final double DAMPING_FACTOR = 0.85;
+    private static final int PASSAGE_LIMIT = 10;
 
     private Chunk chunkOf(UUID id) {
         Chunk chunk = mock(Chunk.class);
@@ -85,18 +89,26 @@ class KnowledgeGraphSearchAdapterTest {
     class RepositoryDelegationTests {
 
         @Test
-        @DisplayName("passes correct anchor IDs as strings to repository")
+        @DisplayName("passes correct anchor IDs and constants as parameters to repository")
         void expandKnowledge_validAnchors_delegatesCorrectAnchorIds() {
             Chunk chunk1 = chunkOf(CHUNK_ID_1);
             Chunk chunk2 = chunkOf(CHUNK_ID_2);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
             adapter.expandKnowledge(List.of(chunk1, chunk2));
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-            verify(passageNodeRepository).expandKnowledgeFromAnchors(captor.capture());
+
+            // Verifica os valores exatos dos parâmetros incluindo as constantes de PPR (Personalized PageRank)
+            verify(passageNodeRepository).expandKnowledgeFromAnchors(
+                    captor.capture(),
+                    eq(MAX_ITERATIONS),
+                    eq(DAMPING_FACTOR),
+                    eq(PASSAGE_LIMIT)
+            );
 
             assertThat(captor.getValue())
                     .containsExactlyInAnyOrder(CHUNK_ID_1.toString(), CHUNK_ID_2.toString());
@@ -106,12 +118,15 @@ class KnowledgeGraphSearchAdapterTest {
         @DisplayName("calls repository exactly once per invocation")
         void expandKnowledge_validAnchors_callsRepositoryExactlyOnce() {
             Chunk chunk = chunkOf(CHUNK_ID_1);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
             adapter.expandKnowledge(List.of(chunk));
 
-            verify(passageNodeRepository, times(1)).expandKnowledgeFromAnchors(anyList());
+            verify(passageNodeRepository, times(1)).expandKnowledgeFromAnchors(
+                    anyList(), anyInt(), anyDouble(), anyInt()
+            );
         }
     }
 
@@ -126,7 +141,8 @@ class KnowledgeGraphSearchAdapterTest {
         void expandKnowledge_singleResult_mapsAllFieldsCorrectly() {
             Chunk chunk = chunkOf(CHUNK_ID_1);
             GraphExpansionResult raw = resultOf("Newton", "discovered", "Gravity", CHUNK_ID_1);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(List.of(raw));
 
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
@@ -147,7 +163,8 @@ class KnowledgeGraphSearchAdapterTest {
             Chunk chunk = chunkOf(CHUNK_ID_1);
             GraphExpansionResult raw1 = resultOf("A", "rel1", "B", CHUNK_ID_1);
             GraphExpansionResult raw2 = resultOf("C", "rel2", "D", CHUNK_ID_2);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(List.of(raw1, raw2));
 
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
@@ -161,7 +178,8 @@ class KnowledgeGraphSearchAdapterTest {
         @DisplayName("returns empty list when repository returns no results")
         void expandKnowledge_repositoryReturnsEmpty_returnsEmptyList() {
             Chunk chunk = chunkOf(CHUNK_ID_1);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
@@ -174,7 +192,8 @@ class KnowledgeGraphSearchAdapterTest {
         void expandKnowledge_result_parsesChunkIdUuidFromString() {
             Chunk chunk = chunkOf(CHUNK_ID_2);
             GraphExpansionResult raw = resultOf("Einstein", "formulated", "Relativity", CHUNK_ID_2);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(List.of(raw));
 
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
@@ -196,14 +215,18 @@ class KnowledgeGraphSearchAdapterTest {
             UUID id2 = UUID.randomUUID();
             Chunk c1 = chunkOf(id1);
             Chunk c2 = chunkOf(id2);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
             adapter.expandKnowledge(List.of(c1, c2));
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-            verify(passageNodeRepository).expandKnowledgeFromAnchors(captor.capture());
+
+            verify(passageNodeRepository).expandKnowledgeFromAnchors(
+                    captor.capture(), anyInt(), anyDouble(), anyInt()
+            );
 
             assertThat(captor.getValue())
                     .containsExactlyInAnyOrder(id1.toString(), id2.toString());
@@ -213,14 +236,18 @@ class KnowledgeGraphSearchAdapterTest {
         @DisplayName("single chunk produces list with exactly one anchor ID")
         void expandKnowledge_singleChunk_producesOneAnchorId() {
             Chunk chunk = chunkOf(CHUNK_ID_1);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(Collections.emptyList());
 
             adapter.expandKnowledge(List.of(chunk));
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-            verify(passageNodeRepository).expandKnowledgeFromAnchors(captor.capture());
+
+            verify(passageNodeRepository).expandKnowledgeFromAnchors(
+                    captor.capture(), anyInt(), anyDouble(), anyInt()
+            );
 
             assertThat(captor.getValue()).hasSize(1);
             assertThat(captor.getValue().get(0)).isEqualTo(CHUNK_ID_1.toString());
@@ -244,7 +271,8 @@ class KnowledgeGraphSearchAdapterTest {
         void expandKnowledge_returnsImmutableList() {
             Chunk chunk = chunkOf(CHUNK_ID_1);
             GraphExpansionResult raw = resultOf("X", "rel", "Y", CHUNK_ID_1);
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList()))
+
+            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenReturn(List.of(raw));
 
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
