@@ -1,4 +1,4 @@
-package com.kairos.domain.port;
+package com.kairos.domain.graph;
 
 import com.kairos.domain.model.KnowledgeTriple;
 
