@@ -11,11 +11,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Neo4j adapter for orchestrating graph-augmented retrieval via SDN Repositories.
+ * Neo4j adapter for HippoRAG 2 graph-augmented retrieval.
+ * Delegates PPR execution to the GDS-backed repository query.
  */
 @Component
 @RequiredArgsConstructor
 public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
+
+    private static final int    MAX_ITERATIONS = 20;
+    private static final double DAMPING_FACTOR = 0.85;
+    private static final int    PASSAGE_LIMIT  = 10;
 
     private final Neo4jPassageNodeRepository passageNodeRepository;
 
@@ -29,7 +34,12 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
                 .map(chunk -> chunk.getId().toString())
                 .toList();
 
-        var results = passageNodeRepository.expandKnowledgeFromAnchors(anchorIds);
+        var results = passageNodeRepository.expandKnowledgeFromAnchors(
+                anchorIds,
+                MAX_ITERATIONS,
+                DAMPING_FACTOR,
+                PASSAGE_LIMIT
+        );
 
         return results.stream()
                 .map(result -> KnowledgeTriple.create(
@@ -40,4 +50,5 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
                 ))
                 .toList();
     }
+
 }
