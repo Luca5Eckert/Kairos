@@ -27,6 +27,12 @@ public class TripleRelationship {
     @Property("chunk_id")
     private UUID chunkId;
 
+    @Property("user_id")
+    private UUID userId;
+
+    @Property("weight")
+    private double weight;
+
     @TargetNode
     private PhraseNode target;
 }
