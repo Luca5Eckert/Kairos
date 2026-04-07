@@ -8,16 +8,16 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class SpringChunkRepositoryAdapter implements ChunkRepository {
 
-    private final JpaChunkRepository chuckRepository;
+    private final JpaChunkRepository chunkRepository;
 
-    public SpringChunkRepositoryAdapter(JpaChunkRepository chuckRepository) {
-        this.chuckRepository = chuckRepository;
+    public SpringChunkRepositoryAdapter(JpaChunkRepository chunkRepository) {
+        this.chunkRepository = chunkRepository;
     }
 
     @Override
     public void save(Chunk chunk) {
         var entity = ChunkEntity.create(chunk);
 
-        chuckRepository.save(entity);
+        chunkRepository.save(entity);
     }
 }
