@@ -5,6 +5,7 @@ import com.kairos.domain.embedding.EmbeddingProvider;
 import com.kairos.domain.extractor.ChunkerExtractor;
 import com.kairos.domain.extractor.TripleExtractor;
 import com.kairos.domain.model.Chunk;
+import com.kairos.domain.model.Concept;
 import com.kairos.domain.model.Source;
 import com.kairos.domain.model.Triple;
 import com.kairos.domain.port.ChunkRepository;
@@ -52,6 +53,13 @@ public class GenerateSourceContextUseCase {
         var chunk = Chunk.create(source, text, index, embeddingProvider.embed(text));
 
         chunkRepository.save(chunk);
+
+
+        var concepts = triples.stream()
+                .map(Concept::create)
+                .toList();
+
+
     }
 
 
