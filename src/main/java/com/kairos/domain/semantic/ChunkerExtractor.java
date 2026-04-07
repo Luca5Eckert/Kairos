@@ -1,4 +1,4 @@
-package com.kairos.domain.extractor;
+package com.kairos.domain.semantic;
 
 import java.util.List;
 

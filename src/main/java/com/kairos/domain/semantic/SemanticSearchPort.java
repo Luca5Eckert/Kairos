@@ -1,4 +1,4 @@
-package com.kairos.domain.port;
+package com.kairos.domain.semantic;
 
 import com.kairos.domain.model.Source;
 

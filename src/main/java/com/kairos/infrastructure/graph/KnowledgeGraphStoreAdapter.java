@@ -1,7 +1,7 @@
 package com.kairos.infrastructure.graph;
 
 import com.kairos.domain.model.KnowledgeTriple;
-import com.kairos.domain.port.KnowledgeGraphStore;
+import com.kairos.domain.graph.KnowledgeGraphStore;
 import com.kairos.infrastructure.persistence.entity.graph.PassageNode;
 import com.kairos.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
 import com.kairos.infrastructure.persistence.repository.graph.Neo4jPhraseNodeRepository;

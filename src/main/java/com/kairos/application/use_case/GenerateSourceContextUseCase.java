@@ -2,11 +2,11 @@ package com.kairos.application.use_case;
 
 import com.kairos.application.command.GenerateSourceContextCommand;
 import com.kairos.domain.embedding.EmbeddingProvider;
-import com.kairos.domain.extractor.ChunkerExtractor;
-import com.kairos.domain.extractor.TripleExtractor;
+import com.kairos.domain.semantic.ChunkerExtractor;
+import com.kairos.domain.graph.TripleExtractor;
 import com.kairos.domain.model.*;
 import com.kairos.domain.port.ChunkRepository;
-import com.kairos.domain.port.KnowledgeGraphStore;
+import com.kairos.domain.graph.KnowledgeGraphStore;
 import com.kairos.domain.port.SourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
