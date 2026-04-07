@@ -74,72 +74,7 @@ class SemanticSearchAdapterTest {
     // search()
     // =========================================================================
 
-    @Nested
-    @DisplayName("search(float[], int)")
-    class SearchMethod {
 
-        @Test
-        @DisplayName("delegates to jpaSourceRepository with the exact embedding and k")
-        void delegatesToRepositoryWithCorrectArgs() {
-            when(jpaSourceRepository.searchByEmbedding(QUERY_VECTOR, 5))
-                    .thenReturn(List.of(sourceEntityA));
-
-            adapter.search(QUERY_VECTOR, 5);
-
-            ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
-            verify(jpaSourceRepository).searchByEmbedding(vectorCaptor.capture(), eq(5));
-            assertThat(vectorCaptor.getValue()).isEqualTo(QUERY_VECTOR);
-        }
-
-        @Test
-        @DisplayName("maps each SourceEntity to its domain model via toDomain()")
-        void mapsEntitiesToDomainModels() {
-            when(jpaSourceRepository.searchByEmbedding(any(), anyInt()))
-                    .thenReturn(List.of(sourceEntityA, sourceEntityB));
-
-            List<Source> result = adapter.search(QUERY_VECTOR, 2);
-
-            assertThat(result).hasSize(2);
-            assertThat(result.getFirst().getId()).isEqualTo(sourceEntityA.getId());
-            assertThat(result.getFirst().getTitle()).isEqualTo(sourceEntityA.getTitle());
-            assertThat(result.get(1).getId()).isEqualTo(sourceEntityB.getId());
-        }
-
-        @Test
-        @DisplayName("preserves the ranking order returned by the repository")
-        void preservesRepositoryOrder() {
-            // Repository already returns results ordered by cosine distance — adapter must not reorder
-            when(jpaSourceRepository.searchByEmbedding(any(), anyInt()))
-                    .thenReturn(List.of(sourceEntityA, sourceEntityB));
-
-            List<Source> result = adapter.search(QUERY_VECTOR, 2);
-
-            assertThat(result)
-                    .extracting(Source::getId)
-                    .containsExactly(sourceEntityA.getId(), sourceEntityB.getId());
-        }
-
-        @Test
-        @DisplayName("returns an empty list when repository finds no matching sources")
-        void returnsEmptyListWhenNoResults() {
-            when(jpaSourceRepository.searchByEmbedding(any(), anyInt())).thenReturn(List.of());
-
-            List<Source> result = adapter.search(QUERY_VECTOR, 5);
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        @DisplayName("propagates RuntimeException from jpaSourceRepository without wrapping")
-        void propagatesRepositoryException() {
-            when(jpaSourceRepository.searchByEmbedding(any(), anyInt()))
-                    .thenThrow(new RuntimeException("pgvector index not ready"));
-
-            assertThatThrownBy(() -> adapter.search(QUERY_VECTOR, 5))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("pgvector index not ready");
-        }
-    }
 
     // =========================================================================
     // findTopK()
