@@ -1,7 +1,5 @@
 package com.kairos.domain.extractor;
 
-import com.kairos.domain.model.Chunk;
-
 import java.util.List;
 
 public interface ChunkerExtractor {

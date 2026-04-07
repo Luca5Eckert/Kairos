@@ -1,9 +1,5 @@
 package com.kairos.domain.embedding;
 
-import com.kairos.domain.model.Triple;
-
-import java.util.List;
-
 public interface EmbeddingProvider {
 
     /**
