@@ -25,6 +25,10 @@ public class Chunk {
         return new Chunk(UUID.randomUUID(), source, content, index, embedding);
     }
 
+    public static Chunk create(UUID id, Source source, String content, int index, float[] embedding) {
+        return new Chunk(id, source, content, index, embedding);
+    }
+
     public UUID getId() {
         return id;
     }
