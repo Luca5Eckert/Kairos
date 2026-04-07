@@ -1,5 +1,6 @@
 package com.kairos.infrastructure.persistence.entity.relation;
 
+import com.kairos.domain.model.Chunk;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -39,4 +40,13 @@ public class ChunkEntity {
     @Array(length = 384)
     private float[] embedding;
 
+    public static ChunkEntity create(Chunk chunk) {
+        return new ChunkEntity(
+                chunk.getId(),
+                SourceEntity.of(chunk.getSource()),
+                chunk.getContent(),
+                chunk.getIndex(),
+                chunk.getEmbedding()
+        );
+    }
 }
