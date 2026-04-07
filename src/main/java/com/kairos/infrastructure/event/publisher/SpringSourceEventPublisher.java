@@ -3,7 +3,9 @@ package com.kairos.infrastructure.event.publisher;
 import com.kairos.domain.event.CreatedSourceEvent;
 import com.kairos.domain.event.SourceEventPublisher;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Component;
 
+@Component
 public class SpringSourceEventPublisher implements SourceEventPublisher {
 
     private final ApplicationEventPublisher applicationEventPublisher;
