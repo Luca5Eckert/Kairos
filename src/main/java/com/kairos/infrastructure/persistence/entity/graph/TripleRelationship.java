@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.persistence.entity;
+package com.kairos.infrastructure.persistence.entity.graph;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

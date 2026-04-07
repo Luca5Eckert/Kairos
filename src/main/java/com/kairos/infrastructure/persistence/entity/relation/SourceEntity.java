@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.persistence.entity;
+package com.kairos.infrastructure.persistence.entity.relation;
 
 import com.kairos.domain.model.Source;
 import com.kairos.domain.model.SourceStatus;

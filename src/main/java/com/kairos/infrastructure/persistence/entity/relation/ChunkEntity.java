@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.persistence.entity;
+package com.kairos.infrastructure.persistence.entity.relation;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
