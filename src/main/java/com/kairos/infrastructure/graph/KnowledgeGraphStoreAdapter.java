@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -23,29 +24,55 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     @Override
     @Transactional
-    public void save(UUID chunkId, List<KnowledgeTriple> triples) {
+    public void save(List<KnowledgeTriple> triples) {
+        if (triples == null || triples.isEmpty()) {
+            log.warn("No triples to save.");
+            return;
+        }
+
+        Set<UUID> ensuredChunks = new java.util.HashSet<>();
+
+        for (KnowledgeTriple triple : triples) {
+            UUID chunkId = triple.chunkId();
+
+            if (chunkId == null) {
+                log.error("Triple for subject '{}' has no chunkId. Skipping.", triple.subject().name());
+                continue;
+            }
+
+            if (ensuredChunks.add(chunkId)) {
+                ensurePassageNode(chunkId);
+            }
+
+            mergeTriple(triple, chunkId);
+        }
+
+        log.info("Successfully processed {} triples across {} different chunks.", triples.size(), ensuredChunks.size());
+    }
+
+    @Override
+    @Transactional
+    public void saveAllForChunk(UUID chunkId, List<KnowledgeTriple> triples) {
         if (triples == null || triples.isEmpty()) {
             log.warn("No triples to save for chunkId: {}", chunkId);
             return;
         }
 
         ensurePassageNode(chunkId);
+        triples.forEach(triple -> mergeTriple(triple, chunkId));
 
-        for (KnowledgeTriple triple : triples) {
-            String subject   = triple.subject().name();
-            String object    = triple.object().name();
-            String predicate = triple.predicate();
+        log.info("Successfully processed {} triples for chunk {}.", triples.size(), chunkId);
+    }
 
-            phraseRepository.mergeTriple(subject, object, predicate, chunkId);
-            passageRepository.mergeConceptLink(chunkId, subject);
-            passageRepository.mergeConceptLink(chunkId, object);
-        }
-
-        log.info("Merged {} triples and linked concepts to chunk {}", triples.size(), chunkId);
+    private void mergeTriple(KnowledgeTriple triple, UUID chunkId) {
+        phraseRepository.mergeTriple(triple.subject().name(), triple.object().name(), triple.predicate(), chunkId);
+        passageRepository.mergeConceptLink(chunkId, triple.subject().name());
+        passageRepository.mergeConceptLink(chunkId, triple.object().name());
     }
 
     private void ensurePassageNode(UUID chunkId) {
         if (!passageRepository.existsById(chunkId)) {
+            log.debug("Creating new PassageNode for chunk: {}", chunkId);
             passageRepository.save(PassageNode.forChunk(chunkId));
         }
     }
