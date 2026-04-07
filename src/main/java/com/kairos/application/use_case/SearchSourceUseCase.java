@@ -1,22 +1,90 @@
 package com.kairos.application.use_case;
 
 import com.kairos.application.query.SearchSourceQuery;
+import com.kairos.domain.embedding.EmbeddingProvider;
+import com.kairos.domain.graph.KnowledgeGraphSearch;
+import com.kairos.domain.model.Chunk;
+import com.kairos.domain.model.KnowledgeTriple;
 import com.kairos.domain.model.SearchResult;
-import com.kairos.infrastructure.semantic.SemanticSearchAdapter;
+import com.kairos.domain.semantic.SemanticSearchPort;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/**
+ * Orchestrates the HippoRAG 2 retrieval flow, combining dense vector search with
+ * knowledge graph expansion to achieve multi-hop reasoning.
+ * <p>
+ * This use case follows a multiphase retrieval strategy:
+ * <ol>
+ * <li><b>Semantic Anchor Lookup:</b> Uses dense embeddings to find the most semantically relevant chunks in the vector store.</li>
+ * <li><b>Graph Seeding & Expansion:</b> Uses the identified chunks as seeds for a Personalized PageRank (PPR) algorithm
+ * over the knowledge graph, discovering structurally connected concepts and passages.</li>
+ * <li><b>Hydration & Re-ranking:</b> Retrieves the full text payloads from the relational store while strictly preserving
+ * the relevance ranking dictated by the graph's PPR convergence scores.</li>
+ * </ol>
+ * </p>
+ */
 @Component
+@RequiredArgsConstructor
 public class SearchSourceUseCase {
 
-    private final SemanticSearchAdapter semanticSearchAdapter;
+    private final EmbeddingProvider embeddingPort;
+    private final KnowledgeGraphSearch knowledgeGraphSearch;
+    private final SemanticSearchPort semanticSearchPort;
 
-    public SearchSourceUseCase(SemanticSearchAdapter semanticSearchAdapter) {
-        this.semanticSearchAdapter = semanticSearchAdapter;
+    /**
+     * Executes the graph-augmented search query.
+     *
+     * @param query the search query containing the user's textual input.
+     * @return a {@link SearchResult} containing the expanded context (hydrated text chunks)
+     * and the semantic triples, strictly ordered by the graph convergence score.
+     * Returns an empty result if no initial semantic anchors are found in the knowledge base.
+     */
+    public SearchResult execute(SearchSourceQuery query) {
+        float[] queryVector = embeddingPort.embed(query.searchTerm());
+
+        List<Chunk> semanticAnchors = semanticSearchPort.findTopK(queryVector, 10);
+
+        if (semanticAnchors.isEmpty()) return SearchResult.empty();
+
+        List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(semanticAnchors);
+
+        List<UUID> orderedChunkIds = triples.stream()
+                .map(KnowledgeTriple::chunkId)
+                .distinct()
+                .toList();
+
+        List<Chunk> expandedContext = fetchAndSortExpandedContext(orderedChunkIds);
+
+        return SearchResult.from(triples, expandedContext);
     }
 
-    public SearchResult execute(SearchSourceQuery query){
-        return new SearchResult(
-                null, null
-        );
+    /**
+     * Hydrates the chunk payloads from the semantic store and enforces the relevance ranking
+     * established by the knowledge graph expansion phase.
+     *
+     * @param orderedChunkIds a list of UUIDs strictly ordered by graph centrality/relevance.
+     * @return a list of fully hydrated {@link Chunk} objects preserving the input order.
+     */
+    private List<Chunk> fetchAndSortExpandedContext(List<UUID> orderedChunkIds) {
+        if (orderedChunkIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Chunk> unsortedChunks = semanticSearchPort.findChunks(orderedChunkIds);
+
+        Map<UUID, Chunk> chunkMap = unsortedChunks.stream()
+                .collect(Collectors.toMap(Chunk::getId, Function.identity()));
+
+        return orderedChunkIds.stream()
+                .map(chunkMap::get)
+                .toList();
     }
+
 }
