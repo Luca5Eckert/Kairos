@@ -5,4 +5,7 @@ public record Concept(
         double centrality,
         int degree
 ) {
+    public static Concept create(Triple triple) {
+        return new Concept(triple.subject(), 0, 0);
+    }
 }
