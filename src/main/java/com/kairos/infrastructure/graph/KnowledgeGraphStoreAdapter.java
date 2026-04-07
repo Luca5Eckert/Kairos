@@ -26,7 +26,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
     @Transactional
     public void save(List<KnowledgeTriple> triples) {
         if (triples == null || triples.isEmpty()) {
-            log.warn("No triples to save.");
+            log.debug("No triples to save.");
             return;
         }
 
