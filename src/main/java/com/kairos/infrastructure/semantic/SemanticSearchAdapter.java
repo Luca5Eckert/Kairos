@@ -2,8 +2,8 @@ package com.kairos.infrastructure.semantic;
 
 import com.kairos.domain.model.Source;
 import com.kairos.domain.port.SemanticSearchPort;
-import com.kairos.infrastructure.persistence.entity.SourceEntity;
-import com.kairos.infrastructure.persistence.repository.source.JpaSourceRepository;
+import com.kairos.infrastructure.persistence.entity.relation.SourceEntity;
+import com.kairos.infrastructure.persistence.repository.relation.source.JpaSourceRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

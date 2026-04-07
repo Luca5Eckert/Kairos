@@ -4,6 +4,6 @@ public record KnowledgeTriple(
         Concept subject,
         String predicate,
         Concept object,
-        Source sourceId
+        UUID chunkId
 ) {
 }
