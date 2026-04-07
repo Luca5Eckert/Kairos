@@ -10,9 +10,9 @@ public record KnowledgeTriple(
 ) {
     public static KnowledgeTriple create(Triple triple, UUID chunkId) {
         return new KnowledgeTriple(
-                Concept.create(triple),
+                Concept.create(triple.subject()),
                 triple.predicate(),
-                Concept.create(triple),
+                Concept.create(triple.object()),
                 chunkId
         );
     }
