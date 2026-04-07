@@ -25,21 +25,6 @@ public class SemanticSearchAdapter implements SemanticSearchPort {
     private final JpaChunkRepository jpaChunkRepository;
 
     /**
-     * Searches for the most relevant sources based on the provided embedding vector.
-     *
-     * @param embedding The high-dimensional vector representing the query.
-     * @param k         The maximum number of sources to return.
-     * @return A list of domain {@link Source} objects, ordered by semantic proximity.
-     */
-    @Override
-    public List<Source> search(float[] embedding, int k) {
-        List<SourceEntity> sources = jpaSourceRepository.searchByEmbedding(embedding, k);
-        return sources.stream()
-                .map(SourceEntity::toDomain)
-                .toList();
-    }
-
-    /**
      * Performs a nearest-neighbor vector search over text chunks to identify semantic anchors.
      * Utilizes the pgvector cosine distance operator ({@code <=>}) for optimal alignment with
      * the all-MiniLM-L6-v2 embedding space.
@@ -64,7 +49,7 @@ public class SemanticSearchAdapter implements SemanticSearchPort {
 
     /**
      * Hydrates chunk domain models by their unique identifiers.
-     * * @param chunkIds A list of UUIDs representing the chunks to be fetched.
+     * @param chunkIds A list of UUIDs representing the chunks to be fetched.
      * @return A list of {@link Chunk} objects corresponding to the provided IDs.
      * The order of the returned list is not guaranteed to match the input list.
      */
