@@ -28,28 +28,78 @@ public interface Neo4jPassageNodeRepository extends Neo4jRepository<PassageNode,
     );
 
     /**
-     * Executes the HippoRAG graph expansion.
-     * Starts from anchor chunks, finds connected concepts, and expands to neighboring triples.
+     * HippoRAG 2 — Personalized PageRank via Neo4j GDS.
+     *
+     * Fluxo:
+     *   1. Projeta um subgrafo in-memory com os PhraseNodes e relacionamentos TRIPLE.
+     *   2. Coleta os seed nodes (PhraseNodes conectados aos anchor chunks).
+     *   3. Executa PPR a partir dos seeds, propagando relevância pelo grafo.
+     *   4. Ranqueia os Passages pelo maior score PPR acumulado entre seus conceitos.
+     *   5. Retorna as triplas dos Passages mais relevantes, ordenadas por score.
+     *
+     * O nome do grafo GDS é gerado dinamicamente com randomUUID() para evitar
+     * colisões em chamadas concorrentes. O DROP ao final garante que não vaza
+     * memória entre requisições.
      */
     @Query("""
+            // ── Etapa 1: Projeta subgrafo in-memory ──────────────────────────────
+            CALL gds.graph.project(
+                'hipporag-' + randomUUID(),
+                'PhraseNode',
+                {
+                    TRIPLE: {
+                        orientation: 'NATURAL',
+                        properties: ['predicate']
+                    }
+                },
+                {
+                    nodeProperties: ['centrality', 'degree']
+                }
+            )
+            YIELD graphName
+
+            // ── Etapa 2: Coleta seed nodes dos anchors ────────────────────────────
+            WITH graphName
             MATCH (p:Passage)-[:CONTAINS]->(seed:PhraseNode)
             WHERE toString(p.chunkId) IN $anchorIds
-            WITH collect(DISTINCT seed) AS seedNodes
-            
-            MATCH (n:PhraseNode)-[r:TRIPLE]->(target:PhraseNode)
-            WHERE n IN seedNodes OR target IN seedNodes
-            WITH n, r, target
-            
-            MATCH (passage:Passage)-[:CONTAINS]->(n)
-            
-            RETURN n.name AS subject,
-                   r.predicate AS predicate, 
-                   target.name AS object, 
-                   toString(passage.chunkId) AS chunkId
-            LIMIT 50
+            WITH graphName, collect(DISTINCT seed) AS seedNodes
+
+            // ── Etapa 3: Executa PPR personalizado a partir dos seeds ─────────────
+            CALL gds.pageRank.stream(graphName, {
+                maxIterations:  $maxIterations,
+                dampingFactor:  $dampingFactor,
+                sourceNodes:    seedNodes
+            })
+            YIELD nodeId, score
+
+            WITH graphName, gds.util.asNode(nodeId) AS phrase, score
+            WHERE score > 0
+
+            // ── Etapa 4: Sobe ao Passage e agrega score máximo por chunk ──────────
+            MATCH (passage:Passage)-[:CONTAINS]->(phrase)
+            WITH graphName, passage, max(score) AS passageScore
+            ORDER BY passageScore DESC
+            LIMIT $limit
+
+            // ── Etapa 5: Retorna triplas com score ────────────────────────────────
+            MATCH (passage)-[:CONTAINS]->(n:PhraseNode)-[r:TRIPLE]->(target:PhraseNode)
+            WITH graphName, n, r, target, passage, passageScore
+
+            // ── Cleanup: remove projeção da memória ───────────────────────────────
+            CALL gds.graph.drop(graphName) YIELD graphName AS dropped
+
+            RETURN n.name                      AS subject,
+                   r.predicate                 AS predicate,
+                   target.name                 AS object,
+                   toString(passage.chunkId)   AS chunkId,
+                   passageScore                AS score
+            ORDER BY passageScore DESC
             """)
-    List<GraphExpansionResult> expandKnowledgeFromAnchors(@Param("anchorIds") List<String> anchorIds);
-
-
+    List<GraphExpansionResult> expandKnowledgeFromAnchors(
+            @Param("anchorIds")      List<String> anchorIds,
+            @Param("maxIterations")  int maxIterations,
+            @Param("dampingFactor")  double dampingFactor,
+            @Param("limit")          int limit
+    );
 
 }

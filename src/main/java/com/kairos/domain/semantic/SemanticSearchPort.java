@@ -8,7 +8,6 @@ import java.util.UUID;
 
 public interface SemanticSearchPort {
 
-
     List<Chunk> findTopK(float[] queryVector, int k);
 
     List<Chunk> findChunks(List<UUID> triples);
