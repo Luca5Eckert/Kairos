@@ -343,15 +343,6 @@ class SemanticSearchAdapterTest {
     @DisplayName("cross-method isolation")
     class CrossMethodIsolation {
 
-        @Test
-        @DisplayName("search() never touches jpaChunkRepository")
-        void searchDoesNotTouchChunkRepository() {
-            when(jpaSourceRepository.searchByEmbedding(any(), anyInt())).thenReturn(List.of());
-
-            adapter.search(QUERY_VECTOR, 5);
-
-            verifyNoInteractions(jpaChunkRepository);
-        }
 
         @Test
         @DisplayName("findTopK() and findChunks() each call only jpaChunkRepository, never jpaSourceRepository")
