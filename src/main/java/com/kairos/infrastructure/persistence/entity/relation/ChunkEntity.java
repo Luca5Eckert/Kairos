@@ -43,7 +43,7 @@ public class ChunkEntity {
     public static ChunkEntity create(Chunk chunk) {
         return new ChunkEntity(
                 chunk.getId(),
-                SourceEntity.of(chunk.getSource()),
+                new SourceEntity(chunk.getSource().getId()),
                 chunk.getContent(),
                 chunk.getIndex(),
                 chunk.getEmbedding()

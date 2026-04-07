@@ -32,6 +32,10 @@ public class SourceEntity {
     @Column(nullable = false)
     private String status;
 
+    public SourceEntity(UUID id) {
+        this.id = id;
+    }
+
     public static SourceEntity of(Source source) {
         return new SourceEntity(
                 source.getId(),
