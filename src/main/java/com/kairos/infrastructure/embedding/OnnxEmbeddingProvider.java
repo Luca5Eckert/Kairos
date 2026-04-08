@@ -6,11 +6,17 @@ import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import com.kairos.domain.embedding.EmbeddingProvider;
+import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * An implementation of the EmbeddingProvider interface that uses an ONNX model to generate embeddings for input text.
+ * This class is responsible for tokenizing the input text, running the ONNX model inference, and processing the output to produce a normalized embedding vector.
+ */
+@Component
 public class OnnxEmbeddingProvider implements EmbeddingProvider {
 
     private static final int MAX_SEQUENCE_LENGTH = 256;
@@ -26,6 +32,11 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         this.tokenizer = tokenizer;
     }
 
+    /**
+     * Generate an embedding vector for the given input text.
+     * @param text The input text to be embedded.
+     * @return A float array representing the embedding vector for the input text.
+     */
     @Override
     public float[] embed(String text) {
         validateInput(text);
@@ -38,6 +49,12 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         return normalizeL2(pooled);
     }
 
+    /**
+     * Normalize the embedding vector using L2 normalization. This process scales the vector so that its L2 norm (the square root of the sum of the squares of its components) is equal to 1.
+     * This is done to ensure that the embedding vectors have a consistent scale, which can be beneficial for certain applications such as similarity comparisons.
+     * @param vector The input embedding vector that you want to normalize. This should be a float array representing the embedding of the input text.
+     * @return A new float array representing the L2-normalized embedding vector.
+     */
     private float[] normalizeL2(float[] vector) {
         double sum = 0.0;
 
@@ -58,6 +75,12 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         return vector;
     }
 
+    /**
+     * Apply mean pooling to the token embeddings.
+     * @param tokenEmbeddings A 2D float array where each row corresponds to the embedding of a token in the input sequence.
+     * @param attentionMask A long array indicating which tokens are valid and which are padding.
+     * @return A float array representing the mean-pooled embedding vector for the input text.
+     */
     private float[] meanPool(float[][] tokenEmbeddings, long[] attentionMask) {
         float[] pooled = new float[EMBEDDING_DIMENSION];
         int validTokenCount = 0;
@@ -151,9 +174,14 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         return ids;
     }
 
+    /**
+     *  Validate the input text to ensure it is not null or blank. If the input is invalid, an IllegalArgumentException is thrown with a descriptive error message.
+     * @param text The input text to be validated. This should be a non-null and non-blank string that you want to generate an embedding for.
+     */
     private void validateInput(String text) {
-        if ( text == null || text.isBlank() || text.length() > MAX_SEQUENCE_LENGTH) {
-            throw new IllegalArgumentException("Input text must be non-empty and at most " + MAX_SEQUENCE_LENGTH + " characters long.");
+        if ( text == null || text.isBlank() ) {
+            throw new IllegalArgumentException("Input text cannot be null or blank");
         }
     }
+
 }
