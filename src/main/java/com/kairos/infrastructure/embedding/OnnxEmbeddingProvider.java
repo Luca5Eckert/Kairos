@@ -48,9 +48,10 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     private static final String ATTENTION_MASK_NAME = "attention_mask";
     private static final String TOKEN_TYPE_IDS_NAME = "token_type_ids";
 
-    private final OrtEnvironment environment;
-    private final OrtSession session;
+    private final OrtEnvironment       environment;
+    private final OrtSession           session;
     private final HuggingFaceTokenizer tokenizer;
+    private final TensorFactory        tensorFactory;
 
     /**
      * Whether the loaded ONNX model declares {@code token_type_ids} as an input.
@@ -63,19 +64,22 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     /**
      * Creates a new provider.
      *
-     * @param environment ONNX Runtime environment
-     * @param session     ONNX Runtime session containing the embedding model
-     * @param tokenizer   tokenizer compatible with the ONNX model
+     * @param environment   ONNX Runtime environment
+     * @param session       ONNX Runtime session containing the embedding model
+     * @param tokenizer     tokenizer compatible with the ONNX model
+     * @param tensorFactory factory used to create ORT input tensors
      * @throws EmbeddingException if session metadata cannot be read during initialization
      */
     public OnnxEmbeddingProvider(
             OrtEnvironment environment,
             OrtSession session,
-            HuggingFaceTokenizer tokenizer
+            HuggingFaceTokenizer tokenizer,
+            TensorFactory tensorFactory
     ) {
-        this.environment = Objects.requireNonNull(environment, "environment cannot be null");
-        this.session     = Objects.requireNonNull(session,      "session cannot be null");
-        this.tokenizer   = Objects.requireNonNull(tokenizer,    "tokenizer cannot be null");
+        this.environment   = Objects.requireNonNull(environment,   "environment cannot be null");
+        this.session       = Objects.requireNonNull(session,       "session cannot be null");
+        this.tokenizer     = Objects.requireNonNull(tokenizer,     "tokenizer cannot be null");
+        this.tensorFactory = Objects.requireNonNull(tensorFactory, "tensorFactory cannot be null");
 
         this.modelExpectsTokenTypeIds = resolveTokenTypeIdsSupport(session);
 
@@ -88,15 +92,6 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     /**
      * Generates a normalized embedding vector for the given text.
      *
-     * <p>Processing steps:
-     * <ol>
-     *   <li>Validate input</li>
-     *   <li>Tokenize and truncate</li>
-     *   <li>Run ONNX inference</li>
-     *   <li>Mean-pool token embeddings using the attention mask</li>
-     *   <li>L2-normalize the pooled vector</li>
-     * </ol>
-     *
      * @param text input text to embed
      * @return normalized embedding vector
      * @throws IllegalArgumentException if the input text is null or blank
@@ -106,39 +101,24 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     public float[] embed(String text) {
         validateInput(text);
 
-        TokenizedInput tokenizedInput   = tokenize(text);
-        float[][]      tokenEmbeddings  = infer(tokenizedInput);
-        float[]        pooledEmbedding  = meanPool(tokenEmbeddings, tokenizedInput.attentionMask());
+        TokenizedInput tokenizedInput  = tokenize(text);
+        float[][]      tokenEmbeddings = infer(tokenizedInput);
+        float[]        pooledEmbedding = meanPool(tokenEmbeddings, tokenizedInput.attentionMask());
 
         return normalizeL2(pooledEmbedding);
     }
 
-
-    /**
-     * Tokenizes the input text and truncates all generated arrays to
-     * {@link #MAX_SEQUENCE_LENGTH}.
-     *
-     * @param text text to tokenize
-     * @return tokenized model input
-     */
     private TokenizedInput tokenize(String text) {
         Encoding encoding = tokenizer.encode(text);
 
         long[] inputIds      = truncate(encoding.getIds());
         long[] attentionMask = truncate(encoding.getAttentionMask());
-
-        /*
-         * Some tokenizers/models may not produce token type ids or may not need them.
-         * We keep the array if it exists; the inference step conditionally sends it
-         * based on the flag resolved at construction time.
-         */
-        long[] tokenTypeIds = encoding.getTypeIds() != null
+        long[] tokenTypeIds  = encoding.getTypeIds() != null
                 ? truncate(encoding.getTypeIds())
                 : createDefaultTokenTypeIds(inputIds.length);
 
         return new TokenizedInput(inputIds, attentionMask, tokenTypeIds);
     }
-
 
     /**
      * Runs ONNX inference and returns token-level embeddings.
@@ -146,8 +126,6 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
      * <p>Expected output shape:
      * <pre>[batch_size=1, sequence_length, embedding_dimension]</pre>
      *
-     * @param tokenizedInput tokenized input for the model
-     * @return token embeddings with shape {@code [sequence_length][embedding_dimension]}
      * @throws EmbeddingException if inference fails or the output shape is invalid
      */
     private float[][] infer(TokenizedInput tokenizedInput) {
@@ -156,9 +134,9 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         long[][] tokenTypeIds  = { tokenizedInput.tokenTypeIds() };
 
         try (
-                OnnxTensor inputIdsTensor      = OnnxTensor.createTensor(environment, inputIds);
-                OnnxTensor attentionMaskTensor = OnnxTensor.createTensor(environment, attentionMask);
-                OnnxTensor tokenTypeIdsTensor  = OnnxTensor.createTensor(environment, tokenTypeIds)
+                OnnxTensor inputIdsTensor      = tensorFactory.createLongTensor(environment, inputIds);
+                OnnxTensor attentionMaskTensor = tensorFactory.createLongTensor(environment, attentionMask);
+                OnnxTensor tokenTypeIdsTensor  = tensorFactory.createLongTensor(environment, tokenTypeIds)
         ) {
             Map<String, OnnxTensor> inputs = new HashMap<>();
             inputs.put(INPUT_IDS_NAME,      inputIdsTensor);
@@ -191,15 +169,6 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         }
     }
 
-    /**
-     * Applies mean pooling over token embeddings, considering only positions where
-     * {@code attentionMask[i] == 1}.
-     *
-     * @param tokenEmbeddings shape {@code [sequence_length][embedding_dimension]}
-     * @param attentionMask   aligned with the token sequence
-     * @return pooled embedding vector
-     * @throws EmbeddingException if shapes are inconsistent or the sequence is empty
-     */
     private float[] meanPool(float[][] tokenEmbeddings, long[] attentionMask) {
         if (tokenEmbeddings.length == 0) {
             throw new EmbeddingException("Model returned an empty token embedding sequence");
@@ -217,9 +186,7 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         int     validTokenCount    = 0;
 
         for (int i = 0; i < tokenEmbeddings.length; i++) {
-            if (attentionMask[i] == 0L) {
-                continue;
-            }
+            if (attentionMask[i] == 0L) continue;
 
             float[] token = tokenEmbeddings[i];
 
@@ -231,48 +198,26 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
             }
 
             validTokenCount++;
-            for (int d = 0; d < embeddingDimension; d++) {
-                pooled[d] += token[d];
-            }
+            for (int d = 0; d < embeddingDimension; d++) pooled[d] += token[d];
         }
 
-        if (validTokenCount == 0) {
-            return pooled;
-        }
+        if (validTokenCount == 0) return pooled;
 
-        for (int d = 0; d < embeddingDimension; d++) {
-            pooled[d] /= validTokenCount;
-        }
+        for (int d = 0; d < embeddingDimension; d++) pooled[d] /= validTokenCount;
 
         return pooled;
     }
 
-    /**
-     * Returns a new L2-normalized copy of the given vector.
-     *
-     * <p>If the vector norm is zero the original copy is returned unchanged to
-     * avoid a division-by-zero producing NaN values downstream.
-     *
-     * @param vector vector to normalize
-     * @return normalized vector copy
-     */
     private float[] normalizeL2(float[] vector) {
-        float[] normalized  = Arrays.copyOf(vector, vector.length);
-        double  squaredSum  = 0.0d;
+        float[]  normalized = Arrays.copyOf(vector, vector.length);
+        double   squaredSum = 0.0d;
 
-        for (float v : normalized) {
-            squaredSum += (double) v * v;
-        }
+        for (float v : normalized) squaredSum += (double) v * v;
 
         double norm = Math.sqrt(squaredSum);
+        if (norm == 0.0d) return normalized;
 
-        if (norm == 0.0d) {
-            return normalized;
-        }
-
-        for (int i = 0; i < normalized.length; i++) {
-            normalized[i] /= (float) norm;
-        }
+        for (int i = 0; i < normalized.length; i++) normalized[i] /= (float) norm;
 
         return normalized;
     }
@@ -283,45 +228,24 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         }
     }
 
-    /**
-     * Validates the shape and structural consistency of the raw ONNX model output.
-     *
-     * @param output raw model output tensor contents
-     * @throws EmbeddingException if the output does not match the expected structure
-     */
     private void validateModelOutput(float[][][] output) {
         if (output.length != 1) {
             throw new EmbeddingException(
                     "Expected batch size 1, but model returned batch size " + output.length
             );
         }
-
         if (output[0].length == 0) {
             throw new EmbeddingException("Model returned zero token embeddings");
         }
-
         if (output[0][0].length == 0) {
             throw new EmbeddingException("Model returned zero-dimensional embeddings");
         }
     }
 
-    /**
-     * Truncates {@code values} to {@link #MAX_SEQUENCE_LENGTH}.
-     *
-     * <p>Logs a warning when truncation occurs, because silently discarding tokens
-     * degrades embedding quality and is worth surfacing during development.
-     *
-     * @param values source array
-     * @return original array if already within the limit; otherwise a truncated copy
-     */
     private long[] truncate(long[] values) {
-        if (values == null) {
-            return new long[0];
-        }
+        if (values == null) return new long[0];
 
-        if (values.length <= MAX_SEQUENCE_LENGTH) {
-            return values;
-        }
+        if (values.length <= MAX_SEQUENCE_LENGTH) return values;
 
         log.warn(
                 "Token sequence length {} exceeds MAX_SEQUENCE_LENGTH {}; truncating. "
@@ -336,16 +260,6 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
         return new long[length];
     }
 
-    /**
-     * Checks whether the ONNX session declares {@code token_type_ids} as an input.
-     *
-     * <p>Called once during construction so the result can be cached in
-     * {@link #modelExpectsTokenTypeIds}.
-     *
-     * @param session the ONNX session to inspect
-     * @return {@code true} if the model expects that input
-     * @throws EmbeddingException if session metadata cannot be read
-     */
     private static boolean resolveTokenTypeIdsSupport(OrtSession session) {
         try {
             return session.getInputInfo().containsKey(TOKEN_TYPE_IDS_NAME);
