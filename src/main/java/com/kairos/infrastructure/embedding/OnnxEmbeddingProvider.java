@@ -1,6 +1,8 @@
 package com.kairos.infrastructure.embedding;
 
+import ai.djl.huggingface.tokenizers.Encoding;
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer;
+import ai.onnxruntime.NodeInfo;
 import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
@@ -11,112 +13,141 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
- * An implementation of the EmbeddingProvider interface that uses an ONNX model to generate embeddings for input text.
- * This class is responsible for tokenizing the input text, running the ONNX model inference, and processing the output to produce a normalized embedding vector.
+ * {@link EmbeddingProvider} implementation backed by an ONNX model.
+ *
+ * <p>This component is responsible for:
+ * <ol>
+ *   <li>Validating the input text</li>
+ *   <li>Tokenizing the text using a Hugging Face tokenizer</li>
+ *   <li>Running inference against an ONNX Runtime session</li>
+ *   <li>Applying mean pooling over valid tokens</li>
+ *   <li>Applying L2 normalization to the final embedding</li>
+ * </ol>
+ *
+ * <p><strong>Design goals</strong>:
+ * <ul>
+ *   <li>Avoid hard-coding model-specific assumptions when possible</li>
+ *   <li>Support models that do not require {@code token_type_ids}</li>
+ *   <li>Fail fast with clear error messages when the model output is unexpected</li>
+ * </ul>
+ *
+ * <p><strong>Important note about pooling</strong>:
+ * This implementation performs mean pooling over all tokens whose
+ * {@code attention_mask == 1}. That usually includes special tokens such as
+ * {@code [CLS]} and {@code [SEP]}. Depending on the model you use, you may want
+ * to exclude them for better embedding quality.
  */
 @Component
 public class OnnxEmbeddingProvider implements EmbeddingProvider {
 
+    /**
+     * Maximum number of tokens sent to the model.
+     *
+     * <p>If the tokenizer produces more than this amount, the sequence is truncated.
+     * Whether padding is necessary depends on how the ONNX model was exported.
+     */
     private static final int MAX_SEQUENCE_LENGTH = 256;
-    private static final int EMBEDDING_DIMENSION = 384;
+
+    private static final String INPUT_IDS_NAME = "input_ids";
+    private static final String ATTENTION_MASK_NAME = "attention_mask";
+    private static final String TOKEN_TYPE_IDS_NAME = "token_type_ids";
 
     private final OrtEnvironment environment;
     private final OrtSession session;
     private final HuggingFaceTokenizer tokenizer;
 
-    public OnnxEmbeddingProvider(OrtEnvironment environment, OrtSession session, HuggingFaceTokenizer tokenizer) {
-        this.environment = environment;
-        this.session = session;
-        this.tokenizer = tokenizer;
+    /**
+     * Creates a new provider.
+     *
+     * @param environment ONNX Runtime environment
+     * @param session ONNX Runtime session containing the embedding model
+     * @param tokenizer tokenizer compatible with the ONNX model
+     */
+    public OnnxEmbeddingProvider(
+            OrtEnvironment environment,
+            OrtSession session,
+            HuggingFaceTokenizer tokenizer
+    ) {
+        this.environment = Objects.requireNonNull(environment, "environment cannot be null");
+        this.session = Objects.requireNonNull(session, "session cannot be null");
+        this.tokenizer = Objects.requireNonNull(tokenizer, "tokenizer cannot be null");
     }
 
     /**
-     * Generate an embedding vector for the given input text.
-     * @param text The input text to be embedded.
-     * @return A float array representing the embedding vector for the input text.
+     * Generates a normalized embedding vector for the given text.
+     *
+     * <p>Processing steps:
+     * <ol>
+     *   <li>Validate input</li>
+     *   <li>Tokenize and truncate</li>
+     *   <li>Run ONNX inference</li>
+     *   <li>Mean-pool token embeddings using the attention mask</li>
+     *   <li>L2-normalize the pooled vector</li>
+     * </ol>
+     *
+     * @param text input text to embed
+     * @return normalized embedding vector
+     * @throws IllegalArgumentException if the input text is null or blank
+     * @throws IllegalStateException if model inference fails or the model output is invalid
      */
     @Override
     public float[] embed(String text) {
         validateInput(text);
 
-        TokenizedInput tokenized = tokenize(text);
-        float[][] tokenEmbeddings = infer(tokenized);
+        TokenizedInput tokenizedInput = tokenize(text);
+        float[][] tokenEmbeddings = infer(tokenizedInput);
+        float[] pooledEmbedding = meanPool(tokenEmbeddings, tokenizedInput.attentionMask());
 
-        float[] pooled = meanPool(tokenEmbeddings, tokenized.attentionMask());
-
-        return normalizeL2(pooled);
+        return normalizeL2(pooledEmbedding);
     }
 
     /**
-     * Normalize the embedding vector using L2 normalization. This process scales the vector so that its L2 norm (the square root of the sum of the squares of its components) is equal to 1.
-     * This is done to ensure that the embedding vectors have a consistent scale, which can be beneficial for certain applications such as similarity comparisons.
-     * @param vector The input embedding vector that you want to normalize. This should be a float array representing the embedding of the input text.
-     * @return A new float array representing the L2-normalized embedding vector.
+     * Tokenizes the input text and truncates all generated arrays to the maximum
+     * supported sequence length.
+     *
+     * @param text text to tokenize
+     * @return tokenized model input
      */
-    private float[] normalizeL2(float[] vector) {
-        double sum = 0.0;
+    private TokenizedInput tokenize(String text) {
+        Encoding encoding = tokenizer.encode(text);
 
-        for (float value : vector) {
-            sum += value * value;
-        }
+        long[] inputIds = truncate(encoding.getIds());
+        long[] attentionMask = truncate(encoding.getAttentionMask());
 
-        double norm = Math.sqrt(sum);
+        /*
+         * Some tokenizers/models may not produce token type ids or may not need them.
+         * We keep the array if it exists, but the inference step will only send it if
+         * the ONNX session declares that input.
+         */
+        long[] tokenTypeIds = encoding.getTypeIds() != null
+                ? truncate(encoding.getTypeIds())
+                : createDefaultTokenTypeIds(inputIds.length);
 
-        if (norm == 0.0d) {
-            return vector;
-        }
-
-        for (int i = 0; i < vector.length; i++) {
-            vector[i] /= (float) norm;
-        }
-
-        return vector;
+        return new TokenizedInput(inputIds, attentionMask, tokenTypeIds);
     }
 
     /**
-     * Apply mean pooling to the token embeddings.
-     * @param tokenEmbeddings A 2D float array where each row corresponds to the embedding of a token in the input sequence.
-     * @param attentionMask A long array indicating which tokens are valid and which are padding.
-     * @return A float array representing the mean-pooled embedding vector for the input text.
+     * Runs ONNX inference and returns token-level embeddings.
+     *
+     * <p>Expected output shape:
+     * <pre>
+     * [batch_size, sequence_length, embedding_dimension]
+     * </pre>
+     *
+     * <p>This method assumes batch size 1, since the provider embeds one text at a time.
+     *
+     * @param tokenizedInput tokenized input for the model
+     * @return token embeddings for the single input text, with shape
+     *         {@code [sequence_length][embedding_dimension]}
+     * @throws IllegalStateException if inference fails or the output shape is invalid
      */
-    private float[] meanPool(float[][] tokenEmbeddings, long[] attentionMask) {
-        float[] pooled = new float[EMBEDDING_DIMENSION];
-        int validTokenCount = 0;
-
-        for (int tokenIndex = 0; tokenIndex < tokenEmbeddings.length; tokenIndex++) {
-            if (attentionMask[tokenIndex] == 0L) {
-                continue;
-            }
-
-            validTokenCount++;
-
-            for (int dimension = 0; dimension < EMBEDDING_DIMENSION; dimension++) {
-                pooled[dimension] += tokenEmbeddings[tokenIndex][dimension];
-            }
-        }
-
-        if (validTokenCount == 0) {
-            return pooled;
-        }
-
-        for (int dimension = 0; dimension < EMBEDDING_DIMENSION; dimension++) {
-            pooled[dimension] /= validTokenCount;
-        }
-
-        return pooled;
-    }
-
-    /**
-     * Run the ONNX model inference using the tokenized input and return the token embeddings.
-     * @param tokenized The tokenized input containing input IDs, attention mask, and token type IDs.
-     * @return A 2D float array where each row corresponds to the embedding of a token in the input sequence. The shape of the output is [sequence_length, embedding_dimension].
-     */
-    private float[][] infer(TokenizedInput tokenized) {
-        long[][] inputIds = new long[][] { tokenized.inputIds() };
-        long[][] attentionMask = new long[][] { tokenized.attentionMask() };
-        long[][] tokenTypeIds = new long[][] { tokenized.tokenTypeIds() };
+    private float[][] infer(TokenizedInput tokenizedInput) {
+        long[][] inputIds = new long[][] { tokenizedInput.inputIds() };
+        long[][] attentionMask = new long[][] { tokenizedInput.attentionMask() };
+        long[][] tokenTypeIds = new long[][] { tokenizedInput.tokenTypeIds() };
 
         try (
                 OnnxTensor inputIdsTensor = OnnxTensor.createTensor(environment, inputIds);
@@ -124,12 +155,29 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
                 OnnxTensor tokenTypeIdsTensor = OnnxTensor.createTensor(environment, tokenTypeIds)
         ) {
             Map<String, OnnxTensor> inputs = new HashMap<>();
-            inputs.put("input_ids", inputIdsTensor);
-            inputs.put("attention_mask", attentionMaskTensor);
-            inputs.put("token_type_ids", tokenTypeIdsTensor);
+            inputs.put(INPUT_IDS_NAME, inputIdsTensor);
+            inputs.put(ATTENTION_MASK_NAME, attentionMaskTensor);
+
+            if (expectsInput()) {
+                inputs.put(TOKEN_TYPE_IDS_NAME, tokenTypeIdsTensor);
+            }
 
             try (OrtSession.Result result = session.run(inputs)) {
-                float[][][] output = (float[][][]) result.get(0).getValue();
+                if (result.size() == 0) {
+                    throw new IllegalStateException("ONNX model returned no outputs");
+                }
+
+                Object rawOutput = result.get(0).getValue();
+
+                if (!(rawOutput instanceof float[][][] output)) {
+                    throw new IllegalStateException(
+                            "Unexpected ONNX output type: expected float[][][], but got "
+                                    + (rawOutput == null ? "null" : rawOutput.getClass().getName())
+                    );
+                }
+
+                validateModelOutput(output);
+
                 return output[0];
             }
         } catch (OrtException e) {
@@ -138,50 +186,175 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     }
 
     /**
-     * Tokenize the input text using the tokenizer.
-     * @param text The input text to be tokenized.
-     * @return the tokenized input.
+     * Applies mean pooling over token embeddings using the attention mask.
+     *
+     * <p>Only positions where {@code attentionMask[i] == 1} are included.
+     *
+     * @param tokenEmbeddings token embeddings with shape {@code [sequence_length][embedding_dimension]}
+     * @param attentionMask attention mask aligned with the token sequence
+     * @return pooled embedding vector
+     * @throws IllegalStateException if embeddings and mask lengths do not match
      */
-    private TokenizedInput tokenize(String text) {
-        var encoding = tokenizer.encode(text);
+    private float[] meanPool(float[][] tokenEmbeddings, long[] attentionMask) {
+        if (tokenEmbeddings.length != attentionMask.length) {
+            throw new IllegalStateException(
+                    "Token embeddings length (" + tokenEmbeddings.length + ") does not match attention mask length ("
+                            + attentionMask.length + ")"
+            );
+        }
 
-        long[] inputIds = toLongArray(encoding.getIds());
-        long[] attentionMask = toLongArray(encoding.getAttentionMask());
-        long[] tokenTypeIds = toLongArray(encoding.getTypeIds());
+        if (tokenEmbeddings.length == 0) {
+            throw new IllegalStateException("Model returned an empty token embedding sequence");
+        }
 
-        inputIds = truncate(inputIds, MAX_SEQUENCE_LENGTH);
-        attentionMask = truncate(attentionMask, MAX_SEQUENCE_LENGTH);
-        tokenTypeIds = truncate(tokenTypeIds, MAX_SEQUENCE_LENGTH);
+        int embeddingDimension = tokenEmbeddings[0].length;
+        float[] pooled = new float[embeddingDimension];
+        int validTokenCount = 0;
 
-        return new TokenizedInput(inputIds, attentionMask, tokenTypeIds);
+        for (int tokenIndex = 0; tokenIndex < tokenEmbeddings.length; tokenIndex++) {
+            if (attentionMask[tokenIndex] == 0L) {
+                continue;
+            }
+
+            float[] tokenEmbedding = tokenEmbeddings[tokenIndex];
+
+            if (tokenEmbedding.length != embeddingDimension) {
+                throw new IllegalStateException(
+                        "Inconsistent embedding dimension at token index " + tokenIndex
+                                + ": expected " + embeddingDimension
+                                + ", but got " + tokenEmbedding.length
+                );
+            }
+
+            validTokenCount++;
+
+            for (int dimension = 0; dimension < embeddingDimension; dimension++) {
+                pooled[dimension] += tokenEmbedding[dimension];
+            }
+        }
+
+        if (validTokenCount == 0) {
+            return pooled;
+        }
+
+        for (int dimension = 0; dimension < embeddingDimension; dimension++) {
+            pooled[dimension] /= validTokenCount;
+        }
+
+        return pooled;
     }
 
     /**
-     * Truncate the input array to the specified maximum sequence length.
-     * @param values The input array to be truncated.
-     * @param maxLength The maximum allowed sequence length. If the input array is longer than this, it will be truncated to fit.
-     * @return A new array containing only the first maxSequenceLength elements of the input array, or the original array if it is already within the limit.
+     * Returns a new L2-normalized copy of the given vector.
+     *
+     * <p>If the vector norm is zero, a copy of the original vector is returned.
+     *
+     * @param vector vector to normalize
+     * @return normalized vector copy
      */
-    private long[] truncate(long[] values, int maxLength) {
-        if (values.length <= maxLength) {
+    private float[] normalizeL2(float[] vector) {
+        float[] normalized = Arrays.copyOf(vector, vector.length);
+
+        double squaredSum = 0.0d;
+        for (float value : normalized) {
+            squaredSum += value * value;
+        }
+
+        double norm = Math.sqrt(squaredSum);
+
+        if (norm == 0.0d) {
+            return normalized;
+        }
+
+        for (int i = 0; i < normalized.length; i++) {
+            normalized[i] /= (float) norm;
+        }
+
+        return normalized;
+    }
+
+    /**
+     * Truncates an array to the given maximum length.
+     *
+     * @param values source array
+     * @return original array if already within the limit; otherwise a truncated copy
+     */
+    private long[] truncate(long[] values) {
+        if (values == null) {
+            return new long[0];
+        }
+
+        if (values.length <= OnnxEmbeddingProvider.MAX_SEQUENCE_LENGTH) {
             return values;
         }
-        return Arrays.copyOf(values, maxLength);
-    }
 
-
-    private long[] toLongArray(long[] ids) {
-        return ids;
+        return Arrays.copyOf(values, OnnxEmbeddingProvider.MAX_SEQUENCE_LENGTH);
     }
 
     /**
-     *  Validate the input text to ensure it is not null or blank. If the input is invalid, an IllegalArgumentException is thrown with a descriptive error message.
-     * @param text The input text to be validated. This should be a non-null and non-blank string that you want to generate an embedding for.
+     * Validates user input before tokenization.
+     *
+     * @param text input text
+     * @throws IllegalArgumentException if text is null or blank
      */
     private void validateInput(String text) {
-        if ( text == null || text.isBlank() ) {
+        if (text == null || text.isBlank()) {
             throw new IllegalArgumentException("Input text cannot be null or blank");
         }
     }
 
+    /**
+     * Validates the shape and structural consistency of the ONNX model output.
+     *
+     * @param output raw model output
+     * @throws IllegalStateException if the output is empty or structurally invalid
+     */
+    private void validateModelOutput(float[][][] output) {
+        if (output.length != 1) {
+            throw new IllegalStateException(
+                    "Expected batch size 1, but model returned batch size " + output.length
+            );
+        }
+
+        if (output[0].length == 0) {
+            throw new IllegalStateException("Model returned zero token embeddings");
+        }
+
+        int embeddingDimension = output[0][0].length;
+        if (embeddingDimension == 0) {
+            throw new IllegalStateException("Model returned zero-dimensional embeddings");
+        }
+
+        for (int tokenIndex = 0; tokenIndex < output[0].length; tokenIndex++) {
+            if (output[0][tokenIndex].length != embeddingDimension) {
+                throw new IllegalStateException(
+                        "Inconsistent embedding dimension at output token index " + tokenIndex
+                                + ": expected " + embeddingDimension
+                                + ", but got " + output[0][tokenIndex].length
+                );
+            }
+        }
+    }
+
+    /**
+     * Checks whether the loaded ONNX model declares a given input name.
+     *
+     * @return {@code true} if the session expects that input
+     */
+    private boolean expectsInput() throws OrtException {
+        Map<String, NodeInfo> inputInfo = session.getInputInfo();
+        return inputInfo.containsKey(OnnxEmbeddingProvider.TOKEN_TYPE_IDS_NAME);
+    }
+
+    /**
+     * Creates a default token type id array filled with zeros.
+     *
+     * <p>This is commonly valid for single-sequence transformer inputs.
+     *
+     * @param length desired array length
+     * @return zero-filled token type id array
+     */
+    private long[] createDefaultTokenTypeIds(int length) {
+        return new long[length];
+    }
 }
