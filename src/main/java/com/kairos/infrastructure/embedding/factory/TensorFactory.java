@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.embedding;
+package com.kairos.infrastructure.embedding.factory;
 
 import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OrtEnvironment;
