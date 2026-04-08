@@ -40,7 +40,7 @@ public class EmbeddingConfig  {
     @Bean
     public HuggingFaceTokenizer huggingFaceTokenizer(
             @Value("classpath:model/tokenizer.json") Resource tokenizerResource
-    ) throws Exception {
+    ) throws IOException {
         Path tempFile = Files.createTempFile("kairos-tokenizer", ".json");
         try (InputStream in = tokenizerResource.getInputStream()) {
             Files.copy(in, tempFile, StandardCopyOption.REPLACE_EXISTING);
