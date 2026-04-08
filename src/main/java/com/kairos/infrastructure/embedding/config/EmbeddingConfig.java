@@ -1,13 +1,15 @@
-package com.kairos.infrastructure.embedding;
+package com.kairos.infrastructure.embedding.config;
 
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer;
 import ai.onnxruntime.OrtEnvironment;
+import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +28,7 @@ public class EmbeddingConfig  {
     public OrtSession onnxSession(
             OrtEnvironment environment,
             @Value("classpath:model/model.onnx") Resource modelResource
-    ) throws Exception {
+    ) throws OrtException, IOException {
         byte[] modelBytes;
         try (var inputStream = modelResource.getInputStream()) {
             modelBytes = inputStream.readAllBytes();
