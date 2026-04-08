@@ -8,6 +8,7 @@ import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import com.kairos.domain.embedding.EmbeddingProvider;
 import com.kairos.domain.exception.EmbeddingException;
+import com.kairos.infrastructure.embedding.factory.TensorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -135,15 +136,16 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
 
         try (
                 OnnxTensor inputIdsTensor      = tensorFactory.createLongTensor(environment, inputIds);
-                OnnxTensor attentionMaskTensor = tensorFactory.createLongTensor(environment, attentionMask);
-                OnnxTensor tokenTypeIdsTensor  = tensorFactory.createLongTensor(environment, tokenTypeIds)
+                OnnxTensor attentionMaskTensor = tensorFactory.createLongTensor(environment, attentionMask)
         ) {
             Map<String, OnnxTensor> inputs = new HashMap<>();
             inputs.put(INPUT_IDS_NAME,      inputIdsTensor);
             inputs.put(ATTENTION_MASK_NAME, attentionMaskTensor);
 
             if (modelExpectsTokenTypeIds) {
-                inputs.put(TOKEN_TYPE_IDS_NAME, tokenTypeIdsTensor);
+                try (OnnxTensor tokenTypeIdsTensor = tensorFactory.createLongTensor(environment, tokenTypeIds)) {
+                    inputs.put(TOKEN_TYPE_IDS_NAME, tokenTypeIdsTensor);
+                }
             }
 
             try (OrtSession.Result result = session.run(inputs)) {
