@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: kairos
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:kairos}
+    username: ${POSTGRES_USER:kairos}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+    open-in-view: false
+
+  neo4j:
+    uri: bolt://${NEO4J_HOST:localhost}:${NEO4J_BOLT_PORT:7687}
+    authentication:
+      username: ${NEO4J_USER:neo4j}
+      password: ${NEO4J_PASSWORD}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.kairos: INFO
