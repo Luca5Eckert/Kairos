@@ -34,6 +34,8 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
      */
     @Override
     public List<Triple> extract(String text) {
+        if (text == null || text.isBlank()) return List.of();
+
         String prompt = generatePrompt(text);
 
         var response = geminiRestClient.call(prompt);
