@@ -23,6 +23,16 @@ spring:
       username: ${NEO4J_USER:neo4j}
       password: ${NEO4J_PASSWORD}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
 server:
   port: 8080
 
