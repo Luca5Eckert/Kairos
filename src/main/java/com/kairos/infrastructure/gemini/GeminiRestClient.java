@@ -46,7 +46,7 @@ public class GeminiRestClient {
 
         } catch (Exception e) {
             log.error("Error calling Gemini API: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to call Gemini API", e);
+            throw new RuntimeException("Failed to call Gemini API, " + e.getMessage());
         }
     }
 
