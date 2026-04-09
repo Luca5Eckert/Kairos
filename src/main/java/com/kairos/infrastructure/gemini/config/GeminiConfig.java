@@ -10,7 +10,7 @@ import org.springframework.web.client.RestClient;
 public class GeminiConfig {
 
     @Bean
-    public RestClient geminiRestClient() {
+    public RestClient restClient() {
         return RestClient.builder().build();
     }
 
