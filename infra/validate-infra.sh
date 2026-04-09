@@ -14,6 +14,9 @@ NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-7687}"
 NEO4J_USER="${NEO4J_USER:-neo4j}"
 NEO4J_PASS="${NEO4J_PASSWORD:-kairos_secret}"
 
+APP_HOST="${APP_HOST:-localhost}"
+APP_PORT="${APP_PORT:-8080}"
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
@@ -94,11 +97,37 @@ check_neo4j() {
     || fail "Neo4j Bolt nao acessivel na porta $NEO4J_BOLT_PORT"
 }
 
+# ── Kairos app checks ─────────────────────────────────────────
+check_kairos() {
+  echo "Waiting for Kairos at $APP_HOST:$APP_PORT (pode levar ~60s)..."
+
+  HTTP_STATUS="000"
+  for i in $(seq 1 20); do
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+      --connect-timeout 2 \
+      "http://$APP_HOST:$APP_PORT/actuator/health" 2>/dev/null || echo "000")
+    [[ "$HTTP_STATUS" == "200" ]] && break
+    printf "."
+    sleep 3
+  done
+  echo ""
+
+  [[ "$HTTP_STATUS" == "200" ]] \
+    && ok "Kairos app reachable" \
+    || fail "Kairos nao respondeu apos 60s — rode: docker logs kairos-app"
+
+  HEALTH=$(curl -s "http://$APP_HOST:$APP_PORT/actuator/health" 2>/dev/null || echo "{}")
+  echo "$HEALTH" | grep -q '"status":"UP"' \
+    && ok "Kairos health status UP" \
+    || fail "Kairos health status nao e UP — resposta: $HEALTH"
+}
+
 # ── Run ───────────────────────────────────────────────────────
 echo "======================================="
 echo " Kairos infrastructure validation"
 echo "======================================="
 check_postgres
 check_neo4j
+check_kairos
 echo "======================================="
 echo -e "${GREEN}All checks passed.${NC}"
