@@ -3,20 +3,6 @@
 # Stage 1 — download do modelo
 FROM alpine:3.20 AS model-download
 
-RUN apk add --no-cache curl
-
-WORKDIR /tmp/model
-
-RUN set -eux; \
-    curl -L --fail --retry 5 --retry-all-errors --connect-timeout 20 \
-      "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx" \
-      -o model.onnx; \
-    curl -L --fail --retry 5 --retry-all-errors --connect-timeout 20 \
-      "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json" \
-      -o tokenizer.json; \
-    test -s model.onnx; \
-    test -s tokenizer.json
-
 # Stage 2 — build da aplicação
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 
