@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.gemini;
+package com.kairos.infrastructure.gemini.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
