@@ -19,12 +19,12 @@ import java.nio.file.StandardCopyOption;
 public class EmbeddingConfig  {
 
 
-    @Bean
+    @Bean(destroyMethod = "close")
     public OrtEnvironment ortEnvironment() {
         return OrtEnvironment.getEnvironment();
     }
 
-    @Bean
+    @Bean(destroyMethod = "close")
     public OrtSession onnxSession(
             OrtEnvironment environment,
             @Value("classpath:model/model.onnx") Resource modelResource
@@ -41,11 +41,11 @@ public class EmbeddingConfig  {
     public HuggingFaceTokenizer huggingFaceTokenizer(
             @Value("classpath:model/tokenizer.json") Resource tokenizerResource
     ) throws IOException {
-        Path tempFile = Files.createTempFile("kairos-tokenizer", ".json");
+        Path tempDir  = Files.createTempDirectory("kairos-embedding");
+        Path tempFile = tempDir.resolve("tokenizer.json");
         try (InputStream in = tokenizerResource.getInputStream()) {
             Files.copy(in, tempFile, StandardCopyOption.REPLACE_EXISTING);
         }
-        tempFile.toFile().deleteOnExit();
         return HuggingFaceTokenizer.newInstance(tempFile);
     }
 
