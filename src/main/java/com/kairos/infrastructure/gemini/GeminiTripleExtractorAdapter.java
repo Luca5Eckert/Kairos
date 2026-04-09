@@ -2,43 +2,43 @@ package com.kairos.infrastructure.gemini;
 
 import com.kairos.domain.graph.TripleExtractor;
 import com.kairos.domain.model.Triple;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
 import java.util.List;
 
+/**
+ * Adapter that implements the {@link TripleExtractor} interface using the Gemini API.
+ * This class is responsible for generating prompts, calling the Gemini API, and parsing the responses to extract semantic triples from input text.
+ */
 @Component
+@Slf4j
 public class GeminiTripleExtractorAdapter implements TripleExtractor {
 
-    private final RestClient restClient;
-    private final GeminiProperties geminiProperties;
+    private static final int MAX_ATTEMPTS = 4;
+    private static final long INITIAL_BACKOFF_MILLIS = 1_000L;
 
-    public GeminiTripleExtractorAdapter(RestClient restClient, GeminiProperties geminiProperties) {
-        this.restClient = restClient;
-        this.geminiProperties = geminiProperties;
+    private final GeminiRestClient geminiRestClient;
+    private final GeminiResponseParser parser;
+
+    public GeminiTripleExtractorAdapter(GeminiRestClient geminiRestClient, GeminiResponseParser parser) {
+        this.geminiRestClient = geminiRestClient;
+        this.parser = parser;
     }
 
+
+    /**
+     * Extracts semantic triples from the input text using the Gemini API.
+     * @param text The input text from which to extract triples.
+     * @return A list of {@link Triple} objects representing the extracted subject-predicate-object relationships.
+     */
     @Override
     public List<Triple> extract(String text) {
         String prompt = generatePrompt(text);
 
-        String response = callGemini(prompt);
+        var response = geminiRestClient.call(prompt);
 
-        var triples = parseResponse(response);
-
-        validateTriples(triples);
-
-        return triples;
-    }
-
-    private void validateTriples(List<Triple> triples) {
-    }
-
-    private List<Triple> parseResponse(String response) {
-        return List.of();
-    }
-
-    private String callGemini(String prompt) {
+        return parser.parseResponse(response);
     }
 
     /**
