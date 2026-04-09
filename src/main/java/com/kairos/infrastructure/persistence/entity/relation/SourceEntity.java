@@ -19,7 +19,6 @@ import java.util.UUID;
 public class SourceEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false)
     private UUID id;
 

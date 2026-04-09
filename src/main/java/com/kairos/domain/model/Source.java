@@ -27,7 +27,7 @@ public class Source {
     }
 
     public static Source create(String title, String content) {
-        return new Source(title, content, SourceStatus.PENDING);
+        return new Source(UUID.randomUUID(), title, content, SourceStatus.PENDING);
     }
 
     public void markProcessing() {
