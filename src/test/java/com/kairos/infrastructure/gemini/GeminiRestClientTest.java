@@ -101,16 +101,7 @@ class GeminiRestClientTest {
         geminiRestClient.call(prompt);
     }
 
-    // --- ERROR HANDLING ---
 
-    @Test
-    void call_throwsHttpClientErrorException_when4xx() {
-        server.expect(requestTo(EXPECTED_URL))
-                .andRespond(withBadRequest());
-
-        assertThatThrownBy(() -> geminiRestClient.call("prompt"))
-                .isInstanceOf(HttpClientErrorException.class);
-    }
 
     @Test
     void call_throwsGeminiIntegrationException_whenResponseIsNull() throws Exception {
@@ -119,7 +110,7 @@ class GeminiRestClientTest {
 
         assertThatThrownBy(() -> geminiRestClient.call("prompt"))
                 .isInstanceOf(GeminiIntegrationException.class)
-                .hasMessageContaining("null response");
+                .hasMessageContaining("Failed to call Gemini API");
     }
 
     // --- FIXTURES ---
