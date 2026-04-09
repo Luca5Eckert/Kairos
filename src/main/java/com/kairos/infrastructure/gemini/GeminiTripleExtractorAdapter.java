@@ -2,6 +2,7 @@ package com.kairos.infrastructure.gemini;
 
 import com.kairos.domain.graph.TripleExtractor;
 import com.kairos.domain.model.Triple;
+import com.kairos.infrastructure.gemini.dto.GeminiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -38,7 +39,7 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
 
         String prompt = generatePrompt(text);
 
-        var response = geminiRestClient.call(prompt);
+        GeminiResponse response = geminiRestClient.call(prompt);
 
         return parser.parseResponse(response);
     }
