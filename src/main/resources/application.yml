@@ -39,3 +39,15 @@ server:
 logging:
   level:
     com.kairos: INFO
+
+gemini:
+  apiKey: ${GEMINI_API_KEY}
+  model: ${GEMINI_MODEL:gpt-4.0}
+  temperature: 0.7
+  maxOutputTokens: 2048
+  timeoutSeconds: 30
+  retry:
+    maxRetries: 3
+    delay: 2000
+    multiplier: 2.0
+    maxDelay: 60000

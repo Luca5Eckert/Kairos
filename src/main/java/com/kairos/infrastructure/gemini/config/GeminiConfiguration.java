@@ -13,12 +13,12 @@ import org.springframework.web.client.RestClient;
 public class GeminiConfiguration {
 
     @Bean
-    public RestClient restClient(RestClient.Builder builder, GeminiProperties properties) {
+    public RestClient restClient(GeminiProperties properties) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(properties.timeoutSeconds() * 1000);
         factory.setReadTimeout(properties.timeoutSeconds() * 1000);
 
-        return builder
+        return RestClient.builder()
                 .requestFactory(factory)
                 .build();
     }

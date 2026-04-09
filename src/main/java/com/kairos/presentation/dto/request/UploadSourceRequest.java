@@ -1,12 +1,13 @@
 package com.kairos.presentation.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
 public record UploadSourceRequest(
         @NotBlank String title,
         @NotBlank String content,
-        @NotBlank UUID authorId
+        @NotNull UUID authorId
 ) {
 }

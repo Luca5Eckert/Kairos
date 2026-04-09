@@ -10,6 +10,7 @@ import com.kairos.domain.graph.KnowledgeGraphStore;
 import com.kairos.domain.port.SourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -29,6 +30,7 @@ public class GenerateSourceContextUseCase {
      * Generates context for a given source by chunking the content, extracting triples, and storing them in the knowledge graph.
      * @param command the command containing the source ID and content to process
      */
+    @Transactional
     public void execute(GenerateSourceContextCommand command) {
         Source source = sourceRepository.findById(command.sourceId())
                 .orElseThrow(() -> new RuntimeException("Source not found for id: " + command.sourceId()));
