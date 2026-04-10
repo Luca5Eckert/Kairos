@@ -138,36 +138,44 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
                 OnnxTensor inputIdsTensor      = tensorFactory.createLongTensor(environment, inputIds);
                 OnnxTensor attentionMaskTensor = tensorFactory.createLongTensor(environment, attentionMask)
         ) {
-            Map<String, OnnxTensor> inputs = new HashMap<>();
-            inputs.put(INPUT_IDS_NAME,      inputIdsTensor);
-            inputs.put(ATTENTION_MASK_NAME, attentionMaskTensor);
-
             if (modelExpectsTokenTypeIds) {
                 try (OnnxTensor tokenTypeIdsTensor = tensorFactory.createLongTensor(environment, tokenTypeIds)) {
+                    Map<String, OnnxTensor> inputs = new HashMap<>();
+                    inputs.put(INPUT_IDS_NAME, inputIdsTensor);
+                    inputs.put(ATTENTION_MASK_NAME, attentionMaskTensor);
                     inputs.put(TOKEN_TYPE_IDS_NAME, tokenTypeIdsTensor);
+
+                    return runInference(inputs);
                 }
+            } else {
+                Map<String, OnnxTensor> inputs = new HashMap<>();
+                inputs.put(INPUT_IDS_NAME, inputIdsTensor);
+                inputs.put(ATTENTION_MASK_NAME, attentionMaskTensor);
+
+                return runInference(inputs);
             }
-
-            try (OrtSession.Result result = session.run(inputs)) {
-                if (result.size() == 0) {
-                    throw new EmbeddingException("ONNX model returned no outputs");
-                }
-
-                Object rawOutput = result.get(0).getValue();
-
-                if (!(rawOutput instanceof float[][][] output)) {
-                    throw new EmbeddingException(
-                            "Unexpected ONNX output type: expected float[][][], got "
-                                    + (rawOutput == null ? "null" : rawOutput.getClass().getName())
-                    );
-                }
-
-                validateModelOutput(output);
-                return output[0];
-            }
-
         } catch (OrtException e) {
             throw new EmbeddingException("Failed to run embedding inference", e);
+        }
+    }
+
+    private float[][] runInference(Map<String, OnnxTensor> inputs) throws OrtException {
+        try (OrtSession.Result result = session.run(inputs)) {
+            if (result.size() == 0) {
+                throw new EmbeddingException("ONNX model returned no outputs");
+            }
+
+            Object rawOutput = result.get(0).getValue();
+
+            if (!(rawOutput instanceof float[][][] output)) {
+                throw new EmbeddingException(
+                        "Unexpected ONNX output type: expected float[][][], got "
+                                + (rawOutput == null ? "null" : rawOutput.getClass().getName())
+                );
+            }
+
+            validateModelOutput(output);
+            return output[0];
         }
     }
 
