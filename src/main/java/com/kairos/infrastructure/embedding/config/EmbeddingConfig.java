@@ -29,11 +29,13 @@ public class EmbeddingConfig  {
             OrtEnvironment environment,
             @Value("classpath:model/model.onnx") Resource modelResource
     ) throws OrtException, IOException {
-        byte[] modelBytes;
-        try (var inputStream = modelResource.getInputStream()) {
-            modelBytes = inputStream.readAllBytes();
+        Path tempFile = Files.createTempFile("kairos-model-", ".onnx");
+        try (InputStream in = modelResource.getInputStream()) {
+            Files.copy(in, tempFile, StandardCopyOption.REPLACE_EXISTING);
         }
-        return environment.createSession(modelBytes);
+
+        OrtSession.SessionOptions options = new OrtSession.SessionOptions();
+        return environment.createSession(tempFile.toString(), options);
     }
 
 
