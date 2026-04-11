@@ -53,6 +53,11 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
     @Override
     @Transactional
     public void saveAllForChunk(UUID chunkId, List<KnowledgeTriple> triples) {
+        if (chunkId == null) {
+            log.error("Cannot save triples because chunkId is null.");
+            return;
+        }
+
         if (triples == null || triples.isEmpty()) {
             log.warn("No triples to save for chunkId: {}", chunkId);
             return;
@@ -71,6 +76,11 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
     }
 
     private void ensurePassageNode(UUID chunkId) {
+        if (chunkId == null) {
+            log.error("Cannot ensure PassageNode because chunkId is null.");
+            return;
+        }
+
         if (!passageRepository.existsById(chunkId)) {
             log.debug("Creating new PassageNode for chunk: {}", chunkId);
             passageRepository.save(PassageNode.forChunk(chunkId));
