@@ -50,14 +50,18 @@ public class GenerateSourceContextUseCase {
      */
     private void generateContext(Source source, String text, int index) {
         Chunk chunk = Chunk.create(source, text, index, embeddingProvider.embed(text));
-        chunkRepository.save(chunk);
+        Chunk savedChunk = chunkRepository.save(chunk);
+
+        if (savedChunk.getId() == null) {
+            throw new IllegalStateException("Chunk ID is null after save");
+        }
 
         List<Triple> triples = tripleExtractor.extract(text);
         List<KnowledgeTriple> knowledgeTriples = triples.stream()
-                .map(triple -> KnowledgeTriple.create(triple, chunk.getId()))
+                .map(triple -> KnowledgeTriple.create(triple, savedChunk.getId()))
                 .toList();
 
-        knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
+        knowledgeGraphStore.saveAllForChunk(savedChunk.getId(), knowledgeTriples);
     }
 
 }

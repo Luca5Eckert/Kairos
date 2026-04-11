@@ -1,6 +1,7 @@
 package com.kairos.infrastructure.persistence.repository.relation.chunk;
 
 import com.kairos.domain.model.Chunk;
+import com.kairos.domain.model.Source;
 import com.kairos.domain.port.ChunkRepository;
 import com.kairos.infrastructure.persistence.entity.relation.ChunkEntity;
 import org.springframework.stereotype.Repository;
@@ -15,9 +16,11 @@ public class SpringChunkRepositoryAdapter implements ChunkRepository {
     }
 
     @Override
-    public void save(Chunk chunk) {
+    public Chunk save(Chunk chunk) {
         var entity = ChunkEntity.create(chunk);
 
-        chunkRepository.save(entity);
+        var savedEntity = chunkRepository.save(entity);
+
+        return savedEntity.toDomain();
     }
 }

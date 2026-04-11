@@ -41,7 +41,11 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
 
         GeminiResponse response = geminiRestClient.call(prompt);
 
-        return parser.parseResponse(response);
+        var parseResponse = parser.parseResponse(response);
+
+        log.info("Parse response: " + parseResponse.toString());
+
+        return parseResponse;
     }
 
     /**

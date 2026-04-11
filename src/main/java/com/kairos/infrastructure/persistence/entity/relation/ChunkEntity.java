@@ -48,4 +48,14 @@ public class ChunkEntity {
                 chunk.getEmbedding()
         );
     }
+
+    public Chunk toDomain() {
+        return new Chunk(
+                id,
+                source.toDomain(),
+                content,
+                index,
+                embedding
+        );
+    }
 }
