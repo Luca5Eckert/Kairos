@@ -54,7 +54,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
     @Transactional
     public void saveAllForChunk(UUID chunkId, List<KnowledgeTriple> triples) {
         if (chunkId == null) {
-            log.error("Cannot save triples because chunkId is null.");
+            log.error("Attempted to save triples with null chunkId. This indicates a bug in the calling flow.");
             return;
         }
 
@@ -77,7 +77,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     private void ensurePassageNode(UUID chunkId) {
         if (chunkId == null) {
-            log.error("Cannot ensure PassageNode because chunkId is null.");
+            log.error("Defensive check failed: chunkId is null in ensurePassageNode.");
             return;
         }
 
