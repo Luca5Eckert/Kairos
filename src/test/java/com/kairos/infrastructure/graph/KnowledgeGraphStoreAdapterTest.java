@@ -99,6 +99,14 @@ class KnowledgeGraphStoreAdapterTest {
         verify(passageRepository, never()).existsById(any());
     }
 
+    @Test
+    @DisplayName("saveAllForChunk — does nothing when chunkId is null")
+    void saveAllForChunk_nullChunkId_noInteractions() {
+        adapter.saveAllForChunk(null, List.of(triple("a", "REL", "b", UUID.randomUUID())));
+
+        verifyNoInteractions(phraseRepository, passageRepository);
+    }
+
     // -------------------------------------------------------------------------
     // save (batch with chunkId inside triple)
     // -------------------------------------------------------------------------
