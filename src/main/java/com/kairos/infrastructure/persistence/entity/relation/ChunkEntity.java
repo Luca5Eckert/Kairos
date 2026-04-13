@@ -39,13 +39,17 @@ public class ChunkEntity {
     @Array(length = 384)
     private float[] embedding;
 
+    @Column(name = "triples_extracted", nullable = false)
+    private boolean triplesExtracted;
+
     public static ChunkEntity create(Chunk chunk) {
         return new ChunkEntity(
                 chunk.getId(),
                 new SourceEntity(chunk.getSource().getId()),
                 chunk.getContent(),
                 chunk.getIndex(),
-                chunk.getEmbedding()
+                chunk.getEmbedding(),
+                chunk.isTriplesExtracted()
         );
     }
 
@@ -55,7 +59,8 @@ public class ChunkEntity {
                 source.toDomain(),
                 content,
                 index,
-                embedding
+                embedding,
+                triplesExtracted
         );
     }
 }
