@@ -51,3 +51,11 @@ gemini:
     delay: 2000
     multiplier: 2.0
     maxDelay: 60000
+
+source-context-job:
+  maxAttempts: 5
+  batchSize: 10
+  pollDelayMs: 5000
+  initialRetryDelay: 30s
+  retryMultiplier: 2.0
+  maxRetryDelay: 30m

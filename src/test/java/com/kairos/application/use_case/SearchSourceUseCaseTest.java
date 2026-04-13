@@ -60,7 +60,7 @@ class SearchSourceUseCaseTest {
     // -------------------------------------------------------------------------
 
     private Chunk chunk(UUID id, String content, int index) {
-        return new Chunk(id, dummySource, content, index, QUERY_VECTOR);
+        return new Chunk(id, dummySource, content, index, QUERY_VECTOR, false);
     }
 
     private KnowledgeTriple triple(UUID chunkId) {

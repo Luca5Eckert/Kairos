@@ -6,6 +6,9 @@ import com.kairos.domain.port.ChunkRepository;
 import com.kairos.infrastructure.persistence.entity.relation.ChunkEntity;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.UUID;
+
 @Repository
 public class SpringChunkRepositoryAdapter implements ChunkRepository {
 
@@ -22,5 +25,12 @@ public class SpringChunkRepositoryAdapter implements ChunkRepository {
         var savedEntity = chunkRepository.save(entity);
 
         return savedEntity.toDomain();
+    }
+
+    @Override
+    public List<Chunk> findBySourceId(UUID sourceId) {
+        return chunkRepository.findBySourceIdOrderByIndexAsc(sourceId).stream()
+                .map(ChunkEntity::toDomain)
+                .toList();
     }
 }

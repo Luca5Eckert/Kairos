@@ -1,8 +1,7 @@
 package com.kairos.application.use_case;
 
+import com.kairos.application.command.GenerateSourceContextCommand;
 import com.kairos.application.command.UploadSourceCommand;
-import com.kairos.domain.event.CreatedSourceEvent;
-import com.kairos.domain.event.SourceEventPublisher;
 import com.kairos.domain.model.Source;
 import com.kairos.domain.port.SourceRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,19 +15,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class UploadSourceUseCaseTest {
 
     @Mock private SourceRepository sourceRepository;
-    @Mock private SourceEventPublisher eventPublisher;
+    @Mock private GenerateSourceContextUseCase generateSourceContextUseCase;
 
     @InjectMocks
     private UploadSourceUseCase useCase;
 
     @Test
-    @DisplayName("execute — returns the id of the created source")
+    @DisplayName("execute â€” returns the id of the created source")
     void execute_validCommand_returnsSourceId() {
         var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
 
@@ -38,7 +39,7 @@ class UploadSourceUseCaseTest {
     }
 
     @Test
-    @DisplayName("execute — saves source with correct title and content")
+    @DisplayName("execute â€” saves source with correct title and content")
     void execute_validCommand_savesSourceWithCorrectFields() {
         var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
 
@@ -52,30 +53,30 @@ class UploadSourceUseCaseTest {
     }
 
     @Test
-    @DisplayName("execute — publishes CreatedSourceEvent with matching sourceId and content")
-    void execute_validCommand_publishesEventWithCorrectFields() {
+    @DisplayName("execute â€” dispatches source context generation with matching sourceId and content")
+    void execute_validCommand_dispatchesContextGenerationWithCorrectFields() {
         var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
 
         UUID returnedId = useCase.execute(command);
 
-        var captor = ArgumentCaptor.forClass(CreatedSourceEvent.class);
-        verify(eventPublisher).send(captor.capture());
+        var captor = ArgumentCaptor.forClass(GenerateSourceContextCommand.class);
+        verify(generateSourceContextUseCase).execute(captor.capture());
 
-        CreatedSourceEvent event = captor.getValue();
-        assertThat(event.sourceId()).isEqualTo(returnedId);
-        assertThat(event.content()).isEqualTo("some content");
+        GenerateSourceContextCommand dispatched = captor.getValue();
+        assertThat(dispatched.sourceId()).isEqualTo(returnedId);
+        assertThat(dispatched.content()).isEqualTo("some content");
     }
 
     @Test
-    @DisplayName("execute — saves source before publishing event")
-    void execute_validCommand_saveHappensBeforePublish() {
+    @DisplayName("execute â€” saves source before dispatching source context generation")
+    void execute_validCommand_saveHappensBeforeDispatch() {
         var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
 
-        var inOrder = inOrder(sourceRepository, eventPublisher);
+        var inOrder = inOrder(sourceRepository, generateSourceContextUseCase);
 
         useCase.execute(command);
 
         inOrder.verify(sourceRepository).save(any(Source.class));
-        inOrder.verify(eventPublisher).send(any(CreatedSourceEvent.class));
+        inOrder.verify(generateSourceContextUseCase).execute(any(GenerateSourceContextCommand.class));
     }
 }

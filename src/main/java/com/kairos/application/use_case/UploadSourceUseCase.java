@@ -1,10 +1,9 @@
 package com.kairos.application.use_case;
 
 import com.kairos.application.command.UploadSourceCommand;
-import com.kairos.domain.event.CreatedSourceEvent;
-import com.kairos.domain.model.Source;
-import com.kairos.domain.event.SourceEventPublisher;
+import com.kairos.application.command.GenerateSourceContextCommand;
 import com.kairos.domain.port.SourceRepository;
+import com.kairos.domain.model.Source;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +17,11 @@ import java.util.UUID;
 public class UploadSourceUseCase {
 
     private final SourceRepository sourceRepository;
-    private final SourceEventPublisher eventPublisher;
+    private final GenerateSourceContextUseCase generateSourceContextUseCase;
 
-    public UploadSourceUseCase(SourceRepository sourceRepository, SourceEventPublisher eventPublisher) {
+    public UploadSourceUseCase(SourceRepository sourceRepository, GenerateSourceContextUseCase generateSourceContextUseCase) {
         this.sourceRepository = sourceRepository;
-        this.eventPublisher = eventPublisher;
+        this.generateSourceContextUseCase = generateSourceContextUseCase;
     }
 
     /**
@@ -36,8 +35,7 @@ public class UploadSourceUseCase {
 
         sourceRepository.save(source);
 
-        var createdEvent = CreatedSourceEvent.of(source.getId(), source.getContent());
-        eventPublisher.send(createdEvent);
+        generateSourceContextUseCase.execute(GenerateSourceContextCommand.of(source.getId(), source.getContent()));
 
         return source.getId();
     }
