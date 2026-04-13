@@ -81,7 +81,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
             return;
         }
 
-        if (!passageRepository.existsByChunkId(chunkId)) {
+        if (!passageRepository.existsById(chunkId)) {
             log.debug("Creating new PassageNode for chunk: {}", chunkId);
             passageRepository.save(PassageNode.forChunk(chunkId));
         }

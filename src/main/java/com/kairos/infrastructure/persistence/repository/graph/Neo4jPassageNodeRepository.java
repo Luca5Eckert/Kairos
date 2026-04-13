@@ -102,5 +102,4 @@ public interface Neo4jPassageNodeRepository extends Neo4jRepository<PassageNode,
             @Param("limit")          int limit
     );
 
-    boolean existsByChunkId(UUID chunkId);
 }

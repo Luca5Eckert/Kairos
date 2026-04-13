@@ -45,13 +45,13 @@ class KnowledgeGraphStoreAdapterTest {
         UUID chunkId = UUID.randomUUID();
         KnowledgeTriple triple = triple("backpropagation", "USES", "chain rule", chunkId);
 
-        when(passageRepository.existsByChunkId(chunkId)).thenReturn(false);
+        when(passageRepository.existsById(chunkId)).thenReturn(false);
 
         adapter.saveAllForChunk(chunkId, List.of(triple));
 
         ArgumentCaptor<PassageNode> passageCaptor = ArgumentCaptor.forClass(PassageNode.class);
 
-        verify(passageRepository).existsByChunkId(chunkId);
+        verify(passageRepository).existsById(chunkId);
         verify(passageRepository).save(passageCaptor.capture());
         verify(phraseRepository).mergeTriple("backpropagation", "chain rule", "USES", chunkId);
         verify(passageRepository).mergeConceptLink(chunkId, "backpropagation");
@@ -67,11 +67,11 @@ class KnowledgeGraphStoreAdapterTest {
         UUID chunkId = UUID.randomUUID();
         KnowledgeTriple triple = triple("a", "REL", "b", chunkId);
 
-        when(passageRepository.existsByChunkId(chunkId)).thenReturn(true);
+        when(passageRepository.existsById(chunkId)).thenReturn(true);
 
         adapter.saveAllForChunk(chunkId, List.of(triple));
 
-        verify(passageRepository).existsByChunkId(chunkId);
+        verify(passageRepository).existsById(chunkId);
         verify(passageRepository, never()).save(any(PassageNode.class));
         verify(phraseRepository).mergeTriple("a", "b", "REL", chunkId);
         verify(passageRepository).mergeConceptLink(chunkId, "a");
@@ -87,11 +87,11 @@ class KnowledgeGraphStoreAdapterTest {
                 triple("loss function", "MEASURES", "error", chunkId)
         );
 
-        when(passageRepository.existsByChunkId(chunkId)).thenReturn(true);
+        when(passageRepository.existsById(chunkId)).thenReturn(true);
 
         adapter.saveAllForChunk(chunkId, triples);
 
-        verify(passageRepository).existsByChunkId(chunkId);
+        verify(passageRepository).existsById(chunkId);
         verify(passageRepository, never()).save(any(PassageNode.class));
         verify(phraseRepository, times(2)).mergeTriple(anyString(), anyString(), anyString(), eq(chunkId));
         verify(passageRepository, times(4)).mergeConceptLink(eq(chunkId), anyString());
@@ -105,7 +105,7 @@ class KnowledgeGraphStoreAdapterTest {
         adapter.saveAllForChunk(chunkId, List.of());
 
         verifyNoInteractions(phraseRepository);
-        verify(passageRepository, never()).existsByChunkId(any());
+        verify(passageRepository, never()).existsById(any());
         verify(passageRepository, never()).save(any(PassageNode.class));
         verify(passageRepository, never()).mergeConceptLink(any(), anyString());
     }
@@ -118,7 +118,7 @@ class KnowledgeGraphStoreAdapterTest {
         adapter.saveAllForChunk(chunkId, null);
 
         verifyNoInteractions(phraseRepository);
-        verify(passageRepository, never()).existsByChunkId(any());
+        verify(passageRepository, never()).existsById(any());
         verify(passageRepository, never()).save(any(PassageNode.class));
         verify(passageRepository, never()).mergeConceptLink(any(), anyString());
     }
@@ -143,13 +143,13 @@ class KnowledgeGraphStoreAdapterTest {
                 triple("e", "REL", "f", chunkB)
         );
 
-        when(passageRepository.existsByChunkId(chunkA)).thenReturn(false);
-        when(passageRepository.existsByChunkId(chunkB)).thenReturn(false);
+        when(passageRepository.existsById(chunkA)).thenReturn(false);
+        when(passageRepository.existsById(chunkB)).thenReturn(false);
 
         adapter.save(triples);
 
-        verify(passageRepository).existsByChunkId(chunkA);
-        verify(passageRepository).existsByChunkId(chunkB);
+        verify(passageRepository).existsById(chunkA);
+        verify(passageRepository).existsById(chunkB);
         verify(passageRepository, times(2)).save(any(PassageNode.class));
         verify(phraseRepository, times(3)).mergeTriple(anyString(), anyString(), anyString(), any(UUID.class));
         verify(passageRepository, times(6)).mergeConceptLink(any(UUID.class), anyString());
@@ -168,7 +168,7 @@ class KnowledgeGraphStoreAdapterTest {
         adapter.save(List.of(invalidTriple));
 
         verifyNoInteractions(phraseRepository);
-        verify(passageRepository, never()).existsByChunkId(any());
+        verify(passageRepository, never()).existsById(any());
         verify(passageRepository, never()).save(any(PassageNode.class));
         verify(passageRepository, never()).mergeConceptLink(any(), anyString());
     }
