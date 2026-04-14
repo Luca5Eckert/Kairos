@@ -2,12 +2,12 @@ package com.kairos.presentation.controller;
 
 import com.kairos.application.command.UploadSourceCommand;
 import com.kairos.application.query.SearchSourceQuery;
-import com.kairos.application.use_case.GenerateSourceContextUseCase;
 import com.kairos.application.use_case.SearchSourceUseCase;
 import com.kairos.application.use_case.UploadSourceUseCase;
-import com.kairos.domain.model.SearchResult;
 import com.kairos.presentation.dto.request.GenerateSourceContextRequest;
 import com.kairos.presentation.dto.request.UploadSourceRequest;
+import com.kairos.presentation.dto.response.ContextResponse;
+import com.kairos.presentation.mapper.SourceMapper;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +20,12 @@ public class SourceController {
     private final UploadSourceUseCase uploadSourceUseCase;
     private final SearchSourceUseCase searchSourceUseCase;
 
-    public SourceController(UploadSourceUseCase uploadSourceUseCase, SearchSourceUseCase searchSourceUseCase) {
+    private final SourceMapper mapper;
+
+    public SourceController(UploadSourceUseCase uploadSourceUseCase, SearchSourceUseCase searchSourceUseCase, SourceMapper mapper) {
         this.uploadSourceUseCase = uploadSourceUseCase;
         this.searchSourceUseCase = searchSourceUseCase;
+        this.mapper = mapper;
     }
 
     @PostMapping
@@ -42,13 +45,13 @@ public class SourceController {
     }
 
     @GetMapping
-    public ResponseEntity<SearchResult> generateSourceContext(
+    public ResponseEntity<ContextResponse> generateSourceContext(
             @RequestBody @Valid GenerateSourceContextRequest request
     ) {
         var query = SearchSourceQuery.of(request.termQuery());
-        var context = searchSourceUseCase.execute(query);
+        var result = searchSourceUseCase.execute(query);
 
-        return ResponseEntity.ok(context);
+        return ResponseEntity.ok(mapper.toContextResponse(result));
     }
 
 
