@@ -10,17 +10,40 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Spring Data Neo4j repository for {@link PassageNode} entities.
+ *
+ * <p>Exposes three GDS lifecycle methods ({@link #projectPhraseGraph},
+ * {@link #runPPRExpansion}, {@link #dropProjectedGraph}) that <strong>must</strong>
+ * be orchestrated by the caller inside a {@code try/finally} block.
+ * GDS in-memory projections are not bound to Neo4j transactions, so a rollback
+ * will not remove a projection that was already created — only an explicit drop will.
+ *
+ * <p>Convenience methods ({@link #mergePassageNode}, {@link #mergeConceptLink})
+ * are used during graph ingestion and follow standard Neo4j merge semantics.
+ */
 @Repository
 public interface Neo4jPassageNodeRepository extends Neo4jRepository<PassageNode, UUID> {
 
+    // ── Ingestion ─────────────────────────────────────────────────────────────
+
+    /**
+     * Ensures a {@code Passage} node with the given {@code chunkId} exists,
+     * creating it if absent (idempotent).
+     *
+     * @param chunkId stable identifier of the document chunk
+     */
     @Query("""
             MERGE (:Passage {chunkId: $chunkId})
             """)
     void mergePassageNode(@Param("chunkId") UUID chunkId);
 
     /**
-     * Idempotently creates a CONTAINS relationship between a PassageNode and an existing PhraseNode.
-     * Uses MATCH on PhraseNode to avoid creating orphan nodes if the concept does not yet exist.
+     * Creates a {@code CONTAINS} relationship between a {@code Passage} node and
+     * a {@code PhraseNode}, merging both endpoints if they already exist.
+     *
+     * @param chunkId     identifier of the source passage
+     * @param conceptName name of the target phrase/concept node
      */
     @Query("""
             MATCH (p:Passage    {chunkId: $chunkId})
@@ -32,79 +55,144 @@ public interface Neo4jPassageNodeRepository extends Neo4jRepository<PassageNode,
             @Param("conceptName") String conceptName
     );
 
+    // ── GDS lifecycle ─────────────────────────────────────────────────────────
+
     /**
-     * HippoRAG 2 — Personalized PageRank via Neo4j GDS.
+     * Projects all {@code PhraseNode} entities and {@code TRIPLE} relationships
+     * into a named GDS in-memory graph.
      *
-     * Fluxo:
-     *   1. Projeta um subgrafo in-memory com os PhraseNodes e relacionamentos TRIPLE.
-     *   2. Coleta os seed nodes (PhraseNodes conectados aos anchor chunks).
-     *   3. Executa PPR a partir dos seeds, propagando relevância pelo grafo.
-     *   4. Ranqueia os Passages pelo maior score PPR acumulado entre seus conceitos.
-     *   5. Retorna as triplas dos Passages mais relevantes, ordenadas por score.
+     * <p><strong>Caller contract:</strong> every invocation of this method must be
+     * paired with a {@link #dropProjectedGraph(String)} call inside a
+     * {@code finally} block. GDS projections survive transaction boundaries and
+     * accumulate in heap memory if not explicitly removed.
      *
-     * O nome do grafo GDS é gerado dinamicamente com randomUUID() para evitar
-     * colisões em chamadas concorrentes. O DROP ao final garante que não vaza
-     * memória entre requisições.
+     * <p>The graph name must be unique per call; use a {@code UUID} suffix to
+     * prevent collisions under concurrent load.
+     *
+     * @param graphName unique name for the in-memory projection (e.g. {@code "hipporag-<uuid>"})
+     * @return the name of the created projection as echoed by GDS
      */
     @Query("""
-            // ── Etapa 1: Projeta subgrafo in-memory ──────────────────────────────
             CALL gds.graph.project(
-                'hipporag-' + randomUUID(),
+                $graphName,
                 'PhraseNode',
-                {
-                    TRIPLE: {
-                        orientation: 'NATURAL',
-                        properties: ['predicate']
-                    }
-                },
-                {
-                    nodeProperties: ['centrality', 'degree']
-                }
+                { TRIPLE: { orientation: 'NATURAL' } }
             )
-            YIELD graphName
+            YIELD graphName AS name
+            RETURN name
+            """)
+    String projectPhraseGraph(@Param("graphName") String graphName);
 
-            // ── Etapa 2: Coleta seed nodes dos anchors ────────────────────────────
-            WITH graphName
+    /**
+     * Runs Personalized PageRank (PPR) over an existing GDS projection, seeded
+     * from the {@code PhraseNode} entities reachable from the given anchor passages,
+     * and returns the top-scored passages together with their knowledge triples.
+     *
+     * <p>The query performs five logical stages:
+     * <ol>
+     *   <li>Resolve seed nodes — {@code PhraseNode} entities contained in the
+     *       anchor passages. Returns an empty result set if no seeds are found,
+     *       preventing an unintentional global PageRank.</li>
+     *   <li>Stream PPR scores from the projected graph.</li>
+     *   <li>Lift scores to passages via {@code CONTAINS} relationships and keep
+     *       the maximum score per passage.</li>
+     *   <li>Limit to the top-N passages by score.</li>
+     *   <li>Expand each passage to its {@code TRIPLE} relationships (OPTIONAL MATCH).
+     *       Passages without triples return one row with {@code null} triple fields.</li>
+     * </ol>
+     *
+     * <p><strong>Return cardinality:</strong> one row per triple, not per passage.
+     * A passage with {@code T} triples produces {@code T} rows; a passage with no
+     * triples produces one row with {@code null} subject/predicate/object.
+     * Callers must handle both cases.
+     *
+     * <p><strong>Precondition:</strong> the projection identified by {@code graphName}
+     * must already exist (created via {@link #projectPhraseGraph(String)}).
+     *
+     * <p><strong>UUID comparison note:</strong> {@code chunkId} is stored as a plain
+     * {@code String} in Neo4j (the driver serialises {@link UUID} to its canonical
+     * hyphenated form). The {@code IN} predicate compares strings directly — the
+     * original {@code toString()} wrapper was redundant and risked silent mismatches
+     * across driver or Neo4j version upgrades.
+     *
+     * @param graphName     name of the projected GDS graph to run PPR against
+     * @param anchorIds     string representations of the anchor chunk UUIDs
+     * @param maxIterations maximum number of PPR iterations
+     * @param dampingFactor PPR damping factor (typical value: {@code 0.85})
+     * @param limit         maximum number of top passages to expand into triples
+     * @return scored triples from the top-ranked passages; empty if no seeds match
+     */
+    @Query("""
             MATCH (p:Passage)-[:CONTAINS]->(seed:PhraseNode)
-            WHERE toString(p.chunkId) IN $anchorIds
-            WITH graphName, collect(DISTINCT seed) AS seedNodes
+            WHERE p.chunkId IN $anchorIds
+            WITH collect(DISTINCT seed) AS seedNodes
+            WHERE size(seedNodes) > 0
 
-            // ── Etapa 3: Executa PPR personalizado a partir dos seeds ─────────────
-            CALL gds.pageRank.stream(graphName, {
-                maxIterations:  $maxIterations,
-                dampingFactor:  $dampingFactor,
-                sourceNodes:    seedNodes
+            CALL gds.pageRank.stream($graphName, {
+                maxIterations: $maxIterations,
+                dampingFactor: $dampingFactor,
+                sourceNodes:   seedNodes
             })
             YIELD nodeId, score
 
-            WITH graphName, gds.util.asNode(nodeId) AS phrase, score
+            WITH gds.util.asNode(nodeId) AS phrase, score
             WHERE score > 0
 
-            // ── Etapa 4: Sobe ao Passage e agrega score máximo por chunk ──────────
             MATCH (passage:Passage)-[:CONTAINS]->(phrase)
-            WITH graphName, passage, max(score) AS passageScore
+            WITH passage, max(score) AS passageScore
             ORDER BY passageScore DESC
             LIMIT $limit
 
-            // ── Etapa 5: Retorna triplas com score ────────────────────────────────
-            MATCH (passage)-[:CONTAINS]->(n:PhraseNode)-[r:TRIPLE]->(target:PhraseNode)
-            WITH graphName, n, r, target, passage, passageScore
+            OPTIONAL MATCH (passage)-[:CONTAINS]->(n:PhraseNode)-[r:TRIPLE]->(target:PhraseNode)
 
-            // ── Cleanup: remove projeção da memória ───────────────────────────────
-            CALL gds.graph.drop(graphName) YIELD graphName AS dropped
-
-            RETURN n.name                      AS subject,
-                   r.predicate                 AS predicate,
-                   target.name                 AS object,
-                   toString(passage.chunkId)   AS chunkId,
-                   passageScore                AS score
+            RETURN
+                n.name          AS subject,
+                r.predicate     AS predicate,
+                target.name     AS object,
+                passage.chunkId AS chunkId,
+                passageScore    AS score
             ORDER BY passageScore DESC
             """)
-    List<GraphExpansionResult> expandKnowledgeFromAnchors(
-            @Param("anchorIds")      List<String> anchorIds,
-            @Param("maxIterations")  int maxIterations,
-            @Param("dampingFactor")  double dampingFactor,
-            @Param("limit")          int limit
+    List<GraphExpansionResult> runPPRExpansion(
+            @Param("graphName")     String graphName,
+            @Param("anchorIds")     List<String> anchorIds,
+            @Param("maxIterations") int maxIterations,
+            @Param("dampingFactor") double dampingFactor,
+            @Param("limit")         int limit
     );
 
+    /**
+     * Drops the named GDS in-memory projection, releasing its heap allocation.
+     *
+     * <p>The {@code false} argument instructs GDS to return gracefully when the
+     * graph does not exist, making this call safe from a {@code finally} block
+     * even if {@link #projectPhraseGraph(String)} had already failed.
+     *
+     * @param graphName name of the projection to remove
+     * @return the name of the dropped graph as reported by GDS
+     */
+    @Query("""
+            CALL gds.graph.drop($graphName, false)
+            YIELD graphName AS dropped
+            RETURN dropped
+            """)
+    String dropProjectedGraph(@Param("graphName") String graphName);
+
+    /**
+     * Drops all GDS projections whose names start with {@code "hipporag-"}.
+     *
+     * <p>Intended to be invoked by a scheduled job to reclaim heap memory from
+     * projections orphaned by abrupt JVM termination, pod eviction, or any other
+     * failure that prevented the {@code finally} block from running.
+     *
+     * @return names of all projections that were successfully removed
+     */
+    @Query("""
+            CALL gds.graph.list()
+            YIELD graphName
+            WHERE graphName STARTS WITH 'hipporag-'
+            CALL gds.graph.drop(graphName, false) YIELD graphName AS dropped
+            RETURN collect(dropped) AS cleaned
+            """)
+    List<String> dropOrphanProjections();
 }
