@@ -1,6 +1,5 @@
 package com.kairos.infrastructure.graph;
 
-import com.kairos.domain.graph.KnowledgeGraphSearch;
 import com.kairos.domain.model.Chunk;
 import com.kairos.domain.model.KnowledgeTriple;
 import com.kairos.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
@@ -14,11 +13,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -32,40 +30,17 @@ class KnowledgeGraphSearchAdapterTest {
     @InjectMocks
     private KnowledgeGraphSearchAdapter adapter;
 
-    // ------------------------------------------------------------------ fixtures
-
-    private static final UUID CHUNK_ID_1 = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    private static final UUID CHUNK_ID_2 = UUID.fromString("22222222-2222-2222-2222-222222222222");
-
-    // Adapter constants to verify the correct parameters are passed
-    private static final int MAX_ITERATIONS = 20;
-    private static final double DAMPING_FACTOR = 0.85;
-    private static final int PASSAGE_LIMIT = 10;
-
-    private Chunk chunkOf(UUID id) {
-        Chunk chunk = mock(Chunk.class);
-        when(chunk.getId()).thenReturn(id);
-        return chunk;
-    }
-
-    private GraphExpansionResult resultOf(String subject, String predicate, String object, UUID chunkId) {
-        GraphExpansionResult result = mock(GraphExpansionResult.class);
-        when(result.subject()).thenReturn(subject);
-        when(result.predicate()).thenReturn(predicate);
-        when(result.object()).thenReturn(object);
-        when(result.chunkId()).thenReturn(chunkId.toString());
-        return result;
-    }
-
-    // ================================================================== guard clause tests
+    // ═════════════════════════════════════════════════════════════════════════
+    // expandKnowledge — guard cases
+    // ═════════════════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("expandKnowledge — empty / null input")
-    class EmptyInputTests {
+    @DisplayName("given null or empty anchors")
+    class GuardCases {
 
         @Test
-        @DisplayName("returns empty list when semanticAnchors is null")
-        void expandKnowledge_nullAnchors_returnsEmptyList() {
+        @DisplayName("returns empty list and never touches the repository when anchors are null")
+        void nullAnchors_returnsEmptyWithoutRepositoryInteraction() {
             List<KnowledgeTriple> result = adapter.expandKnowledge(null);
 
             assertThat(result).isEmpty();
@@ -73,214 +48,356 @@ class KnowledgeGraphSearchAdapterTest {
         }
 
         @Test
-        @DisplayName("returns empty list when semanticAnchors is empty")
-        void expandKnowledge_emptyAnchors_returnsEmptyList() {
-            List<KnowledgeTriple> result = adapter.expandKnowledge(Collections.emptyList());
+        @DisplayName("returns empty list and never touches the repository when anchors are empty")
+        void emptyAnchors_returnsEmptyWithoutRepositoryInteraction() {
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of());
 
             assertThat(result).isEmpty();
             verifyNoInteractions(passageNodeRepository);
         }
     }
 
-    // ================================================================== delegation tests
+    // ═════════════════════════════════════════════════════════════════════════
+    // expandKnowledge — graph naming
+    // ═════════════════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("expandKnowledge — repository delegation")
-    class RepositoryDelegationTests {
+    @DisplayName("graph projection naming")
+    class GraphNaming {
 
         @Test
-        @DisplayName("passes correct anchor IDs and constants as parameters to repository")
-        void expandKnowledge_validAnchors_delegatesCorrectAnchorIds() {
-            Chunk chunk1 = chunkOf(CHUNK_ID_1);
-            Chunk chunk2 = chunkOf(CHUNK_ID_2);
+        @DisplayName("projects a graph whose name starts with 'hipporag-' followed by a valid UUID")
+        void graphName_hasHipporagPrefixAndUUIDSuffix() {
+            stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(Collections.emptyList());
+            adapter.expandKnowledge(List.of(chunk()));
 
-            adapter.expandKnowledge(List.of(chunk1, chunk2));
+            ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+            verify(passageNodeRepository).projectPhraseGraph(captor.capture());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-
-            // Verifica os valores exatos dos parâmetros incluindo as constantes de PPR (Personalized PageRank)
-            verify(passageNodeRepository).expandKnowledgeFromAnchors(
-                    captor.capture(),
-                    eq(MAX_ITERATIONS),
-                    eq(DAMPING_FACTOR),
-                    eq(PASSAGE_LIMIT)
-            );
-
-            assertThat(captor.getValue())
-                    .containsExactlyInAnyOrder(CHUNK_ID_1.toString(), CHUNK_ID_2.toString());
+            String graphName = captor.getValue();
+            assertThat(graphName).startsWith("hipporag-");
+            assertThatCode(() -> UUID.fromString(graphName.substring("hipporag-".length())))
+                    .as("suffix after 'hipporag-' must be a valid UUID")
+                    .doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("calls repository exactly once per invocation")
-        void expandKnowledge_validAnchors_callsRepositoryExactlyOnce() {
-            Chunk chunk = chunkOf(CHUNK_ID_1);
+        @DisplayName("uses the same graph name for project, PPR and drop within a single call")
+        void singleCall_sameGraphNameUsedAcrossAllThreeOperations() {
+            stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(Collections.emptyList());
+            adapter.expandKnowledge(List.of(chunk()));
 
-            adapter.expandKnowledge(List.of(chunk));
+            ArgumentCaptor<String> projectCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> pprCaptor     = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> dropCaptor    = ArgumentCaptor.forClass(String.class);
 
-            verify(passageNodeRepository, times(1)).expandKnowledgeFromAnchors(
-                    anyList(), anyInt(), anyDouble(), anyInt()
-            );
+            verify(passageNodeRepository).projectPhraseGraph(projectCaptor.capture());
+            verify(passageNodeRepository).runPPRExpansion(pprCaptor.capture(), any(), anyInt(), anyDouble(), anyInt());
+            verify(passageNodeRepository).dropProjectedGraph(dropCaptor.capture());
+
+            assertThat(projectCaptor.getValue())
+                    .isEqualTo(pprCaptor.getValue())
+                    .isEqualTo(dropCaptor.getValue());
+        }
+
+        @Test
+        @DisplayName("generates a distinct graph name for each independent call")
+        void twoCalls_produceDistinctGraphNames() {
+            stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
+
+            adapter.expandKnowledge(List.of(chunk()));
+            adapter.expandKnowledge(List.of(chunk()));
+
+            ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+            verify(passageNodeRepository, times(2)).projectPhraseGraph(captor.capture());
+
+            List<String> names = captor.getAllValues();
+            assertThat(names.get(0)).isNotEqualTo(names.get(1));
         }
     }
 
-    // ================================================================== mapping tests
+    // ═════════════════════════════════════════════════════════════════════════
+    // expandKnowledge — PPR parameters
+    // ═════════════════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("expandKnowledge — result mapping")
-    class ResultMappingTests {
+    @DisplayName("PPR parameters forwarding")
+    class PPRParameters {
 
         @Test
-        @DisplayName("maps single GraphExpansionResult to KnowledgeTriple correctly")
-        void expandKnowledge_singleResult_mapsAllFieldsCorrectly() {
-            Chunk chunk = chunkOf(CHUNK_ID_1);
-            GraphExpansionResult raw = resultOf("Newton", "discovered", "Gravity", CHUNK_ID_1);
-
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(List.of(raw));
-
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
-
-            assertThat(result).hasSize(1);
-            KnowledgeTriple triple = result.get(0);
-            assertThat(triple.subject().name()).isEqualTo("Newton");
-            assertThat(triple.subject().centrality()).isZero();
-            assertThat(triple.subject().degree()).isZero();
-            assertThat(triple.predicate()).isEqualTo("discovered");
-            assertThat(triple.object().name()).isEqualTo("Gravity");
-            assertThat(triple.chunkId()).isEqualTo(CHUNK_ID_1);
-        }
-
-        @Test
-        @DisplayName("maps multiple GraphExpansionResults preserving order")
-        void expandKnowledge_multipleResults_preservesOrder() {
-            Chunk chunk = chunkOf(CHUNK_ID_1);
-            GraphExpansionResult raw1 = resultOf("A", "rel1", "B", CHUNK_ID_1);
-            GraphExpansionResult raw2 = resultOf("C", "rel2", "D", CHUNK_ID_2);
-
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(List.of(raw1, raw2));
-
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
-
-            assertThat(result).hasSize(2);
-            assertThat(result.get(0).subject().name()).isEqualTo("A");
-            assertThat(result.get(1).subject().name()).isEqualTo("C");
-        }
-
-        @Test
-        @DisplayName("returns empty list when repository returns no results")
-        void expandKnowledge_repositoryReturnsEmpty_returnsEmptyList() {
-            Chunk chunk = chunkOf(CHUNK_ID_1);
-
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(Collections.emptyList());
-
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        @DisplayName("correctly parses chunkId UUID string from repository result")
-        void expandKnowledge_result_parsesChunkIdUuidFromString() {
-            Chunk chunk = chunkOf(CHUNK_ID_2);
-            GraphExpansionResult raw = resultOf("Einstein", "formulated", "Relativity", CHUNK_ID_2);
-
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(List.of(raw));
-
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
-
-            assertThat(result.get(0).chunkId()).isEqualTo(CHUNK_ID_2);
-        }
-    }
-
-    // ================================================================== anchor ID extraction tests
-
-    @Nested
-    @DisplayName("expandKnowledge — anchor ID extraction")
-    class AnchorIdExtractionTests {
-
-        @Test
-        @DisplayName("extracts UUID toString from each chunk correctly")
-        void expandKnowledge_extractsUuidAsStringFromChunks() {
+        @DisplayName("forwards anchor chunk UUIDs as strings to runPPRExpansion")
+        void anchorIds_passedAsStringRepresentations() {
             UUID id1 = UUID.randomUUID();
             UUID id2 = UUID.randomUUID();
-            Chunk c1 = chunkOf(id1);
-            Chunk c2 = chunkOf(id2);
+            stubSuccessfulExpansion(List.of(expansionRow(id1), expansionRow(id2)));
 
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(Collections.emptyList());
+            adapter.expandKnowledge(List.of(chunkWithId(id1), chunkWithId(id2)));
 
-            adapter.expandKnowledge(List.of(c1, c2));
+            ArgumentCaptor<List<String>> idsCaptor = ArgumentCaptor.forClass(List.class);
+            verify(passageNodeRepository).runPPRExpansion(
+                    anyString(), idsCaptor.capture(), anyInt(), anyDouble(), anyInt());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-
-            verify(passageNodeRepository).expandKnowledgeFromAnchors(
-                    captor.capture(), anyInt(), anyDouble(), anyInt()
-            );
-
-            assertThat(captor.getValue())
+            assertThat(idsCaptor.getValue())
                     .containsExactlyInAnyOrder(id1.toString(), id2.toString());
         }
 
         @Test
-        @DisplayName("single chunk produces list with exactly one anchor ID")
-        void expandKnowledge_singleChunk_producesOneAnchorId() {
-            Chunk chunk = chunkOf(CHUNK_ID_1);
+        @DisplayName("uses MAX_ITERATIONS=20, DAMPING_FACTOR=0.85, PASSAGE_LIMIT=10")
+        void pprConstants_matchExpectedValues() {
+            stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(Collections.emptyList());
+            adapter.expandKnowledge(List.of(chunk()));
 
-            adapter.expandKnowledge(List.of(chunk));
-
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<List<String>> captor = ArgumentCaptor.forClass(List.class);
-
-            verify(passageNodeRepository).expandKnowledgeFromAnchors(
-                    captor.capture(), anyInt(), anyDouble(), anyInt()
-            );
-
-            assertThat(captor.getValue()).hasSize(1);
-            assertThat(captor.getValue().get(0)).isEqualTo(CHUNK_ID_1.toString());
+            verify(passageNodeRepository).runPPRExpansion(
+                    anyString(), anyList(),
+                    eq(20),
+                    eq(0.85),
+                    eq(10));
         }
     }
 
-    // ================================================================== contract / interface tests
+    // ═════════════════════════════════════════════════════════════════════════
+    // expandKnowledge — result mapping
+    // ═════════════════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("KnowledgeGraphSearch contract")
-    class ContractTests {
+    @DisplayName("result mapping")
+    class ResultMapping {
 
         @Test
-        @DisplayName("adapter implements KnowledgeGraphSearch port")
-        void adapter_implementsKnowledgeGraphSearchPort() {
-            assertThat(adapter).isInstanceOf(KnowledgeGraphSearch.class);
+        @DisplayName("maps subject, predicate, object and chunkId to KnowledgeTriple correctly")
+        void singleRow_mappedToTripleCorrectly() {
+            UUID chunkId = UUID.randomUUID();
+            stubSuccessfulExpansion(List.of(
+                    expansionRow("Paris", "CAPITAL_OF", "France", chunkId.toString())));
+
+            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunkWithId(chunkId)));
+
+            assertThat(triples).hasSize(1);
+            KnowledgeTriple triple = triples.get(0);
+            assertThat(triple.subject().name()).isEqualTo("Paris");
+            assertThat(triple.predicate()).isEqualTo("CAPITAL_OF");
+            assertThat(triple.object().name()).isEqualTo("France");
+            assertThat(triple.chunkId()).isEqualTo(chunkId);
         }
 
         @Test
-        @DisplayName("returned list is unmodifiable (immutable)")
-        void expandKnowledge_returnsImmutableList() {
-            Chunk chunk = chunkOf(CHUNK_ID_1);
-            GraphExpansionResult raw = resultOf("X", "rel", "Y", CHUNK_ID_1);
+        @DisplayName("maps multiple rows preserving order returned by the repository")
+        void multipleRows_allMappedInOrder() {
+            UUID chunkId1 = UUID.randomUUID();
+            UUID chunkId2 = UUID.randomUUID();
+            stubSuccessfulExpansion(List.of(
+                    expansionRow("A", "rel1", "B", chunkId1.toString()),
+                    expansionRow("C", "rel2", "D", chunkId2.toString())));
 
-            when(passageNodeRepository.expandKnowledgeFromAnchors(anyList(), anyInt(), anyDouble(), anyInt()))
-                    .thenReturn(List.of(raw));
+            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunk()));
 
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk));
-
-            org.junit.jupiter.api.Assertions.assertThrows(
-                    UnsupportedOperationException.class,
-                    () -> result.add(mock(KnowledgeTriple.class))
-            );
+            assertThat(triples).hasSize(2);
+            assertThat(triples.get(0).chunkId()).isEqualTo(chunkId1);
+            assertThat(triples.get(1).chunkId()).isEqualTo(chunkId2);
         }
+
+        @Test
+        @DisplayName("returns empty list when PPR finds no seeds and repository returns empty")
+        void repositoryReturnsEmpty_resultIsEmpty() {
+            stubSuccessfulExpansion(List.of());
+
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // expandKnowledge — null chunkId filtering
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("null chunkId filtering")
+    class NullChunkIdFiltering {
+
+        @Test
+        @DisplayName("filters out rows with null chunkId and keeps the valid ones")
+        void mixedRows_nullChunkIdRowsDropped() {
+            UUID validId = UUID.randomUUID();
+            stubSuccessfulExpansion(List.of(
+                    expansionRow("X", "rel", "Y", null),
+                    expansionRow("A", "rel", "B", validId.toString())));
+
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+
+            assertThat(result)
+                    .hasSize(1)
+                    .first()
+                    .satisfies(t -> assertThat(t.chunkId()).isEqualTo(validId));
+        }
+
+        @Test
+        @DisplayName("returns empty list when all rows have null chunkId")
+        void allNullChunkIds_returnsEmpty() {
+            stubSuccessfulExpansion(List.of(
+                    expansionRow("X", "rel", "Y", null),
+                    expansionRow("A", "rel", "B", null)));
+
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // expandKnowledge — exception safety / GDS cleanup guarantee
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("GDS projection cleanup guarantee")
+    class CleanupGuarantee {
+
+        @Test
+        @DisplayName("drops the graph even when PPR throws, and re-throws the original exception")
+        void pprThrows_graphDroppedAndExceptionPropagated() {
+            RuntimeException pprFailure = new RuntimeException("GDS stream failure");
+            when(passageNodeRepository.projectPhraseGraph(anyString())).thenReturn("hipporag-x");
+            when(passageNodeRepository.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
+                    .thenThrow(pprFailure);
+
+            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
+                    .isSameAs(pprFailure);
+
+            verify(passageNodeRepository).dropProjectedGraph(anyString());
+        }
+
+        @Test
+        @DisplayName("drops the graph even when projection itself throws, and re-throws the original exception")
+        void projectThrows_dropCalledAndExceptionPropagated() {
+            RuntimeException projectionFailure = new RuntimeException("GDS projection failure");
+            when(passageNodeRepository.projectPhraseGraph(anyString())).thenThrow(projectionFailure);
+
+            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
+                    .isSameAs(projectionFailure);
+
+            verify(passageNodeRepository).dropProjectedGraph(anyString());
+        }
+
+        @Test
+        @DisplayName("does not mask a successful result when the drop fails in finally")
+        void dropFailsInFinally_successfulResultStillReturned() {
+            UUID chunkId = UUID.randomUUID();
+            stubSuccessfulExpansion(List.of(expansionRow("S", "p", "O", chunkId.toString())));
+            doThrow(new RuntimeException("drop failed"))
+                    .when(passageNodeRepository).dropProjectedGraph(anyString());
+
+            assertThatCode(() -> {
+                List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+                assertThat(result).hasSize(1);
+            }).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("propagates the PPR exception when both PPR and drop fail")
+        void pprAndDropBothFail_originalPPRExceptionPropagated() {
+            RuntimeException pprFailure  = new RuntimeException("PPR failure");
+            RuntimeException dropFailure = new RuntimeException("drop failure");
+
+            when(passageNodeRepository.projectPhraseGraph(anyString())).thenReturn("hipporag-x");
+            when(passageNodeRepository.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
+                    .thenThrow(pprFailure);
+            doThrow(dropFailure).when(passageNodeRepository).dropProjectedGraph(anyString());
+
+            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
+                    .isSameAs(pprFailure)
+                    .isNotSameAs(dropFailure);
+        }
+
+        @Test
+        @DisplayName("always drops the graph even when the result list is empty")
+        void emptyResult_graphStillDropped() {
+            stubSuccessfulExpansion(List.of());
+
+            adapter.expandKnowledge(List.of(chunk()));
+
+            verify(passageNodeRepository).dropProjectedGraph(anyString());
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // cleanupOrphanProjections
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("cleanupOrphanProjections")
+    class CleanupOrphanProjections {
+
+        @Test
+        @DisplayName("delegates to dropOrphanProjections and completes without exception when projections were removed")
+        void orphansFound_completesNormally() {
+            when(passageNodeRepository.dropOrphanProjections())
+                    .thenReturn(List.of("hipporag-abc", "hipporag-xyz"));
+
+            assertThatCode(() -> adapter.cleanupOrphanProjections()).doesNotThrowAnyException();
+            verify(passageNodeRepository).dropOrphanProjections();
+        }
+
+        @Test
+        @DisplayName("completes without exception when no orphan projections exist")
+        void noOrphans_completesNormally() {
+            when(passageNodeRepository.dropOrphanProjections()).thenReturn(List.of());
+
+            assertThatCode(() -> adapter.cleanupOrphanProjections()).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("swallows repository exceptions to protect the scheduler thread")
+        void repositoryThrows_exceptionSwallowed() {
+            when(passageNodeRepository.dropOrphanProjections())
+                    .thenThrow(new RuntimeException("Neo4j unavailable"));
+
+            assertThatCode(() -> adapter.cleanupOrphanProjections()).doesNotThrowAnyException();
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Helpers
+    // ═════════════════════════════════════════════════════════════════════════
+
+    private Chunk chunk() {
+        return chunkWithId(UUID.randomUUID());
+    }
+
+    private Chunk chunkWithId(UUID id) {
+        Chunk chunk = mock(Chunk.class);
+        when(chunk.getId()).thenReturn(id);
+        return chunk;
+    }
+
+    private void stubSuccessfulExpansion(List<GraphExpansionResult> rows) {
+        when(passageNodeRepository.projectPhraseGraph(anyString())).thenReturn("hipporag-stub");
+        when(passageNodeRepository.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
+                .thenReturn(rows);
+    }
+
+    /**
+     * Creates a mock {@link GraphExpansionResult} with default subject/predicate/object
+     * and the given chunkId — for tests that only care about the chunkId value.
+     */
+    private GraphExpansionResult expansionRow(UUID chunkId) {
+        return expansionRow("Subject", "predicate", "Object",
+                chunkId != null ? chunkId.toString() : null);
+    }
+
+    /**
+     * Creates a mock {@link GraphExpansionResult} with null chunkId.
+     * Used to test the null-chunkId filtering path.
+     */
+    private GraphExpansionResult expansionRow(String subject, String predicate,
+                                              String object, String chunkId) {
+        GraphExpansionResult row = mock(GraphExpansionResult.class);
+        when(row.subject()).thenReturn(subject);
+        when(row.predicate()).thenReturn(predicate);
+        when(row.object()).thenReturn(object);
+        when(row.chunkId()).thenReturn(chunkId);
+        return row;
     }
 }
