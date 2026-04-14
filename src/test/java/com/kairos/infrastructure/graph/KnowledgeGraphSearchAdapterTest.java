@@ -2,7 +2,6 @@ package com.kairos.infrastructure.graph;
 
 import com.kairos.domain.model.Chunk;
 import com.kairos.domain.model.KnowledgeTriple;
-import com.kairos.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
 import com.kairos.infrastructure.persistence.repository.graph.projection.GraphExpansionResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,7 +24,7 @@ import static org.mockito.Mockito.*;
 class KnowledgeGraphSearchAdapterTest {
 
     @Mock
-    private Neo4jPassageNodeRepository passageNodeRepository;
+    private KnowledgeGraphGdsExecutor gdsExecutor;
 
     @InjectMocks
     private KnowledgeGraphSearchAdapter adapter;
@@ -44,7 +43,7 @@ class KnowledgeGraphSearchAdapterTest {
             List<KnowledgeTriple> result = adapter.expandKnowledge(null);
 
             assertThat(result).isEmpty();
-            verifyNoInteractions(passageNodeRepository);
+            verifyNoInteractions(gdsExecutor);
         }
 
         @Test
@@ -53,7 +52,7 @@ class KnowledgeGraphSearchAdapterTest {
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of());
 
             assertThat(result).isEmpty();
-            verifyNoInteractions(passageNodeRepository);
+            verifyNoInteractions(gdsExecutor);
         }
     }
 
@@ -73,7 +72,7 @@ class KnowledgeGraphSearchAdapterTest {
             adapter.expandKnowledge(List.of(chunk()));
 
             ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-            verify(passageNodeRepository).projectPhraseGraph(captor.capture());
+            verify(gdsExecutor).projectPhraseGraph(captor.capture());
 
             String graphName = captor.getValue();
             assertThat(graphName).startsWith("hipporag-");
@@ -93,9 +92,9 @@ class KnowledgeGraphSearchAdapterTest {
             ArgumentCaptor<String> pprCaptor     = ArgumentCaptor.forClass(String.class);
             ArgumentCaptor<String> dropCaptor    = ArgumentCaptor.forClass(String.class);
 
-            verify(passageNodeRepository).projectPhraseGraph(projectCaptor.capture());
-            verify(passageNodeRepository).runPPRExpansion(pprCaptor.capture(), any(), anyInt(), anyDouble(), anyInt());
-            verify(passageNodeRepository).dropProjectedGraph(dropCaptor.capture());
+            verify(gdsExecutor).projectPhraseGraph(projectCaptor.capture());
+            verify(gdsExecutor).runPPRExpansion(pprCaptor.capture(), any(), anyInt(), anyDouble(), anyInt());
+            verify(gdsExecutor).dropProjectedGraph(dropCaptor.capture());
 
             assertThat(projectCaptor.getValue())
                     .isEqualTo(pprCaptor.getValue())
@@ -111,7 +110,7 @@ class KnowledgeGraphSearchAdapterTest {
             adapter.expandKnowledge(List.of(chunk()));
 
             ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-            verify(passageNodeRepository, times(2)).projectPhraseGraph(captor.capture());
+            verify(gdsExecutor, times(2)).projectPhraseGraph(captor.capture());
 
             List<String> names = captor.getAllValues();
             assertThat(names.get(0)).isNotEqualTo(names.get(1));
@@ -136,7 +135,7 @@ class KnowledgeGraphSearchAdapterTest {
             adapter.expandKnowledge(List.of(chunkWithId(id1), chunkWithId(id2)));
 
             ArgumentCaptor<List<String>> idsCaptor = ArgumentCaptor.forClass(List.class);
-            verify(passageNodeRepository).runPPRExpansion(
+            verify(gdsExecutor).runPPRExpansion(
                     anyString(), idsCaptor.capture(), anyInt(), anyDouble(), anyInt());
 
             assertThat(idsCaptor.getValue())
@@ -150,7 +149,7 @@ class KnowledgeGraphSearchAdapterTest {
 
             adapter.expandKnowledge(List.of(chunk()));
 
-            verify(passageNodeRepository).runPPRExpansion(
+            verify(gdsExecutor).runPPRExpansion(
                     anyString(), anyList(),
                     eq(20),
                     eq(0.85),
@@ -259,26 +258,26 @@ class KnowledgeGraphSearchAdapterTest {
         @DisplayName("drops the graph even when PPR throws, and re-throws the original exception")
         void pprThrows_graphDroppedAndExceptionPropagated() {
             RuntimeException pprFailure = new RuntimeException("GDS stream failure");
-            when(passageNodeRepository.projectPhraseGraph(anyString())).thenReturn("hipporag-x");
-            when(passageNodeRepository.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
+            doNothing().when(gdsExecutor).projectPhraseGraph(anyString());
+            when(gdsExecutor.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenThrow(pprFailure);
 
             assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
                     .isSameAs(pprFailure);
 
-            verify(passageNodeRepository).dropProjectedGraph(anyString());
+            verify(gdsExecutor).dropProjectedGraph(anyString());
         }
 
         @Test
         @DisplayName("drops the graph even when projection itself throws, and re-throws the original exception")
         void projectThrows_dropCalledAndExceptionPropagated() {
             RuntimeException projectionFailure = new RuntimeException("GDS projection failure");
-            when(passageNodeRepository.projectPhraseGraph(anyString())).thenThrow(projectionFailure);
+            doThrow(projectionFailure).when(gdsExecutor).projectPhraseGraph(anyString());
 
             assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
                     .isSameAs(projectionFailure);
 
-            verify(passageNodeRepository).dropProjectedGraph(anyString());
+            verify(gdsExecutor).dropProjectedGraph(anyString());
         }
 
         @Test
@@ -287,7 +286,7 @@ class KnowledgeGraphSearchAdapterTest {
             UUID chunkId = UUID.randomUUID();
             stubSuccessfulExpansion(List.of(expansionRow("S", "p", "O", chunkId.toString())));
             doThrow(new RuntimeException("drop failed"))
-                    .when(passageNodeRepository).dropProjectedGraph(anyString());
+                    .when(gdsExecutor).dropProjectedGraph(anyString());
 
             assertThatCode(() -> {
                 List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
@@ -301,10 +300,10 @@ class KnowledgeGraphSearchAdapterTest {
             RuntimeException pprFailure  = new RuntimeException("PPR failure");
             RuntimeException dropFailure = new RuntimeException("drop failure");
 
-            when(passageNodeRepository.projectPhraseGraph(anyString())).thenReturn("hipporag-x");
-            when(passageNodeRepository.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
+            doNothing().when(gdsExecutor).projectPhraseGraph(anyString());
+            when(gdsExecutor.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenThrow(pprFailure);
-            doThrow(dropFailure).when(passageNodeRepository).dropProjectedGraph(anyString());
+            doThrow(dropFailure).when(gdsExecutor).dropProjectedGraph(anyString());
 
             assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
                     .isSameAs(pprFailure)
@@ -318,7 +317,7 @@ class KnowledgeGraphSearchAdapterTest {
 
             adapter.expandKnowledge(List.of(chunk()));
 
-            verify(passageNodeRepository).dropProjectedGraph(anyString());
+            verify(gdsExecutor).dropProjectedGraph(anyString());
         }
     }
 
@@ -333,17 +332,17 @@ class KnowledgeGraphSearchAdapterTest {
         @Test
         @DisplayName("delegates to dropOrphanProjections and completes without exception when projections were removed")
         void orphansFound_completesNormally() {
-            when(passageNodeRepository.dropOrphanProjections())
+            when(gdsExecutor.dropOrphanProjections())
                     .thenReturn(List.of("hipporag-abc", "hipporag-xyz"));
 
             assertThatCode(() -> adapter.cleanupOrphanProjections()).doesNotThrowAnyException();
-            verify(passageNodeRepository).dropOrphanProjections();
+            verify(gdsExecutor).dropOrphanProjections();
         }
 
         @Test
         @DisplayName("completes without exception when no orphan projections exist")
         void noOrphans_completesNormally() {
-            when(passageNodeRepository.dropOrphanProjections()).thenReturn(List.of());
+            when(gdsExecutor.dropOrphanProjections()).thenReturn(List.of());
 
             assertThatCode(() -> adapter.cleanupOrphanProjections()).doesNotThrowAnyException();
         }
@@ -351,7 +350,7 @@ class KnowledgeGraphSearchAdapterTest {
         @Test
         @DisplayName("swallows repository exceptions to protect the scheduler thread")
         void repositoryThrows_exceptionSwallowed() {
-            when(passageNodeRepository.dropOrphanProjections())
+            when(gdsExecutor.dropOrphanProjections())
                     .thenThrow(new RuntimeException("Neo4j unavailable"));
 
             assertThatCode(() -> adapter.cleanupOrphanProjections()).doesNotThrowAnyException();
@@ -373,8 +372,7 @@ class KnowledgeGraphSearchAdapterTest {
     }
 
     private void stubSuccessfulExpansion(List<GraphExpansionResult> rows) {
-        when(passageNodeRepository.projectPhraseGraph(anyString())).thenReturn("hipporag-stub");
-        when(passageNodeRepository.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
+        when(gdsExecutor.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
                 .thenReturn(rows);
     }
 

@@ -6,6 +6,7 @@ import com.kairos.infrastructure.persistence.entity.relation.ChunkEntity;
 import com.kairos.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +31,7 @@ public class SemanticSearchAdapter implements SemanticSearchPort {
      * @return A list of the top-k most semantically similar {@link Chunk}s.
      */
     @Override
+    @Transactional(readOnly = true)
     public List<Chunk> findTopK(float[] queryVector, int k) {
         List<ChunkEntity> chunks = jpaChunkRepository.findTopKByEmbedding(queryVector, k);
         return chunks.stream()
@@ -50,6 +52,7 @@ public class SemanticSearchAdapter implements SemanticSearchPort {
      * The order of the returned list is not guaranteed to match the input list.
      */
     @Override
+    @Transactional(readOnly = true)
     public List<Chunk> findChunks(List<UUID> chunkIds) {
         if (chunkIds == null || chunkIds.isEmpty()) {
             return List.of();

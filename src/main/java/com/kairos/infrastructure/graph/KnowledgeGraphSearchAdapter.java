@@ -3,7 +3,6 @@ package com.kairos.infrastructure.graph;
 import com.kairos.domain.graph.KnowledgeGraphSearch;
 import com.kairos.domain.model.Chunk;
 import com.kairos.domain.model.KnowledgeTriple;
-import com.kairos.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,7 +15,7 @@ import java.util.UUID;
  * Neo4j adapter for HippoRAG 2 graph-augmented retrieval.
  *
  * <p>Implements {@link KnowledgeGraphSearch} by orchestrating three GDS lifecycle
- * operations against {@link Neo4jPassageNodeRepository}:
+ * operations against {@link KnowledgeGraphGdsExecutor}:
  * <ol>
  *   <li>{@code projectPhraseGraph} — creates a named in-memory GDS projection.</li>
  *   <li>{@code runPPRExpansion} — executes Personalized PageRank seeded from the
@@ -43,7 +42,7 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
 
     private static final String GRAPH_NAME_PREFIX = "hipporag-";
 
-    private final Neo4jPassageNodeRepository passageNodeRepository;
+    private final KnowledgeGraphGdsExecutor gdsExecutor;
 
     /**
      * Expands knowledge from a set of semantic anchor chunks using PPR on the
@@ -79,9 +78,9 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
         String graphName = GRAPH_NAME_PREFIX + UUID.randomUUID();
 
         try {
-            passageNodeRepository.projectPhraseGraph(graphName);
+            gdsExecutor.projectPhraseGraph(graphName);
 
-            var results = passageNodeRepository.runPPRExpansion(
+            var results = gdsExecutor.runPPRExpansion(
                     graphName,
                     anchorIds,
                     MAX_ITERATIONS,
@@ -133,7 +132,7 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
     @Scheduled(fixedRateString = "${kairos.graph.orphan-cleanup-interval-ms:600000}")
     public void cleanupOrphanProjections() {
         try {
-            List<String> removed = passageNodeRepository.dropOrphanProjections();
+            List<String> removed = gdsExecutor.dropOrphanProjections();
             if (!removed.isEmpty()) {
                 log.warn("Orphan GDS cleanup: removed {} projection(s): {}", removed.size(), removed);
             }
@@ -150,7 +149,7 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
      */
     private void dropSafely(String graphName) {
         try {
-            passageNodeRepository.dropProjectedGraph(graphName);
+            gdsExecutor.dropProjectedGraph(graphName);
             log.debug("GDS projection '{}' dropped successfully.", graphName);
         } catch (Exception e) {
             log.warn("Failed to drop GDS projection '{}'. " +
