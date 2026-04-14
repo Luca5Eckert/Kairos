@@ -18,7 +18,8 @@ public record GeminiRequest(
                 )),
                 new GenerationConfig(
                         properties.temperature(),
-                        properties.maxOutputTokens()
+                        properties.maxOutputTokens(),
+                        "application/json"
                 )
         );
     }
@@ -29,6 +30,7 @@ public record GeminiRequest(
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GenerationConfig(
             Double temperature,
-            Integer maxOutputTokens
+            Integer maxOutputTokens,
+            String responseMimeType
     ) {}
 }

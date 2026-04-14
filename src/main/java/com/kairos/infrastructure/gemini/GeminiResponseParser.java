@@ -11,10 +11,17 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
 public class GeminiResponseParser {
+
+    private static final Pattern COMPLETE_TRIPLE_PATTERN = Pattern.compile(
+            "\\{\\s*\"subject\"\\s*:\\s*\"(?<subject>(?:\\\\.|[^\"\\\\])*)\"\\s*,\\s*\"predicate\"\\s*:\\s*\"(?<predicate>(?:\\\\.|[^\"\\\\])*)\"\\s*,\\s*\"object\"\\s*:\\s*\"(?<object>(?:\\\\.|[^\"\\\\])*)\"\\s*\\}",
+            Pattern.DOTALL
+    );
 
     private final ObjectMapper objectMapper;
 
@@ -29,14 +36,20 @@ public class GeminiResponseParser {
 
         try {
             String raw = sanitize(Objects.requireNonNull(response.text()));
-            JsonNode root = objectMapper.readTree(raw);
+            JsonNode root = tryReadTree(raw);
 
-            if (root.isArray()) {
+            if (root != null && root.isArray()) {
                 return parseArray(root);
             }
 
-            if (root.isObject() && root.has("triples") && root.get("triples").isArray()) {
+            if (root != null && root.isObject() && root.has("triples") && root.get("triples").isArray()) {
                 return parseArray(root.get("triples"));
+            }
+
+            List<Triple> salvagedTriples = salvageTriples(raw);
+            if (!salvagedTriples.isEmpty()) {
+                log.warn("Gemini response was not valid JSON, but {} complete triples were recovered.", salvagedTriples.size());
+                return salvagedTriples;
             }
 
             log.warn("Gemini response does not contain a valid triples JSON array. Response: {}", raw);
@@ -87,6 +100,77 @@ public class GeminiResponseParser {
         }
 
         return trimmed;
+    }
+
+    private JsonNode tryReadTree(String raw) {
+        try {
+            return objectMapper.readTree(raw);
+        } catch (Exception ignored) {
+            String extracted = extractLikelyJson(raw);
+            if (extracted == null || extracted.equals(raw)) {
+                return null;
+            }
+
+            try {
+                return objectMapper.readTree(extracted);
+            } catch (Exception nestedException) {
+                return null;
+            }
+        }
+    }
+
+    private String extractLikelyJson(String raw) {
+        int objectStart = raw.indexOf('{');
+        int arrayStart = raw.indexOf('[');
+
+        int start;
+        if (objectStart == -1) {
+            start = arrayStart;
+        } else if (arrayStart == -1) {
+            start = objectStart;
+        } else {
+            start = Math.min(objectStart, arrayStart);
+        }
+
+        if (start < 0) {
+            return null;
+        }
+
+        int objectEnd = raw.lastIndexOf('}');
+        int arrayEnd = raw.lastIndexOf(']');
+        int end = Math.max(objectEnd, arrayEnd);
+
+        if (end <= start) {
+            return raw.substring(start);
+        }
+
+        return raw.substring(start, end + 1);
+    }
+
+    private List<Triple> salvageTriples(String raw) {
+        Matcher matcher = COMPLETE_TRIPLE_PATTERN.matcher(raw);
+        List<Triple> triples = new ArrayList<>();
+
+        while (matcher.find()) {
+            String subject = unescapeJson(matcher.group("subject"));
+            String predicate = unescapeJson(matcher.group("predicate"));
+            String object = unescapeJson(matcher.group("object"));
+
+            if (!subject.isBlank() && !predicate.isBlank() && !object.isBlank()) {
+                triples.add(new Triple(subject, predicate, object));
+            }
+        }
+
+        return triples;
+    }
+
+    private String unescapeJson(String value) {
+        return value
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace("\\r", "\r");
     }
 
 }

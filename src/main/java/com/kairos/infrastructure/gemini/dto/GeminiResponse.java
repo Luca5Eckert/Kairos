@@ -1,6 +1,7 @@
 package com.kairos.infrastructure.gemini.dto;
 
 import java.util.List;
+import java.util.Objects;
 
 public record GeminiResponse(
         List<Candidate> candidates
@@ -15,7 +16,12 @@ public record GeminiResponse(
             return null;
         }
 
-        return candidate.content().parts().getFirst().text();
+        return candidate.content().parts().stream()
+                .map(Part::text)
+                .filter(Objects::nonNull)
+                .filter(text -> !text.isBlank())
+                .reduce((left, right) -> left + "\n" + right)
+                .orElse(null);
     }
 
     public record Candidate(Content content) {}
