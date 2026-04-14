@@ -5,6 +5,9 @@ target/
 !**/src/test/**/target/
 .env
 src/main/resources/model/*.onnx
+./.m2
+
+
 ### STS ###
 .apt_generated
 .classpath

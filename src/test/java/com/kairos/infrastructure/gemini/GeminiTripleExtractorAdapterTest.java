@@ -162,7 +162,8 @@ class GeminiTripleExtractorAdapterTest {
                 .contains("subject")
                 .contains("predicate")
                 .contains("object")
-                .contains("OpenIE");
+                .contains("OpenIE")
+                .contains("Finish the response immediately after the closing JSON brace");
     }
 
 

@@ -214,6 +214,40 @@ class GeminiResponseParserTest {
         assertThat(parser.parseResponse(responseWithText(json))).isEmpty();
     }
 
+    @Test
+    void parseResponse_salvagesCompleteTriples_whenJsonIsTruncated() {
+        String truncated = """
+                {
+                  "triples": [
+                    { "subject": "modern language models", "predicate": "UTILIZE", "object": "neural networks" },
+                    { "subject": "neural networks", "predicate": "ENCODE", "object": "texts" },
+                    { "subject"
+                """;
+
+        List<Triple> result = parser.parseResponse(responseWithText(truncated));
+
+        assertThat(result).containsExactly(
+                new Triple("modern language models", "UTILIZE", "neural networks"),
+                new Triple("neural networks", "ENCODE", "texts")
+        );
+    }
+
+    @Test
+    void parseResponse_extractsJsonPayload_whenResponseContainsPreambleText() {
+        String text = """
+                Here is the JSON:
+                {
+                  "triples": [
+                    { "subject": "spring boot", "predicate": "USES", "object": "embedded tomcat" }
+                  ]
+                }
+                """;
+
+        List<Triple> result = parser.parseResponse(responseWithText(text));
+
+        assertThat(result).containsExactly(new Triple("spring boot", "USES", "embedded tomcat"));
+    }
+
     // --- Fixture ---
 
     private static GeminiResponse responseWithText(String text) {

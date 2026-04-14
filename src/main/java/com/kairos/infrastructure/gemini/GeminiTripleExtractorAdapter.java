@@ -66,6 +66,8 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
         Do not return markdown.
         Do not wrap the JSON in code fences.
         Do not add explanations, comments, notes, or preamble text.
+        Finish the response immediately after the closing JSON brace.
+        Never leave the JSON incomplete or truncated.
 
         The JSON response MUST follow this exact schema:
         {

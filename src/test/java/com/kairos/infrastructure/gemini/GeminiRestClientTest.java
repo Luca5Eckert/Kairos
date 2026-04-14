@@ -101,6 +101,15 @@ class GeminiRestClientTest {
         geminiRestClient.call(prompt);
     }
 
+    @Test
+    void call_bodyRequestsJsonMimeType() throws Exception {
+        server.expect(requestTo(EXPECTED_URL))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"responseMimeType\":\"application/json\"")))
+                .andRespond(withSuccess(emptyResponse(), MediaType.APPLICATION_JSON));
+
+        geminiRestClient.call("prompt");
+    }
+
 
 
     @Test

@@ -13,6 +13,11 @@ import java.util.UUID;
 @Repository
 public interface Neo4jPassageNodeRepository extends Neo4jRepository<PassageNode, UUID> {
 
+    @Query("""
+            MERGE (:Passage {chunkId: $chunkId})
+            """)
+    void mergePassageNode(@Param("chunkId") UUID chunkId);
+
     /**
      * Idempotently creates a CONTAINS relationship between a PassageNode and an existing PhraseNode.
      * Uses MATCH on PhraseNode to avoid creating orphan nodes if the concept does not yet exist.

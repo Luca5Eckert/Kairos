@@ -2,9 +2,6 @@ package com.kairos.infrastructure.graph;
 
 import com.kairos.domain.model.KnowledgeTriple;
 import com.kairos.domain.graph.KnowledgeGraphStore;
-import com.kairos.infrastructure.persistence.entity.graph.PassageNode;
-import com.kairos.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
-import com.kairos.infrastructure.persistence.repository.graph.Neo4jPhraseNodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,8 +16,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
-    private final Neo4jPhraseNodeRepository phraseRepository;
-    private final Neo4jPassageNodeRepository passageRepository;
+    private final KnowledgeGraphMutationExecutor mutationExecutor;
 
     @Override
     @Transactional
@@ -40,9 +36,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
                 continue;
             }
 
-            if (ensuredChunks.add(chunkId)) {
-                ensurePassageNode(chunkId);
-            }
+            ensuredChunks.add(chunkId);
 
             mergeTriple(triple, chunkId);
         }
@@ -63,27 +57,12 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
             return;
         }
 
-        ensurePassageNode(chunkId);
         triples.forEach(triple -> mergeTriple(triple, chunkId));
 
         log.info("Successfully processed {} triples for chunk {}.", triples.size(), chunkId);
     }
 
     private void mergeTriple(KnowledgeTriple triple, UUID chunkId) {
-        phraseRepository.mergeTriple(triple.subject().name(), triple.object().name(), triple.predicate(), chunkId);
-        passageRepository.mergeConceptLink(chunkId, triple.subject().name());
-        passageRepository.mergeConceptLink(chunkId, triple.object().name());
-    }
-
-    private void ensurePassageNode(UUID chunkId) {
-        if (chunkId == null) {
-            log.error("Defensive check failed: chunkId is null in ensurePassageNode.");
-            return;
-        }
-
-        if (!passageRepository.existsById(chunkId)) {
-            log.debug("Creating new PassageNode for chunk: {}", chunkId);
-            passageRepository.save(PassageNode.forChunk(chunkId));
-        }
+        mutationExecutor.mergeTriple(triple.subject().name(), triple.object().name(), triple.predicate(), chunkId);
     }
 }
