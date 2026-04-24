@@ -43,7 +43,7 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
 
         var parseResponse = parser.parseResponse(response);
 
-        log.info("Parse response: " + parseResponse.toString());
+        log.info("Parse response: {}", parseResponse.toString());
 
         return parseResponse;
     }

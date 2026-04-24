@@ -128,7 +128,7 @@ class SearchSourceUseCaseTest {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
             when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(anchors);
             when(knowledgeGraphSearch.expandKnowledge(anchors)).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of(anchors.get(0)));
+            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of(anchors.getFirst()));
 
             useCase.execute(query);
 
@@ -351,7 +351,7 @@ class SearchSourceUseCaseTest {
 
             assertThat(result.knowledgeTriples()).hasSize(1);
             assertThat(result.chunks()).hasSize(1);
-            assertThat(result.chunks().get(0).getId()).isEqualTo(id);
+            assertThat(result.chunks().getFirst().getId()).isEqualTo(id);
         }
     }
 
