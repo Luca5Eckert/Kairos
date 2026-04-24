@@ -8,7 +8,6 @@ import com.kairos.context_engine.domain.model.Source;
 import com.kairos.context_engine.domain.model.Triple;
 import com.kairos.context_engine.domain.semantic.ChunkerExtractor;
 import com.kairos.context_engine.domain.graph.TripleExtractor;
-import com.kairos.domain.model.*;
 import com.kairos.context_engine.domain.port.ChunkRepository;
 import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
 import com.kairos.context_engine.domain.port.SourceRepository;
