@@ -271,7 +271,6 @@ class OnnxEmbeddingProviderTest {
 
             when(tensorFactory.createLongTensor(any(), any())).thenReturn(dummyTensor);
             when(session.run(any())).thenAnswer(inv -> {
-                @SuppressWarnings("unchecked")
                 Map<String, OnnxTensor> inputs = inv.getArgument(0);
                 assertThat(inputs).doesNotContainKey("token_type_ids");
                 return result;
@@ -295,7 +294,6 @@ class OnnxEmbeddingProviderTest {
 
             when(tensorFactory.createLongTensor(any(), any())).thenReturn(dummyTensor);
             when(session.run(any())).thenAnswer(inv -> {
-                @SuppressWarnings("unchecked")
                 Map<String, OnnxTensor> inputs = inv.getArgument(0);
                 assertThat(inputs).containsKey("token_type_ids");
                 return result;
@@ -525,7 +523,6 @@ class OnnxEmbeddingProviderTest {
 
             when(tensorFactory.createLongTensor(any(), any())).thenReturn(dummy);
             when(session.run(any())).thenAnswer(inv -> {
-                @SuppressWarnings("unchecked")
                 Map<String, OnnxTensor> inputs = inv.getArgument(0);
                 // model expects token_type_ids — provider must have synthesized them
                 assertThat(inputs).containsKey("token_type_ids");

@@ -173,12 +173,12 @@ Search executes graph-augmented retrieval in a single synchronous flow:
 
 Current implementation constants:
 
-| Parameter | Value |
-|---|---|
-| Anchor count | 10 |
-| PPR max iterations | 20 |
-| PPR damping factor | 0.85 |
-| Passage expansion limit | 10 |
+| Parameter               | Value |
+|-------------------------|-------|
+| Anchor count            | 10    |
+| PPR max iterations      | 20    |
+| PPR damping factor      | 0.85  |
+| Passage expansion limit | 10    |
 
 ---
 
@@ -186,21 +186,21 @@ Current implementation constants:
 
 ### PostgreSQL + pgvector
 
-| Table | Columns |
-|---|---|
-| `sources` | `id`, `title`, `content`, `status` |
-| `chunks` | `id`, `source_id`, `content`, `chunk_index`, `embedding vector(384)` |
+| Table     | Columns                                                              |
+|-----------|----------------------------------------------------------------------|
+| `sources` | `id`, `title`, `content`, `status`                                   |
+| `chunks`  | `id`, `source_id`, `content`, `chunk_index`, `embedding vector(384)` |
 
 An HNSW index is created on `chunks.embedding` using the cosine operator class for approximate nearest-neighbor search.
 
 ### Neo4j
 
-| Element | Description |
-|---|---|
-| `PhraseNode` | Concept nodes extracted from content |
-| `Passage` | Chunk references, keyed by `chunkId` (UUID) |
-| `TRIPLE` | Relationships between phrase nodes, carrying `predicate` and `chunk_id` |
-| `CONTAINS` | Edges from `Passage` nodes to their associated `PhraseNode` concepts |
+| Element      | Description                                                             |
+|--------------|-------------------------------------------------------------------------|
+| `PhraseNode` | Concept nodes extracted from content                                    |
+| `Passage`    | Chunk references, keyed by `chunkId` (UUID)                             |
+| `TRIPLE`     | Relationships between phrase nodes, carrying `predicate` and `chunk_id` |
+| `CONTAINS`   | Edges from `Passage` nodes to their associated `PhraseNode` concepts    |
 
 This schema supports semantic lookup in PostgreSQL and contextual expansion in Neo4j without cross-database joins. The `chunkId` UUID is the bridge between both stores.
 
@@ -225,16 +225,16 @@ Executes hybrid retrieval against the knowledge base. Returns a `SearchResult` c
 
 ## Technology Stack
 
-| Concern | Implementation |
-|---|---|
-| Language / runtime | Java 21 · Virtual Threads |
-| Application framework | Spring Boot 4.0.5 · WebFlux |
-| Embedding model | ONNX Runtime 1.20.0 · all-MiniLM-L6-v2 (384 dimensions) |
-| Tokenizer | DJL HuggingFace Tokenizers |
-| Vector store | PostgreSQL 16 · pgvector · HNSW index |
-| Graph store | Neo4j 5.19 · GDS (Personalized PageRank) |
-| Triple extraction | Gemini Flash — isolated behind a port; swappable |
-| Infrastructure | Docker Compose |
+| Concern               | Implementation                                          |
+|-----------------------|---------------------------------------------------------|
+| Language / runtime    | Java 21 · Virtual Threads                               |
+| Application framework | Spring Boot 4.0.5 · WebFlux                             |
+| Embedding model       | ONNX Runtime 1.20.0 · all-MiniLM-L6-v2 (384 dimensions) |
+| Tokenizer             | DJL HuggingFace Tokenizers                              |
+| Vector store          | PostgreSQL 16 · pgvector · HNSW index                   |
+| Graph store           | Neo4j 5.19 · GDS (Personalized PageRank)                |
+| Triple extraction     | Gemini Flash — isolated behind a port; swappable        |
+| Infrastructure        | Docker Compose                                          |
 
 No ML framework wrappers. The embedding pipeline runs directly on the JVM via ONNX Runtime — the model is a file, not a service.
 
@@ -255,13 +255,13 @@ cp .env.example .env
 
 Edit `.env` and set the required variables:
 
-| Variable | Description |
-|---|---|
-| `POSTGRES_PASSWORD` | Password for the PostgreSQL instance |
-| `NEO4J_PASSWORD` | Password for the Neo4j instance |
-| `GEMINI_API_KEY` | Gemini API key for triple extraction ([get one free](https://aistudio.google.com/)) |
-| `POSTGRES_DB` | Database name (default: `kairos`) |
-| `NEO4J_URI` | Neo4j bolt URI (default: `bolt://localhost:7687`) |
+| Variable            | Description                                                                         |
+|---------------------|-------------------------------------------------------------------------------------|
+| `POSTGRES_PASSWORD` | Password for the PostgreSQL instance                                                |
+| `NEO4J_PASSWORD`    | Password for the Neo4j instance                                                     |
+| `GEMINI_API_KEY`    | Gemini API key for triple extraction ([get one free](https://aistudio.google.com/)) |
+| `POSTGRES_DB`       | Database name (default: `kairos`)                                                   |
+| `NEO4J_URI`         | Neo4j bolt URI (default: `bolt://localhost:7687`)                                   |
 
 ### 2. Start the stack
 
@@ -283,14 +283,14 @@ Navigate to `http://localhost:8080/swagger-ui.html` for interactive API document
 
 ## Roadmap
 
-| Area | Goal |
-|---|---|
-| Retrieval fusion | RRF fusion between dense candidates and graph-expanded candidates (HippoRAG 2 full pipeline) |
+| Area                | Goal                                                                                                                                                               |
+|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Retrieval fusion    | RRF fusion between dense candidates and graph-expanded candidates (HippoRAG 2 full pipeline)                                                                       |
 | Structural learning | Edge weight reinforcement via co-activation and co-definition — concepts that consistently appear together accumulate stronger graph edges over time (see ADR-004) |
-| Graph quality | Synonym consolidation via embedding similarity — automatically linking `backprop` to `backpropagation` without manual normalization |
-| Explainability | Expose retrieval traces: which anchors were selected, how PPR scored them, what determined final ordering |
-| Frontend | Graph View (D3.js force-directed), Source View, Semantic Search UI |
-| Operations | Observability, controlled reindex, and backfill workflows |
+| Graph quality       | Synonym consolidation via embedding similarity — automatically linking `backprop` to `backpropagation` without manual normalization                                |
+| Explainability      | Expose retrieval traces: which anchors were selected, how PPR scored them, what determined final ordering                                                          |
+| Frontend            | Graph View (D3.js force-directed), Source View, Semantic Search UI                                                                                                 |
+| Operations          | Observability, controlled reindex, and backfill workflows                                                                                                          |
 
 ---
 

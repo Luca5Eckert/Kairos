@@ -177,7 +177,7 @@ class KnowledgeGraphSearchAdapterTest {
             List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunkWithId(chunkId)));
 
             assertThat(triples).hasSize(1);
-            KnowledgeTriple triple = triples.get(0);
+            KnowledgeTriple triple = triples.getFirst();
             assertThat(triple.subject().name()).isEqualTo("Paris");
             assertThat(triple.predicate()).isEqualTo("CAPITAL_OF");
             assertThat(triple.object().name()).isEqualTo("France");
