@@ -14,12 +14,13 @@ public class User {
 
     private Role role;
 
-    protected User(Long id, String name, String username, String email, String hashPassword) {
+    protected User(Long id, String name, String username, String email, String hashPassword, Role role) {
         this.id = id;
         this.name = name;
         this.username = username;
         this.email = email;
         this.hashPassword = hashPassword;
+        this.role = role;
     }
 
     public User(Builder builder) {
@@ -37,6 +38,7 @@ public class User {
         private String username;
         private String email;
         private String hashPassword;
+        private Role role;
 
         public Builder withId(Long id) {
             this.id = id;
@@ -63,8 +65,13 @@ public class User {
             return this;
         }
 
+        public Builder withRole(Role role) {
+            this.role = role;
+            return this;
+        }
+
         public User build() {
-            return new User(id, name, username, email, hashPassword);
+            return new User(id, name, username, email, hashPassword, role);
         }
     }
 
