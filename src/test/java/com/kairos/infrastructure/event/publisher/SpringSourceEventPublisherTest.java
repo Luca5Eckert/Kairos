@@ -1,6 +1,7 @@
 package com.kairos.infrastructure.event.publisher;
 
-import com.kairos.domain.event.CreatedSourceEvent;
+import com.kairos.context_engine.domain.event.CreatedSourceEvent;
+import com.kairos.context_engine.infrastructure.event.publisher.SpringSourceEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;

@@ -1,10 +1,11 @@
 package com.kairos.application.use_case;
 
-import com.kairos.application.query.SearchSourceQuery;
-import com.kairos.domain.embedding.EmbeddingProvider;
-import com.kairos.domain.graph.KnowledgeGraphSearch;
-import com.kairos.domain.model.*;
-import com.kairos.domain.semantic.SemanticSearchPort;
+import com.kairos.context_engine.application.query.SearchSourceQuery;
+import com.kairos.context_engine.application.use_case.SearchSourceUseCase;
+import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
+import com.kairos.context_engine.domain.graph.KnowledgeGraphSearch;
+import com.kairos.context_engine.domain.model.*;
+import com.kairos.context_engine.domain.semantic.SemanticSearchPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

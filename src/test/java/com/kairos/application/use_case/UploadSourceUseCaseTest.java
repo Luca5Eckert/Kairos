@@ -1,10 +1,11 @@
 package com.kairos.application.use_case;
 
-import com.kairos.application.command.UploadSourceCommand;
-import com.kairos.domain.event.CreatedSourceEvent;
-import com.kairos.domain.event.SourceEventPublisher;
-import com.kairos.domain.model.Source;
-import com.kairos.domain.port.SourceRepository;
+import com.kairos.context_engine.application.command.UploadSourceCommand;
+import com.kairos.context_engine.application.use_case.UploadSourceUseCase;
+import com.kairos.context_engine.domain.event.CreatedSourceEvent;
+import com.kairos.context_engine.domain.event.SourceEventPublisher;
+import com.kairos.context_engine.domain.model.Source;
+import com.kairos.context_engine.domain.port.SourceRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

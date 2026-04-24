@@ -1,14 +1,14 @@
 package com.kairos.infrastructure.gemini;
 
-import com.kairos.infrastructure.gemini.config.GeminiProperties;
-import com.kairos.infrastructure.gemini.dto.GeminiResponse;
-import com.kairos.infrastructure.gemini.exception.GeminiIntegrationException;
+import com.kairos.context_engine.infrastructure.gemini.GeminiRestClient;
+import com.kairos.context_engine.infrastructure.gemini.config.GeminiProperties;
+import com.kairos.context_engine.infrastructure.gemini.dto.GeminiResponse;
+import com.kairos.context_engine.infrastructure.gemini.exception.GeminiIntegrationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 

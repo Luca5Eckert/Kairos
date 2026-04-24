@@ -1,13 +1,14 @@
 package com.kairos.application.use_case;
 
-import com.kairos.application.command.GenerateSourceContextCommand;
-import com.kairos.domain.embedding.EmbeddingProvider;
-import com.kairos.domain.semantic.ChunkerExtractor;
-import com.kairos.domain.graph.TripleExtractor;
-import com.kairos.domain.model.*;
-import com.kairos.domain.port.ChunkRepository;
-import com.kairos.domain.graph.KnowledgeGraphStore;
-import com.kairos.domain.port.SourceRepository;
+import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
+import com.kairos.context_engine.application.use_case.GenerateSourceContextUseCase;
+import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
+import com.kairos.context_engine.domain.model.*;
+import com.kairos.context_engine.domain.semantic.ChunkerExtractor;
+import com.kairos.context_engine.domain.graph.TripleExtractor;
+import com.kairos.context_engine.domain.port.ChunkRepository;
+import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
+import com.kairos.context_engine.domain.port.SourceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

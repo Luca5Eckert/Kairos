@@ -1,12 +1,12 @@
 package com.kairos.infrastructure.semantic;
 
-import com.kairos.domain.model.Chunk;
-import com.kairos.domain.model.Source;
-import com.kairos.domain.model.SourceStatus;
-import com.kairos.infrastructure.persistence.entity.relation.ChunkEntity;
-import com.kairos.infrastructure.persistence.entity.relation.SourceEntity;
-import com.kairos.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
-import com.kairos.infrastructure.persistence.repository.relation.source.JpaSourceRepository;
+import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.SourceStatus;
+import com.kairos.context_engine.infrastructure.persistence.entity.relation.ChunkEntity;
+import com.kairos.context_engine.infrastructure.persistence.entity.relation.SourceEntity;
+import com.kairos.context_engine.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
+import com.kairos.context_engine.infrastructure.persistence.repository.relation.source.JpaSourceRepository;
+import com.kairos.context_engine.infrastructure.semantic.SemanticSearchAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

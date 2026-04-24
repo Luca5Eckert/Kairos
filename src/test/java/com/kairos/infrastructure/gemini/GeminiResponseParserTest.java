@@ -1,7 +1,8 @@
 package com.kairos.infrastructure.gemini;
 
-import com.kairos.domain.model.Triple;
-import com.kairos.infrastructure.gemini.dto.GeminiResponse;
+import com.kairos.context_engine.domain.model.Triple;
+import com.kairos.context_engine.infrastructure.gemini.GeminiResponseParser;
+import com.kairos.context_engine.infrastructure.gemini.dto.GeminiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

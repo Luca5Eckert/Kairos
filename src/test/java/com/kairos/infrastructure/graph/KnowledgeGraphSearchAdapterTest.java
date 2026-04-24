@@ -1,8 +1,10 @@
 package com.kairos.infrastructure.graph;
 
-import com.kairos.domain.model.Chunk;
-import com.kairos.domain.model.KnowledgeTriple;
-import com.kairos.infrastructure.persistence.repository.graph.projection.GraphExpansionResult;
+import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.KnowledgeTriple;
+import com.kairos.context_engine.infrastructure.graph.KnowledgeGraphGdsExecutor;
+import com.kairos.context_engine.infrastructure.graph.KnowledgeGraphSearchAdapter;
+import com.kairos.context_engine.infrastructure.persistence.repository.graph.projection.GraphExpansionResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
