@@ -4,6 +4,4 @@ public interface CodeConfirmationPort {
 
     String generateCode();
 
-    boolean validateCode(String code, String email);
-
 }

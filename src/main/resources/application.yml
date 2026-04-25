@@ -40,6 +40,12 @@ logging:
   level:
     com.kairos: INFO
 
+auth:
+  session:
+    secret: ${AUTH_SESSION_SECRET:dev-only-change-me-dev-only-change-me}
+    issuer: ${AUTH_SESSION_ISSUER:kairos}
+    access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:2h}
+
 gemini:
   apiKey: ${GEMINI_API_KEY}
   model: ${GEMINI_MODEL:gpt-4.0}
