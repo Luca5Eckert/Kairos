@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.event.publisher;
+package com.kairos.context_engine.infrastructure.event.publisher;
 
 import com.kairos.context_engine.domain.event.CreatedSourceEvent;
 import com.kairos.context_engine.infrastructure.event.publisher.SpringSourceEventPublisher;

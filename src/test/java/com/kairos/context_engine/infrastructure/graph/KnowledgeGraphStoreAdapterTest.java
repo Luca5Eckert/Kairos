@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.graph;
+package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.domain.model.Concept;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;

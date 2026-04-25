@@ -1,4 +1,4 @@
-package com.kairos.application.use_case;
+package com.kairos.context_engine.use_case;
 
 import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
 import com.kairos.context_engine.application.use_case.GenerateSourceContextUseCase;

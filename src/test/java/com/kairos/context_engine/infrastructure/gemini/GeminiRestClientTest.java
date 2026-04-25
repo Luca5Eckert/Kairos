@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.gemini;
+package com.kairos.context_engine.infrastructure.gemini;
 
 import com.kairos.context_engine.infrastructure.gemini.GeminiRestClient;
 import com.kairos.context_engine.infrastructure.gemini.config.GeminiProperties;
