@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtSessionIssuerAdapter implements SessionIssuerPort {
@@ -34,9 +35,13 @@ public class JwtSessionIssuerAdapter implements SessionIssuerPort {
                 .issuer(properties.session().issuer())
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
+                .audience(java.util.List.of(properties.session().audience()))
                 .subject(String.valueOf(authenticatedUser.id()))
                 .claim("email", authenticatedUser.email())
-                .claim("roles", authenticatedUser.roles())
+                .claim("roles", authenticatedUser.roles().stream().map(Enum::name).toList())
+                .claim("scope", authenticatedUser.roles().stream()
+                        .map(role -> "role:" + role.name().toLowerCase())
+                        .collect(Collectors.joining(" ")))
                 .build();
 
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
