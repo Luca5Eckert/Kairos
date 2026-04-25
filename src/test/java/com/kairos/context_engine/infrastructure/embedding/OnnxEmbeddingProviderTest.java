@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.embedding;
+package com.kairos.context_engine.infrastructure.embedding;
 
 import ai.djl.huggingface.tokenizers.Encoding;
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer;

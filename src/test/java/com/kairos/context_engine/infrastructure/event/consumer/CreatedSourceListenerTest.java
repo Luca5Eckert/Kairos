@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.event.consumer;
+package com.kairos.context_engine.infrastructure.event.consumer;
 
 import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
 import com.kairos.context_engine.application.use_case.GenerateSourceContextUseCase;

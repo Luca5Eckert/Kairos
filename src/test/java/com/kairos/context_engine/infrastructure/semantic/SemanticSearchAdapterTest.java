@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.semantic;
+package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.SourceStatus;

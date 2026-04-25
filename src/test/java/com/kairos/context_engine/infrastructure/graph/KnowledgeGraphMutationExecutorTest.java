@@ -1,4 +1,4 @@
-package com.kairos.infrastructure.graph;
+package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.infrastructure.graph.KnowledgeGraphMutationExecutor;
 import org.junit.jupiter.api.BeforeEach;
