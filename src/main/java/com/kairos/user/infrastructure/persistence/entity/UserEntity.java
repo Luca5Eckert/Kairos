@@ -1,6 +1,7 @@
 package com.kairos.user.infrastructure.persistence.entity;
 
 
+import com.kairos.user.domain.model.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,5 +29,15 @@ public class UserEntity {
 
     @Column(name = "password")
     private String hashPassword;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
+
+    @Column(nullable = false)
+    private boolean emailConfirmed;
+
+    @Column(name = "confirmation_code_hash")
+    private String confirmationCodeHash;
 
 }

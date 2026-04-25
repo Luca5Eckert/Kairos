@@ -14,6 +14,9 @@ public class UserEntityMapper {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .hashPassword(user.getHashPassword())
+                .role(user.getRole())
+                .emailConfirmed(user.isEmailConfirmed())
+                .confirmationCodeHash(user.getConfirmationCodeHash())
                 .build();
     }
 
@@ -24,6 +27,9 @@ public class UserEntityMapper {
                 .username(userEntity.getUsername())
                 .email(userEntity.getEmail())
                 .hashPassword(userEntity.getHashPassword())
+                .role(userEntity.getRole())
+                .emailConfirmed(userEntity.isEmailConfirmed())
+                .confirmationCodeHash(userEntity.getConfirmationCodeHash())
                 .build();
     }
 
