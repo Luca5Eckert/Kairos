@@ -10,13 +10,14 @@ public record AuthProperties(
 ) {
     public AuthProperties {
         if (session == null) {
-            session = new Session("dev-only-change-me-dev-only-change-me", "kairos", Duration.ofHours(2));
+            session = new Session("dev-only-change-me-dev-only-change-me", "https://auth.kairos.local", "kairos-api", Duration.ofHours(2));
         }
     }
 
     public record Session(
             String secret,
             String issuer,
+            String audience,
             Duration accessTokenTtl
     ) {
         public Session {
@@ -24,7 +25,10 @@ public record AuthProperties(
                 secret = "dev-only-change-me-dev-only-change-me";
             }
             if (issuer == null || issuer.isBlank()) {
-                issuer = "kairos";
+                issuer = "https://auth.kairos.local";
+            }
+            if (audience == null || audience.isBlank()) {
+                audience = "kairos-api";
             }
             if (accessTokenTtl == null) {
                 accessTokenTtl = Duration.ofHours(2);

@@ -43,7 +43,8 @@ logging:
 auth:
   session:
     secret: ${AUTH_SESSION_SECRET:dev-only-change-me-dev-only-change-me}
-    issuer: ${AUTH_SESSION_ISSUER:kairos}
+    issuer: ${AUTH_SESSION_ISSUER:https://auth.kairos.local}
+    audience: ${AUTH_SESSION_AUDIENCE:kairos-api}
     access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:2h}
 
 gemini:
