@@ -34,6 +34,8 @@ public class ChunkEntity {
     @Column(name = "chunk_index", nullable = false)
     private int index;
 
+    private boolean processed;
+
     @Column(nullable = false)
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 384)
@@ -45,6 +47,7 @@ public class ChunkEntity {
                 new SourceEntity(chunk.getSource().getId()),
                 chunk.getContent(),
                 chunk.getIndex(),
+                chunk.isProcessed(),
                 chunk.getEmbedding()
         );
     }
@@ -55,6 +58,7 @@ public class ChunkEntity {
                 source.toDomain(),
                 content,
                 index,
+                processed,
                 embedding
         );
     }
