@@ -21,12 +21,24 @@ public class Chunk {
         this.embedding = embedding;
     }
 
+    public Chunk(Source source, String content, int index) {
+        this.id = UUID.randomUUID();
+        this.source = source;
+        this.content = content;
+        this.index = index;
+        this.embedding = null;
+    }
+
     public static Chunk create(Source source, String content, int index, float[] embedding) {
         return new Chunk(UUID.randomUUID(), source, content, index, embedding);
     }
 
     public static Chunk create(UUID id, Source source, String content, int index, float[] embedding) {
         return new Chunk(id, source, content, index, embedding);
+    }
+
+    public static Chunk create(Source source, String content, int index) {
+        return new Chunk(source, content, index);
     }
 
     public UUID getId() {
