@@ -38,10 +38,23 @@ public class GenerateSourceContextUseCase {
         Source source = sourceRepository.findById(command.sourceId())
                 .orElseThrow(() -> new RuntimeException("Source not found for id: " + command.sourceId()));
 
-        List<String> chunks = chunkerExtractor.extract(command.content(), 200, 50);
+        List<Chunk> chunks = chunkRepository.findAllBySourceId(source.getId());
 
-        for (int i = 0; i < chunks.size(); i++) {
-            generateContext(source, chunks.get(i), i);
+        embedChunks(chunks);
+
+        generateContext(source, chunks);
+
+    }
+
+    /**
+     * Embeds the content of each chunk using the embedding provider and saves the updated chunks back to the repository.
+     * @param chunks the list of chunks to embed and save
+     */
+    private void embedChunks(List<Chunk> chunks) {
+        for (Chunk chunk : chunks) {
+            float[] embedding = embeddingProvider.embed(chunk.getContent());
+            chunk.addEmbedding(embedding);
+            chunkRepository.save(chunk);
         }
     }
 
@@ -52,13 +65,6 @@ public class GenerateSourceContextUseCase {
      * @param index the index of the chunk within the source document
      */
     private void generateContext(Source source, String text, int index) {
-        Chunk chunk = Chunk.create(source, text, index, embeddingProvider.embed(text));
-        chunkRepository.save(chunk);
-
-        if (chunk.getId() == null) {
-            throw new IllegalStateException("Chunk ID is null after save");
-        }
-
         List<Triple> triples = tripleExtractor.extract(text);
         List<KnowledgeTriple> knowledgeTriples = triples.stream()
                 .map(triple -> KnowledgeTriple.create(triple, chunk.getId()))
