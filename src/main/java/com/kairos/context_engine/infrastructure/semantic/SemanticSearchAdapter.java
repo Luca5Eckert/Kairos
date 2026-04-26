@@ -35,13 +35,7 @@ public class SemanticSearchAdapter implements SemanticSearchPort {
     public List<Chunk> findTopK(float[] queryVector, int k) {
         List<ChunkEntity> chunks = jpaChunkRepository.findTopKByEmbedding(queryVector, k);
         return chunks.stream()
-                .map(entity -> Chunk.create(
-                        entity.getId(),
-                        entity.getSource().toDomain(),
-                        entity.getContent(),
-                        entity.getIndex(),
-                        entity.getEmbedding()
-                ))
+                .map(ChunkEntity::toDomain)
                 .toList();
     }
 
@@ -60,13 +54,7 @@ public class SemanticSearchAdapter implements SemanticSearchPort {
 
         List<ChunkEntity> chunks = jpaChunkRepository.findAllById(chunkIds);
         return chunks.stream()
-                .map(entity -> Chunk.create(
-                        entity.getId(),
-                        entity.getSource().toDomain(),
-                        entity.getContent(),
-                        entity.getIndex(),
-                        entity.getEmbedding()
-                ))
+                .map(ChunkEntity::toDomain)
                 .toList();
     }
 
