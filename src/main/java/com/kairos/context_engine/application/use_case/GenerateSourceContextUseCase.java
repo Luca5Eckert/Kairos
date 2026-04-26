@@ -57,6 +57,7 @@ public class GenerateSourceContextUseCase {
                     .toList();
 
             knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
+            chunk.markAsProcessed();
         }
     }
 
