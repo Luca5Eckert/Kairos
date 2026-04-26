@@ -21,7 +21,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GenerateSourceContextUseCase {
 
-    private final ChunkerExtractor chunkerExtractor;
     private final TripleExtractor tripleExtractor;
     private final EmbeddingProvider embeddingProvider;
 
@@ -41,9 +40,24 @@ public class GenerateSourceContextUseCase {
         List<Chunk> chunks = chunkRepository.findAllBySourceId(source.getId());
 
         embedChunks(chunks);
+        generateKnowledgeGraph(source, chunks);
+    }
 
-        generateContext(source, chunks);
+    private void generateKnowledgeGraph(Source source, List<Chunk> chunks) {
+        knowledgeGraphStore.createContext(chunks);
+        createContextForKnowledgeGraph(source,chunks);
+    }
 
+
+    private void createContextForKnowledgeGraph(Source source, List<Chunk> chunks) {
+        for (Chunk chunk : chunks) {
+            List<Triple> triples = tripleExtractor.extract(chunk.getContent());
+            List<KnowledgeTriple> knowledgeTriples = triples.stream()
+                    .map(triple -> KnowledgeTriple.create(triple, chunk.getId()))
+                    .toList();
+
+            knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
+        }
     }
 
     /**
@@ -58,19 +72,5 @@ public class GenerateSourceContextUseCase {
         }
     }
 
-    /**
-     * Generates context for a specific chunk of text by creating a Chunk entity, extracting triples, and saving them to the knowledge graph.
-     * @param source the source document the chunk belongs to
-     * @param text the text content of the chunk
-     * @param index the index of the chunk within the source document
-     */
-    private void generateContext(Source source, String text, int index) {
-        List<Triple> triples = tripleExtractor.extract(text);
-        List<KnowledgeTriple> knowledgeTriples = triples.stream()
-                .map(triple -> KnowledgeTriple.create(triple, chunk.getId()))
-                .toList();
-
-        knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
-    }
 
 }
