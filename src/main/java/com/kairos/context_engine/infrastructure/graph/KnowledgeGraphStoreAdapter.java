@@ -1,7 +1,10 @@
 package com.kairos.context_engine.infrastructure.graph;
 
+import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
 import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
+import com.kairos.context_engine.infrastructure.persistence.entity.graph.PassageNode;
+import com.kairos.context_engine.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,6 +20,7 @@ import java.util.UUID;
 public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     private final KnowledgeGraphMutationExecutor mutationExecutor;
+    private final Neo4jPassageNodeRepository passageNodeRepository;
 
     @Override
     @Transactional
@@ -60,6 +64,27 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
         triples.forEach(triple -> mergeTriple(triple, chunkId));
 
         log.info("Successfully processed {} triples for chunk {}.", triples.size(), chunkId);
+    }
+
+    @Override
+    @Transactional
+    public void createContext(List<Chunk> chunks) {
+            if (chunks == null || chunks.isEmpty()) {
+                log.warn("No chunks provided for context creation.");
+                return;
+            }
+
+            for (Chunk chunk : chunks) {
+                if (chunk.getId() == null) {
+                    log.error("Chunk with content '{}' has null ID. Skipping context creation for this chunk.", chunk.getContent());
+                    continue;
+                }
+
+                PassageNode passageNode = new PassageNode(chunk.getId());
+                passageNodeRepository.save(passageNode);
+            }
+
+            log.info("Successfully created context for {} chunks.", chunks.size());
     }
 
     private void mergeTriple(KnowledgeTriple triple, UUID chunkId) {
