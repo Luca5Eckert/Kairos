@@ -24,4 +24,6 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
      */
     @Query(value = "SELECT * FROM chunks ORDER BY embedding <=> cast(:queryVector as vector) LIMIT :limit", nativeQuery = true)
     List<ChunkEntity> findTopKByEmbedding(@Param("queryVector") float[] queryVector, @Param("limit") int limit);
+
+    List<ChunkEntity> findAllBySource_Id(UUID sourceId);
 }
