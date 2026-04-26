@@ -21,6 +21,13 @@ public class PassageNode {
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<PhraseNode> concepts = new ArrayList<>();
 
+    public PassageNode() {
+    }
+
+    public PassageNode(UUID id) {
+        this.chunkId = id;
+    }
+
     public static PassageNode forChunk(UUID chunkId) {
         PassageNode node = new PassageNode();
         node.setChunkId(chunkId);

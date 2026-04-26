@@ -50,7 +50,7 @@ public class UploadSourceUseCase {
             persistenceChunk(source, chunks.get(i), i);
         }
 
-        var createdEvent = CreatedSourceEvent.of(source.getId(), source.getContent());
+        var createdEvent = CreatedSourceEvent.of(source.getId());
         eventPublisher.send(createdEvent);
 
         return source.getId();
