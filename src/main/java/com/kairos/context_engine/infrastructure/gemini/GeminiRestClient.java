@@ -67,8 +67,6 @@ public class GeminiRestClient {
                 throw new GeminiIntegrationException("Gemini API returned null response");
             }
 
-            log.info("FUNFU");
-
             return response;
 
         } catch (HttpClientErrorException e) {
