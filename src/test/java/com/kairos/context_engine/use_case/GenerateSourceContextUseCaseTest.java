@@ -3,11 +3,13 @@ package com.kairos.context_engine.use_case;
 import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
 import com.kairos.context_engine.application.use_case.GenerateSourceContextUseCase;
 import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
-import com.kairos.context_engine.domain.model.*;
-import com.kairos.context_engine.domain.semantic.ChunkerExtractor;
-import com.kairos.context_engine.domain.graph.TripleExtractor;
-import com.kairos.context_engine.domain.port.ChunkRepository;
 import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
+import com.kairos.context_engine.domain.graph.TripleExtractor;
+import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.Source;
+import com.kairos.context_engine.domain.model.Triple;
+import com.kairos.context_engine.domain.port.ChunkRepository;
 import com.kairos.context_engine.domain.port.SourceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,14 +24,21 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GenerateSourceContextUseCaseTest {
 
-    @Mock private ChunkerExtractor chunkerExtractor;
     @Mock private TripleExtractor tripleExtractor;
     @Mock private EmbeddingProvider embeddingProvider;
     @Mock private KnowledgeGraphStore knowledgeGraphStore;
@@ -45,153 +54,127 @@ class GenerateSourceContextUseCaseTest {
     @BeforeEach
     void setUp() {
         sourceId = UUID.randomUUID();
-        source = new Source(sourceId, "Clean Code", "some content", SourceStatus.PENDING);
+        source = new Source(sourceId, "Clean Code", "some content");
+    }
+
+    private Chunk chunk(String content, int index) {
+        return Chunk.create(UUID.randomUUID(), source, content, index, false, null);
     }
 
     @Test
-    @DisplayName("execute — processes each chunk into a saved Chunk and a set of KnowledgeTriples")
-    void execute_validCommand_savesChunksAndKnowledgeTriples() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
-        var triple = new Triple("backpropagation", "USES", "chain rule");
-
+    @DisplayName("execute - loads chunks already persisted for the source")
+    void execute_loadsPersistedChunksForSource() {
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt())).thenReturn(List.of("chunk one", "chunk two"));
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of(triple));
-        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f, 0.2f});
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of());
 
-        useCase.execute(command);
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        verify(chunkRepository, times(2)).save(any(Chunk.class));
-        verify(knowledgeGraphStore, times(2)).saveAllForChunk(any(UUID.class), anyList());
+        verify(chunkRepository).findAllBySourceId(sourceId);
     }
 
     @Test
-    @DisplayName("execute — chunk is saved with correct source, content, index, and embedding")
-    void execute_validCommand_chunkHasCorrectFields() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
-        var embedding = new float[]{0.5f, 0.6f};
+    @DisplayName("execute - embeds each persisted chunk and saves it with the generated embedding")
+    void execute_embedsAndSavesPersistedChunks() {
+        Chunk first = chunk("first chunk", 0);
+        Chunk second = chunk("second chunk", 1);
+        float[] firstEmbedding = new float[]{0.1f, 0.2f};
+        float[] secondEmbedding = new float[]{0.3f, 0.4f};
 
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt())).thenReturn(List.of("only chunk"));
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(first, second));
+        when(embeddingProvider.embed("first chunk")).thenReturn(firstEmbedding);
+        when(embeddingProvider.embed("second chunk")).thenReturn(secondEmbedding);
         when(tripleExtractor.extract(anyString())).thenReturn(List.of());
-        when(embeddingProvider.embed("only chunk")).thenReturn(embedding);
 
-        useCase.execute(command);
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        var captor = ArgumentCaptor.forClass(Chunk.class);
-        verify(chunkRepository).save(captor.capture());
-
-        Chunk saved = captor.getValue();
-        assertThat(saved.getSource()).isEqualTo(source);
-        assertThat(saved.getContent()).isEqualTo("only chunk");
-        assertThat(saved.getIndex()).isZero();
-        assertThat(saved.getEmbedding()).isEqualTo(embedding);
+        assertThat(first.getEmbedding()).isEqualTo(firstEmbedding);
+        assertThat(second.getEmbedding()).isEqualTo(secondEmbedding);
+        verify(chunkRepository, times(2)).save(first);
+        verify(chunkRepository, times(2)).save(second);
     }
 
     @Test
-    @DisplayName("execute — chunk index increments correctly across multiple chunks")
-    void execute_multipleChunks_indexIsSequential() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
+    @DisplayName("execute - creates graph context before saving extracted triples")
+    void execute_createsGraphContextForLoadedChunks() {
+        Chunk chunk = chunk("chunk content", 0);
+        Triple triple = new Triple("backpropagation", "USES", "chain rule");
 
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt()))
-                .thenReturn(List.of("first", "second", "third"));
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
         when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+        when(tripleExtractor.extract("chunk content")).thenReturn(List.of(triple));
 
-        useCase.execute(command);
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        var captor = ArgumentCaptor.forClass(Chunk.class);
-        verify(chunkRepository, times(3)).save(captor.capture());
-
-        assertThat(captor.getAllValues())
-                .extracting(Chunk::getIndex)
-                .containsExactly(0, 1, 2);
-    }
-
-    @Test
-    @DisplayName("execute — KnowledgeTriples are linked to the correct chunkId")
-    void execute_triplesExtracted_knowledgeTriplesLinkedToChunkId() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
-        var triple = new Triple("gradient descent", "MINIMIZES", "loss function");
-
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt())).thenReturn(List.of("chunk"));
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of(triple));
-        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
-
-        useCase.execute(command);
-
-        var chunkCaptor = ArgumentCaptor.forClass(Chunk.class);
-        verify(chunkRepository).save(chunkCaptor.capture());
-        UUID savedChunkId = chunkCaptor.getValue().getId();
+        verify(knowledgeGraphStore).createContext(List.of(chunk));
 
         ArgumentCaptor<List<KnowledgeTriple>> triplesCaptor = ArgumentCaptor.captor();
-        verify(knowledgeGraphStore).saveAllForChunk(eq(savedChunkId), triplesCaptor.capture());
+        verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), triplesCaptor.capture());
 
         assertThat(triplesCaptor.getValue())
                 .hasSize(1)
-                .allSatisfy(kt -> assertThat(kt.chunkId()).isEqualTo(savedChunkId));
+                .allSatisfy(knowledgeTriple ->
+                        assertThat(knowledgeTriple.chunkId()).isEqualTo(chunk.getId()));
     }
 
     @Test
-    @DisplayName("execute — no triples extracted results in saveAllForChunk called with empty list")
-    void execute_noTriplesExtracted_savesEmptyKnowledgeTriples() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
+    @DisplayName("execute - marks each processed chunk and saves it after graph extraction")
+    void execute_marksChunksAsProcessedAfterTripleExtraction() {
+        Chunk chunk = chunk("chunk content", 0);
 
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt())).thenReturn(List.of("chunk"));
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
         when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
 
-        useCase.execute(command);
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+        assertThat(chunk.isProcessed()).isTrue();
+        verify(chunkRepository, times(2)).save(chunk);
+    }
+
+    @Test
+    @DisplayName("execute - stores an empty triple list when extraction finds no triples")
+    void execute_noTriplesExtracted_savesEmptyKnowledgeTriples() {
+        Chunk chunk = chunk("chunk content", 0);
+
+        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
+        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
         ArgumentCaptor<List<KnowledgeTriple>> captor = ArgumentCaptor.captor();
-        verify(knowledgeGraphStore).saveAllForChunk(any(UUID.class), captor.capture());
+        verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), captor.capture());
         assertThat(captor.getValue()).isEmpty();
     }
 
     @Test
-    @DisplayName("execute — source not found throws RuntimeException with sourceId in message")
+    @DisplayName("execute - source not found throws RuntimeException with sourceId in message")
     void execute_sourceNotFound_throwsException() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute(command))
+        assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining(sourceId.toString());
 
-        verifyNoInteractions(chunkerExtractor, embeddingProvider, tripleExtractor,
-                chunkRepository, knowledgeGraphStore);
+        verifyNoInteractions(embeddingProvider, tripleExtractor, knowledgeGraphStore);
+        verify(chunkRepository, never()).findAllBySourceId(any());
     }
 
     @Test
-    @DisplayName("execute — no chunks produced results in no further processing")
-    void execute_noChunksProduced_noInteractionsWithDownstreamPorts() {
-        var command = GenerateSourceContextCommand.of(sourceId, "");
-
+    @DisplayName("execute - no persisted chunks skips embedding and triple extraction")
+    void execute_noChunks_skipsPerChunkWork() {
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt())).thenReturn(List.of());
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of());
 
-        useCase.execute(command);
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        verifyNoInteractions(embeddingProvider, tripleExtractor, chunkRepository, knowledgeGraphStore);
-    }
-
-    @Test
-    @DisplayName("execute — embedding is called once per chunk with the exact chunk text")
-    void execute_multipleChunks_embedCalledWithCorrectText() {
-        var command = GenerateSourceContextCommand.of(sourceId, "some content");
-
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkerExtractor.extract(anyString(), anyInt(), anyInt())).thenReturn(List.of("alpha", "beta"));
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
-        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.0f});
-
-        useCase.execute(command);
-
-        var captor = ArgumentCaptor.forClass(String.class);
-        verify(embeddingProvider, times(2)).embed(captor.capture());
-        assertThat(captor.getAllValues()).containsExactly("alpha", "beta");
+        verifyNoInteractions(embeddingProvider, tripleExtractor);
+        verify(chunkRepository, never()).save(any(Chunk.class));
+        verify(knowledgeGraphStore).createContext(List.of());
+        verify(knowledgeGraphStore, never()).saveAllForChunk(any(), anyList());
     }
 }

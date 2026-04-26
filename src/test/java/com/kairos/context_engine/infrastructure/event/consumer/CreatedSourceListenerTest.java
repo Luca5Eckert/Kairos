@@ -26,8 +26,7 @@ class CreatedSourceListenerTest {
     @Test
     void shouldHandleCreatedSourceEvent() {
         UUID sourceId = UUID.randomUUID();
-        String content = "test content";
-        CreatedSourceEvent event = new CreatedSourceEvent(sourceId, content);
+        CreatedSourceEvent event = new CreatedSourceEvent(sourceId);
 
         listener.handleCreatedSourceEvent(event);
 
@@ -39,6 +38,5 @@ class CreatedSourceListenerTest {
         GenerateSourceContextCommand command = captor.getValue();
 
         assert command.sourceId().equals(sourceId);
-        assert command.content().equals(content);
     }
 }
