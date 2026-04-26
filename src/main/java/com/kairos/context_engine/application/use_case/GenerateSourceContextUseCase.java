@@ -6,7 +6,6 @@ import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.Source;
 import com.kairos.context_engine.domain.model.Triple;
-import com.kairos.context_engine.domain.semantic.ChunkerExtractor;
 import com.kairos.context_engine.domain.graph.TripleExtractor;
 import com.kairos.context_engine.domain.port.ChunkRepository;
 import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
@@ -43,12 +42,22 @@ public class GenerateSourceContextUseCase {
         generateKnowledgeGraph(source, chunks);
     }
 
+    /**
+     * Generates a knowledge graph context for the given source and its associated chunks.
+     * @param source the source for which the knowledge graph context is being generated
+     * @param chunks the list of chunks associated with the source, from which to extract triples and create the knowledge graph context
+     */
     private void generateKnowledgeGraph(Source source, List<Chunk> chunks) {
         knowledgeGraphStore.createContext(chunks);
         createContextForKnowledgeGraph(source,chunks);
     }
 
 
+    /**
+     * Extracts triples from the content of each chunk and saves them to the knowledge graph store, associating them with the corresponding chunk ID.
+     * @param source the source for which the knowledge graph context is being generated
+     * @param chunks the list of chunks from which to extract triples and create the knowledge graph context
+     */
     private void createContextForKnowledgeGraph(Source source, List<Chunk> chunks) {
         for (Chunk chunk : chunks) {
             List<Triple> triples = tripleExtractor.extract(chunk.getContent());
@@ -57,7 +66,9 @@ public class GenerateSourceContextUseCase {
                     .toList();
 
             knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
+
             chunk.markAsProcessed();
+            chunkRepository.save(chunk);
         }
     }
 
