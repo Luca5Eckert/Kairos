@@ -23,7 +23,7 @@ class SpringSourceEventPublisherTest {
 
     @Test
     void shouldPublishCreatedSourceEvent() {
-        CreatedSourceEvent event = new CreatedSourceEvent(UUID.randomUUID(), "content");
+        CreatedSourceEvent event = new CreatedSourceEvent(UUID.randomUUID());
 
         publisher.send(event);
 

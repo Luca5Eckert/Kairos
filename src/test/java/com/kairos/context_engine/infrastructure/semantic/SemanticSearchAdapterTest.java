@@ -1,12 +1,10 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.Chunk;
-import com.kairos.context_engine.domain.model.SourceStatus;
 import com.kairos.context_engine.infrastructure.persistence.entity.relation.ChunkEntity;
 import com.kairos.context_engine.infrastructure.persistence.entity.relation.SourceEntity;
 import com.kairos.context_engine.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
 import com.kairos.context_engine.infrastructure.persistence.repository.relation.source.JpaSourceRepository;
-import com.kairos.context_engine.infrastructure.semantic.SemanticSearchAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,21 +51,16 @@ class SemanticSearchAdapterTest {
     @BeforeEach
     void setUp() {
         sourceEntityA = new SourceEntity(
-                UUID.randomUUID(), "Philosophy of Mind", "Content A", SourceStatus.COMPLETED.name()
+                UUID.randomUUID(), "Philosophy of Mind", "Content A"
         );
         sourceEntityB = new SourceEntity(
-                UUID.randomUUID(), "Cognitive Science", "Content B", SourceStatus.COMPLETED.name()
+                UUID.randomUUID(), "Cognitive Science", "Content B"
         );
     }
 
-    // Helper: builds a ChunkEntity stub backed by a given SourceEntity
+    // Helper: builds a ChunkEntity backed by a given SourceEntity
     private ChunkEntity chunkEntity(UUID id, SourceEntity source, String content, int index) {
-        ChunkEntity entity = mock(ChunkEntity.class);
-        when(entity.getSource()).thenReturn(source);
-        when(entity.getContent()).thenReturn(content);
-        when(entity.getIndex()).thenReturn(index);
-        when(entity.getEmbedding()).thenReturn(QUERY_VECTOR);
-        return entity;
+        return new ChunkEntity(id, source, content, index, false, QUERY_VECTOR);
     }
 
     // =========================================================================

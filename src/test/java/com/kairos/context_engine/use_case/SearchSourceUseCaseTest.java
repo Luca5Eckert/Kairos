@@ -53,7 +53,7 @@ class SearchSourceUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        dummySource = new Source(UUID.randomUUID(), "Philosophy of Mind - Chapter 1", "BLA BLA", SourceStatus.PENDING);
+        dummySource = new Source(UUID.randomUUID(), "Philosophy of Mind - Chapter 1", "BLA BLA");
     }
 
     // -------------------------------------------------------------------------
@@ -61,7 +61,7 @@ class SearchSourceUseCaseTest {
     // -------------------------------------------------------------------------
 
     private Chunk chunk(UUID id, String content, int index) {
-        return new Chunk(id, dummySource, content, index, QUERY_VECTOR);
+        return new Chunk(id, dummySource, content, index, false, QUERY_VECTOR);
     }
 
     private KnowledgeTriple triple(UUID chunkId) {
