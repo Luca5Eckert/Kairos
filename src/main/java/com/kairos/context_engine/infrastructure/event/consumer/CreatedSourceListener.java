@@ -23,7 +23,7 @@ public class CreatedSourceListener {
     public void handleCreatedSourceEvent(CreatedSourceEvent event) {
         log.info("Received CreatedSourceEvent for sourceId: {}", event.sourceId());
 
-        var command = GenerateSourceContextCommand.of(event.sourceId(), event.content());
+        var command = GenerateSourceContextCommand.of(event.sourceId());
         generateSourceContextUseCase.execute(command);
 
         log.info("Finished processing CreatedSourceEvent for sourceId: {}", event.sourceId());

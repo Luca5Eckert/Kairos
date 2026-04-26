@@ -3,10 +3,9 @@ package com.kairos.context_engine.domain.event;
 import java.util.UUID;
 
 public record CreatedSourceEvent(
-        UUID sourceId,
-        String content
+        UUID sourceId
 ) {
-    public static CreatedSourceEvent of(UUID id, String content) {
-        return new CreatedSourceEvent(id, content);
+    public static CreatedSourceEvent of(UUID id) {
+        return new CreatedSourceEvent(id);
     }
 }

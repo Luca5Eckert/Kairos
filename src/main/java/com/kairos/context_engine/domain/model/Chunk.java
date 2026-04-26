@@ -11,7 +11,7 @@ public class Chunk {
     private final Source source;
     private final String content;
     private final int index;
-    private final float[] embedding;
+    private float[] embedding;
 
     public Chunk(UUID id, Source source, String content, int index, float[] embedding) {
         this.id = id;
@@ -59,6 +59,13 @@ public class Chunk {
 
     public float[] getEmbedding() {
         return embedding;
+    }
+
+    public void addEmbedding(float[] embedding) {
+        if (embedding == null || embedding.length == 0) {
+            throw new IllegalArgumentException("Embedding cannot be null or empty");
+        }
+        this.embedding = embedding;
     }
 
 }
