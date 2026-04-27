@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
-import com.kairos.context_engine.infrastructure.semantic.ChunkerExtractorAdapter;
+import com.kairos.context_engine.infrastructure.extraction.ChunkerExtractorAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

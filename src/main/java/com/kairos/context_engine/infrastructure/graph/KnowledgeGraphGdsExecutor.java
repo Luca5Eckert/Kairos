@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.graph;
 
-import com.kairos.context_engine.infrastructure.persistence.repository.graph.projection.GraphExpansionResult;
+import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import lombok.RequiredArgsConstructor;
 import org.neo4j.driver.Driver;
 import org.springframework.stereotype.Component;

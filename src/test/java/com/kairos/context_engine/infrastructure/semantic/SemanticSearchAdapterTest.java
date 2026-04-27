@@ -1,10 +1,11 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.Chunk;
-import com.kairos.context_engine.infrastructure.persistence.entity.relation.ChunkEntity;
-import com.kairos.context_engine.infrastructure.persistence.entity.relation.SourceEntity;
-import com.kairos.context_engine.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
-import com.kairos.context_engine.infrastructure.persistence.repository.relation.source.JpaSourceRepository;
+import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
+import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
+import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
+import com.kairos.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,10 +22,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyList;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SemanticSearchAdapter")

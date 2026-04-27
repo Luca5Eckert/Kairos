@@ -1,11 +1,11 @@
 package com.kairos.context_engine.infrastructure.gemini;
 
 import com.kairos.context_engine.domain.model.Triple;
-import com.kairos.context_engine.infrastructure.gemini.GeminiResponseParser;
-import com.kairos.context_engine.infrastructure.gemini.GeminiRestClient;
-import com.kairos.context_engine.infrastructure.gemini.GeminiTripleExtractorAdapter;
-import com.kairos.context_engine.infrastructure.gemini.dto.GeminiResponse;
-import com.kairos.context_engine.infrastructure.gemini.exception.GeminiIntegrationException;
+import com.kairos.context_engine.infrastructure.ai.gemini.GeminiResponseParser;
+import com.kairos.context_engine.infrastructure.ai.gemini.GeminiRestClient;
+import com.kairos.context_engine.infrastructure.ai.gemini.dto.GeminiResponse;
+import com.kairos.context_engine.infrastructure.ai.gemini.exception.GeminiIntegrationException;
+import com.kairos.context_engine.infrastructure.extraction.GeminiTripleExtractorAdapter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;

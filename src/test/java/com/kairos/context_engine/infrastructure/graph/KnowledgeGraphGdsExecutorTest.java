@@ -1,31 +1,21 @@
 package com.kairos.context_engine.infrastructure.graph;
 
-import com.kairos.context_engine.infrastructure.graph.KnowledgeGraphGdsExecutor;
-import com.kairos.context_engine.infrastructure.persistence.repository.graph.projection.GraphExpansionResult;
+import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.neo4j.driver.Driver;
+import org.neo4j.driver.*;
 import org.neo4j.driver.Record;
-import org.neo4j.driver.Result;
-import org.neo4j.driver.Session;
-import org.neo4j.driver.TransactionCallback;
-import org.neo4j.driver.TransactionContext;
-import org.neo4j.driver.Values;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class KnowledgeGraphGdsExecutorTest {

@@ -1,9 +1,9 @@
 package com.kairos.context_engine.infrastructure.gemini;
 
-import com.kairos.context_engine.infrastructure.gemini.GeminiRestClient;
-import com.kairos.context_engine.infrastructure.gemini.config.GeminiProperties;
-import com.kairos.context_engine.infrastructure.gemini.dto.GeminiResponse;
-import com.kairos.context_engine.infrastructure.gemini.exception.GeminiIntegrationException;
+import com.kairos.context_engine.infrastructure.ai.gemini.GeminiRestClient;
+import com.kairos.context_engine.infrastructure.ai.gemini.config.GeminiProperties;
+import com.kairos.context_engine.infrastructure.ai.gemini.dto.GeminiResponse;
+import com.kairos.context_engine.infrastructure.ai.gemini.exception.GeminiIntegrationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -14,9 +14,10 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GeminiRestClientTest {
 

@@ -2,14 +2,10 @@ package com.kairos.context_engine.infrastructure.embedding;
 
 import ai.djl.huggingface.tokenizers.Encoding;
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer;
-import ai.onnxruntime.NodeInfo;
-import ai.onnxruntime.OnnxTensor;
-import ai.onnxruntime.OrtEnvironment;
-import ai.onnxruntime.OrtException;
-import ai.onnxruntime.OrtSession;
+import ai.onnxruntime.*;
 import com.kairos.context_engine.domain.exception.EmbeddingException;
-import com.kairos.context_engine.infrastructure.embedding.OnnxEmbeddingProvider;
-import com.kairos.context_engine.infrastructure.embedding.factory.TensorFactory;
+import com.kairos.context_engine.infrastructure.embedding.onnx.OnnxEmbeddingProvider;
+import com.kairos.context_engine.infrastructure.embedding.onnx.factory.TensorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,14 +16,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.within;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link OnnxEmbeddingProvider}.
