@@ -7,13 +7,13 @@ import org.springframework.data.neo4j.repository.config.EnableNeo4jRepositories;
 
 @Configuration
 @EnableJpaRepositories(
-        basePackages = "com.kairos.infrastructure.persistence.repository.relation"
+        basePackages = "com.kairos.context_engine.infrastructure.persistence.repository.relation"
 )
 @EntityScan(
-        basePackages = "com.kairos.infrastructure.persistence.entity.relation"
+        basePackages = "com.kairos.context_engine.infrastructure.persistence.entity.relation"
 )
 @EnableNeo4jRepositories(
-        basePackages = "com.kairos.infrastructure.persistence.repository.graph"
+        basePackages = "com.kairos.context_engine.infrastructure.persistence.repository.graph"
 )
 public class PersistenceConfig {
 }
