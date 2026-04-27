@@ -1,7 +1,7 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.Chunk;
-import com.kairos.context_engine.domain.semantic.SemanticSearchPort;
+import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import com.kairos.context_engine.infrastructure.persistence.entity.relation.ChunkEntity;
 import com.kairos.context_engine.infrastructure.persistence.repository.relation.chunk.JpaChunkRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ import java.util.UUID;
  */
 @Component
 @RequiredArgsConstructor
-public class SemanticSearchAdapter implements SemanticSearchPort {
+public class SemanticSearchAdapter implements SemanticSearch {
 
     private final JpaChunkRepository jpaChunkRepository;
 

@@ -1,4 +1,4 @@
-package com.kairos.context_engine.domain.graph;
+package com.kairos.context_engine.domain.port.extraction;
 
 import com.kairos.context_engine.domain.model.Triple;
 

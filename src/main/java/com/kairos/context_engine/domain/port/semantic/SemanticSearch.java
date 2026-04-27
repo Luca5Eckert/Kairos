@@ -1,11 +1,11 @@
-package com.kairos.context_engine.domain.semantic;
+package com.kairos.context_engine.domain.port.semantic;
 
 import com.kairos.context_engine.domain.model.Chunk;
 
 import java.util.List;
 import java.util.UUID;
 
-public interface SemanticSearchPort {
+public interface SemanticSearch {
 
     List<Chunk> findTopK(float[] queryVector, int k);
 

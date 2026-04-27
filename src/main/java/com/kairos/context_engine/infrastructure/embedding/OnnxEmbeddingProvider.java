@@ -6,7 +6,7 @@ import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
-import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
+import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.exception.EmbeddingException;
 import com.kairos.context_engine.infrastructure.embedding.factory.TensorFactory;
 import org.slf4j.Logger;

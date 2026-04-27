@@ -118,8 +118,13 @@ Kairos follows hexagonal architecture. Every external dependency — pgvector, N
 ```
 domain/
   model/      Source, Chunk, KnowledgeTriple, SearchResult
-  port/       EmbeddingProvider, SemanticSearchPort,
-              KnowledgeGraphStore, KnowledgeGraphSearch
+  port/
+    embedding/  EmbeddingProvider
+    event/      SourceEventPublisher
+    extraction/ ChunkerExtractor, TripleExtractor
+    graph/      KnowledgeGraphStore, KnowledgeGraphSearch
+    repository/ SourceRepository, ChunkRepository
+    semantic/   SemanticSearch
 
 application/
   use_case/   UploadSourceUseCase, GenerateSourceContextUseCase,

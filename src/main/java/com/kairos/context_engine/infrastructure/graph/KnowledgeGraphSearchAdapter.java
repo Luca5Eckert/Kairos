@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.graph;
 
-import com.kairos.context_engine.domain.graph.KnowledgeGraphSearch;
+import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
 import lombok.RequiredArgsConstructor;

@@ -2,10 +2,10 @@ package com.kairos.context_engine.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
 import com.kairos.context_engine.application.use_case.SearchSourceUseCase;
-import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
-import com.kairos.context_engine.domain.graph.KnowledgeGraphSearch;
+import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
+import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.*;
-import com.kairos.context_engine.domain.semantic.SemanticSearchPort;
+import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,7 +37,7 @@ class SearchSourceUseCaseTest {
     private KnowledgeGraphSearch knowledgeGraphSearch;
 
     @Mock
-    private SemanticSearchPort semanticSearchPort;
+    private SemanticSearch semanticSearch;
 
     @InjectMocks
     private SearchSourceUseCase useCase;
@@ -84,14 +84,14 @@ class SearchSourceUseCaseTest {
             var triple  = triple(anchor.getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(List.of(anchor))).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(List.of(anchor.getId()))).thenReturn(List.of(anchor));
+            when(semanticSearch.findChunks(List.of(anchor.getId()))).thenReturn(List.of(anchor));
 
             useCase.execute(query);
 
             ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
-            verify(semanticSearchPort).findTopK(vectorCaptor.capture(), eq(10));
+            verify(semanticSearch).findTopK(vectorCaptor.capture(), eq(10));
             assertThat(vectorCaptor.getValue()).isEqualTo(QUERY_VECTOR);
         }
 
@@ -103,9 +103,9 @@ class SearchSourceUseCaseTest {
             var triple = triple(anchor.getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(List.of(anchor))).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(List.of(anchor.getId()))).thenReturn(List.of(anchor));
+            when(semanticSearch.findChunks(List.of(anchor.getId()))).thenReturn(List.of(anchor));
 
             SearchResult result = useCase.execute(query);
 
@@ -126,9 +126,9 @@ class SearchSourceUseCaseTest {
             var triple = triple(anchors.getFirst().getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(anchors);
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(anchors);
             when(knowledgeGraphSearch.expandKnowledge(anchors)).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of(anchors.getFirst()));
+            when(semanticSearch.findChunks(anyList())).thenReturn(List.of(anchors.getFirst()));
 
             useCase.execute(query);
 
@@ -148,7 +148,7 @@ class SearchSourceUseCaseTest {
         @DisplayName("returns SearchResult.empty() immediately")
         void returnsEmptyResultWhenNoAnchors() {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -159,7 +159,7 @@ class SearchSourceUseCaseTest {
         @DisplayName("never calls the knowledge graph when no anchors are present")
         void neverCallsGraphWhenNoAnchors() {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -170,11 +170,11 @@ class SearchSourceUseCaseTest {
         @DisplayName("never calls findChunks when no anchors are present")
         void neverCallsFindChunksWhenNoAnchors() {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
-            verify(semanticSearchPort, never()).findChunks(anyList());
+            verify(semanticSearch, never()).findChunks(anyList());
         }
     }
 
@@ -206,9 +206,9 @@ class SearchSourceUseCaseTest {
 
             // Semantic store returns chunks in reverse order (simulating unordered DB result)
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(chunkFirst));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(chunkFirst));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(orderedTriples);
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(
+            when(semanticSearch.findChunks(anyList())).thenReturn(
                     List.of(chunkThird, chunkSecond, chunkFirst)  // intentionally scrambled
             );
 
@@ -235,9 +235,9 @@ class SearchSourceUseCaseTest {
             );
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(sharedChunk));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(sharedChunk));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(triplesWithDuplicate);
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of(sharedChunk, uniqueChunk));
+            when(semanticSearch.findChunks(anyList())).thenReturn(List.of(sharedChunk, uniqueChunk));
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -261,15 +261,15 @@ class SearchSourceUseCaseTest {
             );
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(triples);
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of());
+            when(semanticSearch.findChunks(anyList())).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<UUID>> idsCaptor = ArgumentCaptor.forClass(List.class);
-            verify(semanticSearchPort).findChunks(idsCaptor.capture());
+            verify(semanticSearch).findChunks(idsCaptor.capture());
 
             assertThat(idsCaptor.getValue())
                     .containsExactly(idA, idB)
@@ -291,14 +291,14 @@ class SearchSourceUseCaseTest {
             var anchor = chunk(UUID.randomUUID(), "Orphan chunk with no graph connections.", 0);
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of());
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
             assertThat(result.chunks()).isEmpty();
             assertThat(result.knowledgeTriples()).isEmpty();
-            verify(semanticSearchPort, never()).findChunks(anyList());
+            verify(semanticSearch, never()).findChunks(anyList());
         }
 
         @Test
@@ -314,9 +314,9 @@ class SearchSourceUseCaseTest {
             List<KnowledgeTriple> triples = List.of(triple(idPresent), triple(idMissing));
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(presentChunk));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(presentChunk));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(triples);
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of(presentChunk)); // idMissing absent
+            when(semanticSearch.findChunks(anyList())).thenReturn(List.of(presentChunk)); // idMissing absent
 
             // Should not throw
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
@@ -328,11 +328,11 @@ class SearchSourceUseCaseTest {
         @DisplayName("always requests exactly top-10 anchors from the semantic port")
         void alwaysRequestsTopTenAnchors() {
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(any(), eq(10))).thenReturn(List.of());
+            when(semanticSearch.findTopK(any(), eq(10))).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery("any term"));
 
-            verify(semanticSearchPort).findTopK(any(), eq(10));
+            verify(semanticSearch).findTopK(any(), eq(10));
         }
 
         @Test
@@ -343,9 +343,9 @@ class SearchSourceUseCaseTest {
             var triple = triple(id);
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(single));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(single));
             when(knowledgeGraphSearch.expandKnowledge(List.of(single))).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(List.of(id))).thenReturn(List.of(single));
+            when(semanticSearch.findChunks(List.of(id))).thenReturn(List.of(single));
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -379,7 +379,7 @@ class SearchSourceUseCaseTest {
             var anchor = chunk(UUID.randomUUID(), "Anchor.", 0);
 
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(anyList()))
                     .thenThrow(new RuntimeException("Neo4j connection refused"));
 
@@ -389,15 +389,15 @@ class SearchSourceUseCaseTest {
         }
 
         @Test
-        @DisplayName("propagates RuntimeException from SemanticSearchPort.findChunks without wrapping")
+        @DisplayName("propagates RuntimeException from SemanticSearch.findChunks without wrapping")
         void propagatesFindChunksException() {
             var anchor = chunk(UUID.randomUUID(), "Anchor.", 0);
             var triple = triple(anchor.getId());
 
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(anyList()))
+            when(semanticSearch.findChunks(anyList()))
                     .thenThrow(new RuntimeException("pgvector query timeout"));
 
             assertThatThrownBy(() -> useCase.execute(new SearchSourceQuery(SEARCH_TERM)))
@@ -421,16 +421,16 @@ class SearchSourceUseCaseTest {
             var triple = triple(anchor.getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of(triple));
-            when(semanticSearchPort.findChunks(anyList())).thenReturn(List.of(anchor));
+            when(semanticSearch.findChunks(anyList())).thenReturn(List.of(anchor));
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
             verify(embeddingPort, times(1)).embed(any());
-            verify(semanticSearchPort, times(1)).findTopK(any(), anyInt());
+            verify(semanticSearch, times(1)).findTopK(any(), anyInt());
             verify(knowledgeGraphSearch, times(1)).expandKnowledge(anyList());
-            verify(semanticSearchPort, times(1)).findChunks(anyList());
+            verify(semanticSearch, times(1)).findChunks(anyList());
         }
 
         @Test
@@ -439,12 +439,12 @@ class SearchSourceUseCaseTest {
             var anchor = chunk(UUID.randomUUID(), "Anchor.", 0);
 
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearchPort.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
+            when(semanticSearch.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
-            verify(semanticSearchPort, never()).findChunks(anyList());
+            verify(semanticSearch, never()).findChunks(anyList());
         }
     }
 }

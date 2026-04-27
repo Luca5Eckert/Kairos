@@ -1,4 +1,4 @@
-package com.kairos.context_engine.domain.embedding;
+package com.kairos.context_engine.domain.port.embedding;
 
 public interface EmbeddingProvider {
 

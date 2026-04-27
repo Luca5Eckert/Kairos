@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.gemini;
 
-import com.kairos.context_engine.domain.graph.TripleExtractor;
+import com.kairos.context_engine.domain.port.extraction.TripleExtractor;
 import com.kairos.context_engine.domain.model.Triple;
 import com.kairos.context_engine.infrastructure.gemini.dto.GeminiResponse;
 import lombok.extern.slf4j.Slf4j;

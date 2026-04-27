@@ -1,7 +1,7 @@
 package com.kairos.context_engine.infrastructure.event.publisher;
 
 import com.kairos.context_engine.domain.event.CreatedSourceEvent;
-import com.kairos.context_engine.domain.event.SourceEventPublisher;
+import com.kairos.context_engine.domain.port.event.SourceEventPublisher;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 

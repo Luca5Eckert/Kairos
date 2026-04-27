@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
-import com.kairos.context_engine.domain.semantic.ChunkerExtractor;
+import com.kairos.context_engine.domain.port.extraction.ChunkerExtractor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

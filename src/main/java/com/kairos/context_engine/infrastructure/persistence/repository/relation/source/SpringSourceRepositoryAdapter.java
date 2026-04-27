@@ -1,7 +1,7 @@
 package com.kairos.context_engine.infrastructure.persistence.repository.relation.source;
 
 import com.kairos.context_engine.domain.model.Source;
-import com.kairos.context_engine.domain.port.SourceRepository;
+import com.kairos.context_engine.domain.port.repository.SourceRepository;
 import com.kairos.context_engine.infrastructure.persistence.entity.relation.SourceEntity;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;

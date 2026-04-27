@@ -1,15 +1,15 @@
 package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
-import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
+import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.Source;
 import com.kairos.context_engine.domain.model.Triple;
-import com.kairos.context_engine.domain.graph.TripleExtractor;
-import com.kairos.context_engine.domain.port.ChunkRepository;
-import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
-import com.kairos.context_engine.domain.port.SourceRepository;
+import com.kairos.context_engine.domain.port.extraction.TripleExtractor;
+import com.kairos.context_engine.domain.port.repository.ChunkRepository;
+import com.kairos.context_engine.domain.port.graph.KnowledgeGraphStore;
+import com.kairos.context_engine.domain.port.repository.SourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
