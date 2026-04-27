@@ -9,7 +9,7 @@ public record LoginCommand(
         String identifier,
         String password
 ) {
-    public static LoginCommand create(String identifier, String password) {
+    public static LoginCommand of(String identifier, String password) {
         return new LoginCommand(identifier, password);
     }
 }
