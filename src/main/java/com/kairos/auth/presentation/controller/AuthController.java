@@ -1,5 +1,6 @@
 package com.kairos.auth.presentation.controller;
 
+import com.kairos.auth.application.command.ConfirmEmailCommand;
 import com.kairos.auth.application.command.LoginCommand;
 import com.kairos.auth.application.command.RegisterCommand;
 import com.kairos.auth.application.use_case.ConfirmEmailUseCase;
@@ -8,6 +9,7 @@ import com.kairos.auth.application.use_case.RegisterUseCase;
 
 import com.kairos.auth.presentation.dto.login.LoginRequest;
 import com.kairos.auth.presentation.dto.login.LoginResponse;
+import com.kairos.auth.presentation.dto.register.ConfirmEmailRequest;
 import com.kairos.auth.presentation.dto.register.RegisterRequest;
 
 import jakarta.validation.Valid;
@@ -53,6 +55,17 @@ public class AuthController {
         registerUseCase.execute(command);
 
         return ResponseEntity.ok().build();
+    }
+
+
+    @PostMapping("/confirm-email")
+    public ResponseEntity<LoginResponse> confirmEmail(@RequestBody @Valid ConfirmEmailRequest request) {
+        var command = ConfirmEmailCommand.create(request.code(), request.email());
+
+        var session = confirmEmailUseCase.execute(command);
+        var response = LoginResponse.create(session.accessToken(), session.roles());
+
+        return ResponseEntity.ok(response);
     }
 
 }
