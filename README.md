@@ -131,11 +131,12 @@ application/
               SearchSourceUseCase
 
 infrastructure/
-  embedding/  OnnxEmbeddingProvider
-  extraction/ GeminiTripleExtractorAdapter
-  graph/      KnowledgeGraphStoreAdapter, KnowledgeGraphSearchAdapter
-  semantic/   SemanticSearchAdapter
-  persistence/PostgreSQL repositories
+  ai/gemini/       GeminiTripleExtractorAdapter
+  embedding/onnx/  OnnxEmbeddingProvider
+  event/spring/    CreatedSourceListener, SpringSourceEventPublisher
+  extraction/      ChunkerExtractorAdapter
+  graph/neo4j/     KnowledgeGraphStoreAdapter, KnowledgeGraphSearchAdapter
+  persistence/jpa/ PostgreSQL repositories, pgvector semantic search
 
 presentation/
   controller/ SourceController

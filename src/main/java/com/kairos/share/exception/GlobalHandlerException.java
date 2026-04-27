@@ -1,9 +1,9 @@
 package com.kairos.share.exception;
 
 import com.kairos.context_engine.domain.exception.EmbeddingException;
-import com.kairos.context_engine.infrastructure.gemini.exception.ApiException;
-import com.kairos.context_engine.infrastructure.gemini.exception.GeminiIntegrationException;
-import com.kairos.context_engine.infrastructure.gemini.exception.JsonProcessingException;
+import com.kairos.context_engine.infrastructure.ai.gemini.exception.ApiException;
+import com.kairos.context_engine.infrastructure.ai.gemini.exception.GeminiIntegrationException;
+import com.kairos.context_engine.infrastructure.ai.gemini.exception.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
