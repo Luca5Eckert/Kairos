@@ -68,7 +68,7 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
      * @param environment   ONNX Runtime environment
      * @param session       ONNX Runtime session containing the embedding model
      * @param tokenizer     tokenizer compatible with the ONNX model
-     * @param tensorFactory factory used to create ORT input tensors
+     * @param tensorFactory factory used to of ORT input tensors
      * @throws EmbeddingException if session metadata cannot be read during initialization
      */
     public OnnxEmbeddingProvider(

@@ -8,7 +8,7 @@ public record LoginResponse(
         String accessToken,
         List<String> roles
 ) {
-    public static LoginResponse create(String accessToken, List<Role> roles) {
+    public static LoginResponse of(String accessToken, List<Role> roles) {
         var roleNames = roles.stream()
                 .map(Role::name)
                 .toList();

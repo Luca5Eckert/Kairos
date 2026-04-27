@@ -13,6 +13,7 @@ import com.kairos.auth.presentation.dto.register.ConfirmEmailRequest;
 import com.kairos.auth.presentation.dto.register.RegisterRequest;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,17 +36,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
-        var command = LoginCommand.create(request.identifier(), request.password());
+        var command = LoginCommand.of(request.identifier(), request.password());
 
         var session = loginUseCase.execute(command);
-        var response = LoginResponse.create(session.accessToken(), session.roles());
+        var response = LoginResponse.of(session.accessToken(), session.roles());
 
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register")
     public ResponseEntity<Void> register(@RequestBody @Valid RegisterRequest request){
-        var command = RegisterCommand.create(
+        var command = RegisterCommand.of(
                 request.name(),
                 request.username(),
                 request.email(),
@@ -54,16 +55,18 @@ public class AuthController {
 
         registerUseCase.execute(command);
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .build();
     }
 
 
     @PostMapping("/confirm-email")
     public ResponseEntity<LoginResponse> confirmEmail(@RequestBody @Valid ConfirmEmailRequest request) {
-        var command = ConfirmEmailCommand.create(request.code(), request.email());
+        var command = ConfirmEmailCommand.of(request.code(), request.email());
 
         var session = confirmEmailUseCase.execute(command);
-        var response = LoginResponse.create(session.accessToken(), session.roles());
+        var response = LoginResponse.of(session.accessToken(), session.roles());
 
         return ResponseEntity.ok(response);
     }

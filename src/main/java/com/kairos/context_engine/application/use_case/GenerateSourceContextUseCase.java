@@ -45,7 +45,7 @@ public class GenerateSourceContextUseCase {
     /**
      * Generates a knowledge graph context for the given source and its associated chunks.
      * @param source the source for which the knowledge graph context is being generated
-     * @param chunks the list of chunks associated with the source, from which to extract triples and create the knowledge graph context
+     * @param chunks the list of chunks associated with the source, from which to extract triples and of the knowledge graph context
      */
     private void generateKnowledgeGraph(Source source, List<Chunk> chunks) {
         knowledgeGraphStore.createContext(chunks);
@@ -56,7 +56,7 @@ public class GenerateSourceContextUseCase {
     /**
      * Extracts triples from the content of each chunk and saves them to the knowledge graph store, associating them with the corresponding chunk ID.
      * @param source the source for which the knowledge graph context is being generated
-     * @param chunks the list of chunks from which to extract triples and create the knowledge graph context
+     * @param chunks the list of chunks from which to extract triples and of the knowledge graph context
      */
     private void createContextForKnowledgeGraph(Source source, List<Chunk> chunks) {
         for (Chunk chunk : chunks) {

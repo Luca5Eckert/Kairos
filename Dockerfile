@@ -19,7 +19,7 @@ WORKDIR ${APP_HOME}
 
 RUN set -eux; \
     groupadd --system app; \
-    useradd --system --gid app --create-home --home-dir ${APP_HOME} app
+    useradd --system --gid app --of-home --home-dir ${APP_HOME} app
 
 COPY --from=build /app/target/*.jar ${APP_HOME}/app.jar
 
