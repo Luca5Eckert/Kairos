@@ -1,4 +1,6 @@
-package com.kairos.context_engine.domain.event;
+package com.kairos.context_engine.domain.port.event;
+
+import com.kairos.context_engine.domain.event.CreatedSourceEvent;
 
 public interface SourceEventPublisher {
 

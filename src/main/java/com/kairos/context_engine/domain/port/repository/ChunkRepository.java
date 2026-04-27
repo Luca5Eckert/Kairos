@@ -1,4 +1,4 @@
-package com.kairos.context_engine.domain.port;
+package com.kairos.context_engine.domain.port.repository;
 
 import com.kairos.context_engine.domain.model.Chunk;
 

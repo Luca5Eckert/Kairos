@@ -1,12 +1,12 @@
 package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
-import com.kairos.context_engine.domain.embedding.EmbeddingProvider;
-import com.kairos.context_engine.domain.graph.KnowledgeGraphSearch;
+import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
+import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.SearchResult;
-import com.kairos.context_engine.domain.semantic.SemanticSearchPort;
+import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +36,7 @@ public class SearchSourceUseCase {
 
     private final EmbeddingProvider embeddingPort;
     private final KnowledgeGraphSearch knowledgeGraphSearch;
-    private final SemanticSearchPort semanticSearchPort;
+    private final SemanticSearch semanticSearch;
 
     /**
      * Executes the graph-augmented search query.
@@ -49,7 +49,7 @@ public class SearchSourceUseCase {
     public SearchResult execute(SearchSourceQuery query) {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<Chunk> semanticAnchors = semanticSearchPort.findTopK(queryVector, 10);
+        List<Chunk> semanticAnchors = semanticSearch.findTopK(queryVector, 10);
 
         if (semanticAnchors.isEmpty()) return SearchResult.empty();
 
@@ -75,7 +75,7 @@ public class SearchSourceUseCase {
     private List<Chunk> fetchAndSortExpandedContext(List<UUID> orderedChunkIds) {
         if (orderedChunkIds.isEmpty()) return List.of();
 
-        List<Chunk> unsortedChunks = semanticSearchPort.findChunks(orderedChunkIds);
+        List<Chunk> unsortedChunks = semanticSearch.findChunks(orderedChunkIds);
 
         Map<UUID, Chunk> chunkMap = unsortedChunks.stream()
                 .collect(Collectors.toMap(Chunk::getId, Function.identity()));

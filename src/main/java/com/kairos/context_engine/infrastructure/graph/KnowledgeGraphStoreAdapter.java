@@ -2,7 +2,7 @@ package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.domain.model.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
-import com.kairos.context_engine.domain.graph.KnowledgeGraphStore;
+import com.kairos.context_engine.domain.port.graph.KnowledgeGraphStore;
 import com.kairos.context_engine.infrastructure.persistence.entity.graph.PassageNode;
 import com.kairos.context_engine.infrastructure.persistence.repository.graph.Neo4jPassageNodeRepository;
 import lombok.RequiredArgsConstructor;

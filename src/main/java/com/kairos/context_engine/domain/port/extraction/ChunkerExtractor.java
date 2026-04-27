@@ -1,4 +1,4 @@
-package com.kairos.context_engine.domain.semantic;
+package com.kairos.context_engine.domain.port.extraction;
 
 import java.util.List;
 
