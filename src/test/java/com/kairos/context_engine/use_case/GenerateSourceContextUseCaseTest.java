@@ -11,6 +11,8 @@ import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.model.Triple;
 import com.kairos.context_engine.domain.port.repository.ChunkRepository;
 import com.kairos.context_engine.domain.port.repository.SourceRepository;
+import com.kairos.context_engine.domain.port.repository.TripleRepository;
+import com.kairos.context_engine.domain.model.content.TripleExtracted;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,6 +46,7 @@ class GenerateSourceContextUseCaseTest {
     @Mock private KnowledgeGraphStore knowledgeGraphStore;
     @Mock private ChunkRepository chunkRepository;
     @Mock private SourceRepository sourceRepository;
+    @Mock private TripleRepository tripleRepository;
 
     @InjectMocks
     private GenerateSourceContextUseCase useCase;
@@ -116,6 +119,34 @@ class GenerateSourceContextUseCaseTest {
                 .hasSize(1)
                 .allSatisfy(knowledgeTriple ->
                         assertThat(knowledgeTriple.chunkId()).isEqualTo(chunk.getId()));
+    }
+
+    @Test
+    @DisplayName("execute - saves extracted triples with embeddings in the triple repository")
+    void execute_savesExtractedTriplesWithEmbeddings() {
+        Chunk chunk = chunk("chunk content", 0);
+        Triple triple = new Triple("spring", "USES", "jpa");
+        float[] tripleEmbedding = new float[]{0.7f, 0.8f};
+
+        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
+        when(embeddingProvider.embed("chunk content")).thenReturn(new float[]{0.1f});
+        when(embeddingProvider.embed("spring-USES-jpa")).thenReturn(tripleEmbedding);
+        when(tripleExtractor.extract("chunk content")).thenReturn(List.of(triple));
+
+        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+        ArgumentCaptor<List<TripleExtracted>> triplesCaptor = ArgumentCaptor.captor();
+        verify(tripleRepository).saveAll(triplesCaptor.capture());
+
+        assertThat(triplesCaptor.getValue()).hasSize(1);
+        TripleExtracted extracted = triplesCaptor.getValue().getFirst();
+        assertThat(extracted.getKey()).isEqualTo("spring-USES-jpa");
+        assertThat(extracted.getSuject()).isEqualTo("spring");
+        assertThat(extracted.getPredicate()).isEqualTo("USES");
+        assertThat(extracted.getObject()).isEqualTo("jpa");
+        assertThat(extracted.getChunk()).isEqualTo(chunk);
+        assertThat(extracted.getEmbedding()).isEqualTo(tripleEmbedding);
     }
 
     @Test
