@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.graph;
 
-import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.KnowledgeTriple;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import org.junit.jupiter.api.DisplayName;

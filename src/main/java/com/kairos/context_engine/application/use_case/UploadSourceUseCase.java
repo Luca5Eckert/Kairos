@@ -2,8 +2,8 @@ package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.command.UploadSourceCommand;
 import com.kairos.context_engine.domain.event.CreatedSourceEvent;
-import com.kairos.context_engine.domain.model.Chunk;
-import com.kairos.context_engine.domain.model.Source;
+import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.port.event.SourceEventPublisher;
 import com.kairos.context_engine.domain.port.repository.ChunkRepository;
 import com.kairos.context_engine.domain.port.repository.SourceRepository;

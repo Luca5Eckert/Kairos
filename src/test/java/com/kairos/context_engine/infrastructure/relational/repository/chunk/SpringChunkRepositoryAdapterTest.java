@@ -1,7 +1,7 @@
 package com.kairos.context_engine.infrastructure.relational.repository.chunk;
 
-import com.kairos.context_engine.domain.model.Chunk;
-import com.kairos.context_engine.domain.model.Source;
+import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,6 +1,6 @@
 package com.kairos.context_engine.presentation.dto.response;
 
-import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.content.Chunk;
 
 import java.util.UUID;
 
