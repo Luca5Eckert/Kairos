@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.relational.repository.chunk;
 
-import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.port.repository.ChunkRepository;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import org.springframework.stereotype.Repository;

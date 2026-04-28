@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.relational.entity;
 
-import com.kairos.context_engine.domain.model.Source;
+import com.kairos.context_engine.domain.model.content.Source;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

@@ -1,6 +1,6 @@
 package com.kairos.context_engine.infrastructure.relational.entity;
 
-import com.kairos.context_engine.domain.model.Chunk;
+import com.kairos.context_engine.domain.model.content.Chunk;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

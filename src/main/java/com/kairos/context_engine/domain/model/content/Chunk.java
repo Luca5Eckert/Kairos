@@ -1,4 +1,4 @@
-package com.kairos.context_engine.domain.model;
+package com.kairos.context_engine.domain.model.content;
 
 import java.util.UUID;
 

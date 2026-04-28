@@ -1,6 +1,6 @@
 package com.kairos.context_engine.domain.port.repository;
 
-import com.kairos.context_engine.domain.model.Source;
+import com.kairos.context_engine.domain.model.content.Source;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,5 +1,7 @@
 package com.kairos.context_engine.domain.model;
 
+import com.kairos.context_engine.domain.model.content.Chunk;
+
 import java.util.List;
 
 public record SearchResult(
