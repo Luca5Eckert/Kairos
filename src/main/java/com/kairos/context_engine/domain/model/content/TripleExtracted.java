@@ -2,13 +2,13 @@ package com.kairos.context_engine.domain.model.content;
 
 public class TripleExtracted {
 
-    private String key;
+    private final String key;
 
-    private String suject;
-    private String predicate;
-    private String object;
+    private final String suject;
+    private final String predicate;
+    private final String object;
 
-    private Chunk chunk;
+    private final Chunk chunk;
 
     protected TripleExtracted(String key, String suject, String predicate, String object, Chunk chunk) {
         this.key = key;
@@ -22,4 +22,25 @@ public class TripleExtracted {
         String key = suject + "-" + predicate + "-" + object;
         return new TripleExtracted(key, suject, predicate, object, chunk);
     }
+
+    public String getKey() {
+        return key;
+    }
+
+    public String getSuject() {
+        return suject;
+    }
+
+    public String getPredicate() {
+        return predicate;
+    }
+
+    public String getObject() {
+        return object;
+    }
+
+    public Chunk getChunk() {
+        return chunk;
+    }
+
 }
