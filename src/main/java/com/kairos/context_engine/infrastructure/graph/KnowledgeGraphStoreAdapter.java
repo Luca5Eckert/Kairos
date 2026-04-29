@@ -88,6 +88,6 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
     }
 
     private void mergeTriple(KnowledgeTriple triple, UUID chunkId) {
-        mutationExecutor.mergeTriple(triple.subject().name(), triple.object().name(), triple.predicate(), chunkId);
+        mutationExecutor.mergeTriple(triple.subject().name(), triple.object().name(), triple.predicate(), chunkId, triple.weight());
     }
 }

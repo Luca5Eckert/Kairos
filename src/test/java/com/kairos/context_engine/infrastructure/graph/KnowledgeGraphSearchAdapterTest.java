@@ -184,6 +184,20 @@ class KnowledgeGraphSearchAdapterTest {
         }
 
         @Test
+        @DisplayName("maps structural relationship weight without using PPR score as triple weight")
+        void singleRow_usesRelationshipWeightNotPprScore() {
+            UUID chunkId = UUID.randomUUID();
+            GraphExpansionResult row = expansionRowWithScore("Paris", "CAPITAL_OF", "France", chunkId.toString(), 0.85, 0.42);
+            stubSuccessfulExpansion(List.of(row));
+
+            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunkWithId(chunkId)));
+
+            assertThat(triples)
+                    .singleElement()
+                    .satisfies(triple -> assertThat(triple.weight()).isEqualTo(0.42));
+        }
+
+        @Test
         @DisplayName("maps multiple rows preserving order returned by the repository")
         void multipleRows_allMappedInOrder() {
             UUID chunkId1 = UUID.randomUUID();
@@ -240,6 +254,18 @@ class KnowledgeGraphSearchAdapterTest {
             stubSuccessfulExpansion(List.of(
                     expansionRow("X", "rel", "Y", null),
                     expansionRow("A", "rel", "B", null)));
+
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("filters out rows without a complete triple")
+        void incompleteTripleRows_returnEmpty() {
+            UUID chunkId = UUID.randomUUID();
+            stubSuccessfulExpansion(List.of(
+                    expansionRow(null, null, null, chunkId.toString())));
 
             List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
 
@@ -392,11 +418,42 @@ class KnowledgeGraphSearchAdapterTest {
      */
     private GraphExpansionResult expansionRow(String subject, String predicate,
                                               String object, String chunkId) {
-        GraphExpansionResult row = mock(GraphExpansionResult.class);
-        when(row.subject()).thenReturn(subject);
-        when(row.predicate()).thenReturn(predicate);
-        when(row.object()).thenReturn(object);
-        when(row.chunkId()).thenReturn(chunkId);
-        return row;
+        return expansionRowWithScore(subject, predicate, object, chunkId, 0.0, 1.0);
+    }
+
+    private GraphExpansionResult expansionRowWithScore(String subject, String predicate,
+                                                       String object, String chunkId,
+                                                       double score, double weight) {
+        return new GraphExpansionResult() {
+            @Override
+            public String subject() {
+                return subject;
+            }
+
+            @Override
+            public String predicate() {
+                return predicate;
+            }
+
+            @Override
+            public String object() {
+                return object;
+            }
+
+            @Override
+            public String chunkId() {
+                return chunkId;
+            }
+
+            @Override
+            public double score() {
+                return score;
+            }
+
+            @Override
+            public double weight() {
+                return weight;
+            }
+        };
     }
 }

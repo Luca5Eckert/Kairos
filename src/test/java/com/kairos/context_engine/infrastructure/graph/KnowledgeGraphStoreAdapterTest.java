@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -37,7 +38,7 @@ class KnowledgeGraphStoreAdapterTest {
 
         adapter.saveAllForChunk(chunkId, List.of(triple));
 
-        verify(mutationExecutor).mergeTriple("backpropagation", "chain rule", "USES", chunkId);
+        verify(mutationExecutor).mergeTriple("backpropagation", "chain rule", "USES", chunkId, 1.0);
     }
 
     @Test
@@ -48,7 +49,18 @@ class KnowledgeGraphStoreAdapterTest {
 
         adapter.saveAllForChunk(chunkId, List.of(triple));
 
-        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId);
+        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId, 1.0);
+    }
+
+    @Test
+    @DisplayName("saveAllForChunk should forward structural triple weight")
+    void saveAllForChunk_shouldForwardStructuralTripleWeight() {
+        UUID chunkId = UUID.randomUUID();
+        KnowledgeTriple triple = triple("a", "REL", "b", chunkId, 0.42);
+
+        adapter.saveAllForChunk(chunkId, List.of(triple));
+
+        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId, 0.42);
     }
 
     @Test
@@ -62,7 +74,7 @@ class KnowledgeGraphStoreAdapterTest {
 
         adapter.saveAllForChunk(chunkId, triples);
 
-        verify(mutationExecutor, times(2)).mergeTriple(anyString(), anyString(), anyString(), eq(chunkId));
+        verify(mutationExecutor, times(2)).mergeTriple(anyString(), anyString(), anyString(), eq(chunkId), anyDouble());
     }
 
     @Test
@@ -107,7 +119,7 @@ class KnowledgeGraphStoreAdapterTest {
 
         adapter.save(triples);
 
-        verify(mutationExecutor, times(3)).mergeTriple(anyString(), anyString(), anyString(), any(UUID.class));
+        verify(mutationExecutor, times(3)).mergeTriple(anyString(), anyString(), anyString(), any(UUID.class), anyDouble());
     }
 
     @Test
@@ -143,12 +155,16 @@ class KnowledgeGraphStoreAdapterTest {
     }
 
     private KnowledgeTriple triple(String subject, String predicate, String object, UUID chunkId) {
+        return triple(subject, predicate, object, chunkId, 1.0);
+    }
+
+    private KnowledgeTriple triple(String subject, String predicate, String object, UUID chunkId, double weight) {
         return new KnowledgeTriple(
                 new Concept(subject),
                 predicate,
                 new Concept(object),
                 Passage.fromChunkId(chunkId),
-                1.0
+                weight
         );
     }
 }

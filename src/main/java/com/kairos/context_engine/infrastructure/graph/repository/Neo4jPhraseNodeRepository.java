@@ -19,11 +19,13 @@ public interface Neo4jPhraseNodeRepository extends Neo4jRepository<PhraseNode, S
             MERGE (s:PhraseNode {name: $subjectName})
             MERGE (o:PhraseNode {name: $objectName})
             MERGE (s)-[r:TRIPLE {predicate: $predicate, chunk_id: $chunkId}]->(o)
+            SET r.weight = $weight
             """)
     void mergeTriple(
             @Param("subjectName") String subjectName,
             @Param("objectName")  String objectName,
             @Param("predicate")   String predicate,
-            @Param("chunkId")     UUID chunkId
+            @Param("chunkId")     UUID chunkId,
+            @Param("weight")      double weight
     );
 }

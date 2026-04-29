@@ -15,19 +15,21 @@ public class KnowledgeGraphMutationExecutor {
             MERGE (p:Passage {chunkId: $chunkId})
             MERGE (s:PhraseNode {name: $subjectName})
             MERGE (o:PhraseNode {name: $objectName})
-            MERGE (s)-[:TRIPLE {predicate: $predicate, chunk_id: $chunkId}]->(o)
+            MERGE (s)-[r:TRIPLE {predicate: $predicate, chunk_id: $chunkId}]->(o)
+            SET r.weight = $weight
             MERGE (p)-[:CONTAINS]->(s)
             MERGE (p)-[:CONTAINS]->(o)
             """;
 
     private final Driver neo4jDriver;
 
-    public void mergeTriple(String subjectName, String objectName, String predicate, UUID chunkId) {
+    public void mergeTriple(String subjectName, String objectName, String predicate, UUID chunkId, double weight) {
         runWrite(MERGE_TRIPLE_FOR_CHUNK, Map.of(
                 "chunkId", chunkId.toString(),
                 "subjectName", subjectName,
                 "objectName", objectName,
-                "predicate", predicate
+                "predicate", predicate,
+                "weight", weight
         ));
     }
 
