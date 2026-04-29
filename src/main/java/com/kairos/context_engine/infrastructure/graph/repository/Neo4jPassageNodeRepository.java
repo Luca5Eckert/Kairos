@@ -150,7 +150,8 @@ public interface Neo4jPassageNodeRepository extends Neo4jRepository<PassageNode,
                 r.predicate     AS predicate,
                 target.name     AS object,
                 passage.chunkId AS chunkId,
-                passageScore    AS score
+                passageScore    AS score,
+                coalesce(r.weight, 1.0) AS weight
             ORDER BY passageScore DESC
             """)
     List<GraphExpansionResult> runPPRExpansion(

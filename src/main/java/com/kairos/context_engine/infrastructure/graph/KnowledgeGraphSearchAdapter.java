@@ -20,7 +20,7 @@ import java.util.UUID;
  * <ol>
  *   <li>{@code projectPhraseGraph} — creates a named in-memory GDS projection.</li>
  *   <li>{@code runPPRExpansion} — executes Personalized PageRank seeded from the
- *       anchor passages and returns the top-scored knowledge triples.</li>
+ *       anchor passages and returns knowledge triples from the top-scored passages.</li>
  *   <li>{@code dropProjectedGraph} — releases the in-memory projection.</li>
  * </ol>
  *
@@ -64,7 +64,6 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
      * @param semanticAnchors chunks selected as PPR seed sources; must not be {@code null}
      * @return knowledge triples ranked by passage score; never {@code null}
      */
-    // This will be modified in future to support HippoRAG, with score to implement PPR.
     @Override
     public List<KnowledgeTriple> expandKnowledge(List<Chunk> semanticAnchors) {
         if (semanticAnchors == null || semanticAnchors.isEmpty()) {
@@ -105,12 +104,20 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
                         }
                         return true;
                     })
+                    .filter(result -> {
+                        if (result.subject() == null || result.predicate() == null || result.object() == null) {
+                            log.warn("Skipping incomplete graph expansion row | chunkId='{}' subject='{}' predicate='{}' object='{}'",
+                                    result.chunkId(), result.subject(), result.predicate(), result.object());
+                            return false;
+                        }
+                        return true;
+                    })
                     .map(result -> KnowledgeTriple.create(
                             result.subject(),
                             result.predicate(),
                             result.object(),
                             Passage.fromChunkId(UUID.fromString(result.chunkId())),
-                            result.score() // simulate weight with score
+                            result.weight()
                     ))
                     .toList();
 

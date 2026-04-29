@@ -78,6 +78,7 @@ class KnowledgeGraphGdsExecutorTest {
         when(record.get("object")).thenReturn(Values.value("object"));
         when(record.get("chunkId")).thenReturn(Values.value("550e8400-e29b-41d4-a716-446655440000"));
         when(record.get("score")).thenReturn(Values.value(0.85d));
+        when(record.get("weight")).thenReturn(Values.value(0.42d));
 
         doAnswer(invocation -> {
             java.util.function.Function<Record, GraphExpansionResult> mapper = invocation.getArgument(0);
@@ -98,6 +99,7 @@ class KnowledgeGraphGdsExecutorTest {
         assertThat(rows.getFirst().object()).isEqualTo("object");
         assertThat(rows.getFirst().chunkId()).isEqualTo("550e8400-e29b-41d4-a716-446655440000");
         assertThat(rows.getFirst().score()).isEqualTo(0.85d);
+        assertThat(rows.getFirst().weight()).isEqualTo(0.42d);
     }
 
     @Test
