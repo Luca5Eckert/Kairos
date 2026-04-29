@@ -72,7 +72,7 @@ public class GeminiResponseParser {
             String subject = text(item, "subject");
             String predicate = text(item, "predicate");
             String object = text(item, "object");
-            double weight = Double.parseDouble(Objects.requireNonNull(text(item, "weight")));
+            double weight = weight(item);
 
             if (subject != null && predicate != null && object != null) {
                 triples.add(new Triple(subject, predicate, object, weight));
@@ -85,6 +85,11 @@ public class GeminiResponseParser {
     private String text(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value != null && !value.isNull() ? value.asString() : null;
+    }
+
+    private double weight(JsonNode node) {
+        String value = text(node, "weight");
+        return value == null || value.isBlank() ? 1.0 : Double.parseDouble(value);
     }
 
     private String sanitize(String text) {
@@ -156,11 +161,9 @@ public class GeminiResponseParser {
             String subject = unescapeJson(matcher.group("subject"));
             String predicate = unescapeJson(matcher.group("predicate"));
             String object = unescapeJson(matcher.group("object"));
-            unescapeJson(matcher.group("weight"));
-            double weight = Double.parseDouble(unescapeJson(matcher.group("weight")));
 
             if (!subject.isBlank() && !predicate.isBlank() && !object.isBlank()) {
-                triples.add(new Triple(subject, predicate, object, weight));
+                triples.add(new Triple(subject, predicate, object));
             }
         }
 
