@@ -16,7 +16,7 @@ public record KnowledgeTripleResponse(
                 triple.subject().name(),
                 triple.predicate(),
                 triple.object().name(),
-                triple.chunkId()
+                triple.passage().chunkId()
         );
     }
 

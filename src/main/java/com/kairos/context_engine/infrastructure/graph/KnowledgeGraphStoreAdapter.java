@@ -33,7 +33,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
         Set<UUID> ensuredChunks = new java.util.HashSet<>();
 
         for (KnowledgeTriple triple : triples) {
-            UUID chunkId = triple.chunkId();
+            UUID chunkId = triple.passage() == null ? null : triple.passage().chunkId();
 
             if (chunkId == null) {
                 log.error("Triple for subject '{}' has no chunkId. Skipping.", triple.subject().name());

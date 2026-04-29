@@ -5,6 +5,7 @@ import com.kairos.context_engine.application.use_case.SearchSourceUseCase;
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.*;
@@ -68,7 +69,7 @@ class SearchSourceUseCaseTest {
     }
 
     private KnowledgeTriple triple(UUID chunkId) {
-        return KnowledgeTriple.create("Consciousness", "is_part_of", "Mind", chunkId);
+        return KnowledgeTriple.create("Consciousness", "is_part_of", "Mind", Passage.fromChunkId(chunkId), 1.0);
     }
 
     // =========================================================================
@@ -232,9 +233,9 @@ class SearchSourceUseCaseTest {
 
             // Same chunkId referenced by two different triples (common in PPR expansion)
             List<KnowledgeTriple> triplesWithDuplicate = List.of(
-                    KnowledgeTriple.create("Mind",    "has_property", "Consciousness", sharedId),
-                    KnowledgeTriple.create("Qualia",  "relates_to",   "Experience",    sharedId),
-                    KnowledgeTriple.create("Neuron",  "fires_during", "Thought",       uniqueId)
+                    KnowledgeTriple.create("Mind",    "has_property", "Consciousness", Passage.fromChunkId(sharedId), 1.0),
+                    KnowledgeTriple.create("Qualia",  "relates_to",   "Experience",    Passage.fromChunkId(sharedId), 1.0),
+                    KnowledgeTriple.create("Neuron",  "fires_during", "Thought",       Passage.fromChunkId(uniqueId), 1.0)
             );
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);

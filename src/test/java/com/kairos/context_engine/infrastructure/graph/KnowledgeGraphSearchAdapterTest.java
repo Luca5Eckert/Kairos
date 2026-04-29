@@ -2,6 +2,7 @@ package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -179,7 +180,7 @@ class KnowledgeGraphSearchAdapterTest {
             assertThat(triple.subject().name()).isEqualTo("Paris");
             assertThat(triple.predicate()).isEqualTo("CAPITAL_OF");
             assertThat(triple.object().name()).isEqualTo("France");
-            assertThat(triple.chunkId()).isEqualTo(chunkId);
+            assertThat(triple.passage()).isEqualTo(Passage.fromChunkId(chunkId));
         }
 
         @Test
@@ -194,8 +195,8 @@ class KnowledgeGraphSearchAdapterTest {
             List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunk()));
 
             assertThat(triples).hasSize(2);
-            assertThat(triples.get(0).chunkId()).isEqualTo(chunkId1);
-            assertThat(triples.get(1).chunkId()).isEqualTo(chunkId2);
+            assertThat(triples.get(0).passage().chunkId()).isEqualTo(chunkId1);
+            assertThat(triples.get(1).passage().chunkId()).isEqualTo(chunkId2);
         }
 
         @Test
@@ -230,7 +231,7 @@ class KnowledgeGraphSearchAdapterTest {
             assertThat(result)
                     .hasSize(1)
                     .first()
-                    .satisfies(t -> assertThat(t.chunkId()).isEqualTo(validId));
+                    .satisfies(t -> assertThat(t.passage().chunkId()).isEqualTo(validId));
         }
 
         @Test

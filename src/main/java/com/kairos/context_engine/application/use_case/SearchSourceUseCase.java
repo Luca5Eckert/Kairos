@@ -56,7 +56,7 @@ public class SearchSourceUseCase {
         List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(semanticAnchors);
 
         List<UUID> orderedChunkIds = triples.stream()
-                .map(KnowledgeTriple::chunkId)
+                .map(triple -> triple.passage().chunkId())
                 .distinct()
                 .toList();
 

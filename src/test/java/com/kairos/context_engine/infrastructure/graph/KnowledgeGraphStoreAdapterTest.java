@@ -2,6 +2,7 @@ package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.domain.model.knowledge.Concept;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,7 +117,8 @@ class KnowledgeGraphStoreAdapterTest {
                 new Concept("subject", 0, 0),
                 "REL",
                 new Concept("object", 0, 0),
-                null
+                null,
+                1.0
         );
 
         adapter.save(List.of(invalidTriple));
@@ -145,7 +147,8 @@ class KnowledgeGraphStoreAdapterTest {
                 new Concept(subject, 0, 0),
                 predicate,
                 new Concept(object, 0, 0),
-                chunkId
+                Passage.fromChunkId(chunkId),
+                1.0
         );
     }
 }

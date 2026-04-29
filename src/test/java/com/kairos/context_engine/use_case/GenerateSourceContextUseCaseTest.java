@@ -118,7 +118,7 @@ class GenerateSourceContextUseCaseTest {
         assertThat(triplesCaptor.getValue())
                 .hasSize(1)
                 .allSatisfy(knowledgeTriple ->
-                        assertThat(knowledgeTriple.chunkId()).isEqualTo(chunk.getId()));
+                        assertThat(knowledgeTriple.passage().chunkId()).isEqualTo(chunk.getId()));
     }
 
     @Test

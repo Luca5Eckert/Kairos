@@ -5,6 +5,7 @@ import com.kairos.context_engine.domain.model.content.TripleExtracted;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.model.Triple;
 import com.kairos.context_engine.domain.port.extraction.TripleExtractor;
@@ -51,8 +52,8 @@ public class GenerateSourceContextUseCase {
      * @param chunks the list of chunks associated with the source, from which to extract triples and of the knowledge graph context
      */
     private void generateKnowledgeGraph(Source source, List<Chunk> chunks) {
-        knowledgeGraphStore.createContext(chunks);
-        createContextForKnowledgeGraph(source,chunks);
+        knowledgeGraphStore.createContext(chunks); // TODO: this is a bad abstraction. First we to create a series of passages nodes and this will be the foundation of context.
+        createContextForKnowledgeGraph(source,chunks); // TODO: this is a causal bad abstraction. This parte will create the relationships and structure of the foundation create before.
     }
 
 
@@ -64,13 +65,14 @@ public class GenerateSourceContextUseCase {
     private void createContextForKnowledgeGraph(Source source, List<Chunk> chunks) {
         for (Chunk chunk : chunks) {
             List<Triple> triples = tripleExtractor.extract(chunk.getContent());
+            Passage passage = Passage.fromChunkId(chunk.getId());
 
             List<TripleExtracted> extractedTriples = triples.stream()
                     .map(triple -> this.createEmbeddingTriple(triple, chunk))
                     .toList();
 
             List<KnowledgeTriple> knowledgeTriples = triples.stream()
-                    .map(triple -> KnowledgeTriple.create(triple, chunk.getId()))
+                    .map(triple -> KnowledgeTriple.create(triple, passage))
                     .toList();
 
             tripleRepository.saveAll(extractedTriples);
