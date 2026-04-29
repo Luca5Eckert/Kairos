@@ -69,7 +69,7 @@ public class SearchSourceUseCase {
      * Hydrates the chunk payloads from the semantic store and enforces the relevance ranking
      * established by the knowledge graph expansion phase.
      *
-     * @param orderedChunkIds a list of UUIDs strictly ordered by graph centrality/relevance.
+     * @param orderedChunkIds a list of UUIDs strictly ordered by graph relevance.
      * @return a list of fully hydrated {@link Chunk} objects preserving the input order.
      */
     private List<Chunk> fetchAndSortExpandedContext(List<UUID> orderedChunkIds) {
