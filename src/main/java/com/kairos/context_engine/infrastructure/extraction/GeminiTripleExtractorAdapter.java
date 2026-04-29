@@ -79,7 +79,8 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
                     {
                       "subject": "string",
                       "predicate": "STRING",
-                      "object": "string"
+                      "object": "string",
+                      "weight": number
                     }
                   ]
                 }
