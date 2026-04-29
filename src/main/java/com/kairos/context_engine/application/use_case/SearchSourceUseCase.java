@@ -4,7 +4,7 @@ import com.kairos.context_engine.application.query.SearchSourceQuery;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.SearchResult;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import lombok.RequiredArgsConstructor;

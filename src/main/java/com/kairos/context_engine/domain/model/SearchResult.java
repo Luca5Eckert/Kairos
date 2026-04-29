@@ -1,6 +1,7 @@
 package com.kairos.context_engine.domain.model;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 
 import java.util.List;
 

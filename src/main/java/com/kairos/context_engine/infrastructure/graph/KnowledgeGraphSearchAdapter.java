@@ -2,7 +2,7 @@ package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

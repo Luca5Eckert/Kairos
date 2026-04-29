@@ -1,4 +1,4 @@
-package com.kairos.context_engine.domain.model;
+package com.kairos.context_engine.domain.model.knowledge;
 
 public record Concept(
         String name,

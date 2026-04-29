@@ -1,7 +1,7 @@
 package com.kairos.context_engine.domain.port.graph;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 
 import java.util.List;
 import java.util.UUID;
