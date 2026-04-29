@@ -4,7 +4,7 @@ import com.kairos.context_engine.application.command.GenerateSourceContextComman
 import com.kairos.context_engine.domain.model.content.TripleExtracted;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.model.Triple;
 import com.kairos.context_engine.domain.port.extraction.TripleExtractor;
@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
