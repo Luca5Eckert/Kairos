@@ -114,9 +114,9 @@ class KnowledgeGraphStoreAdapterTest {
     @DisplayName("save should skip triples with null chunkId")
     void save_shouldSkipTriplesWithNullChunkId() {
         KnowledgeTriple invalidTriple = new KnowledgeTriple(
-                new Concept("subject", 0, 0),
+                new Concept("subject"),
                 "REL",
-                new Concept("object", 0, 0),
+                new Concept("object"),
                 null,
                 1.0
         );
@@ -144,9 +144,9 @@ class KnowledgeGraphStoreAdapterTest {
 
     private KnowledgeTriple triple(String subject, String predicate, String object, UUID chunkId) {
         return new KnowledgeTriple(
-                new Concept(subject, 0, 0),
+                new Concept(subject),
                 predicate,
-                new Concept(object, 0, 0),
+                new Concept(object),
                 Passage.fromChunkId(chunkId),
                 1.0
         );
