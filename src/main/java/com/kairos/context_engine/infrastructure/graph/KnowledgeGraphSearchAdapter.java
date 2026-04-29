@@ -63,6 +63,7 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
      * @param semanticAnchors chunks selected as PPR seed sources; must not be {@code null}
      * @return knowledge triples ranked by passage score; never {@code null}
      */
+    // This will be modified in future to support HippoRAG, with score to implement PPR.
     @Override
     public List<KnowledgeTriple> expandKnowledge(List<Chunk> semanticAnchors) {
         if (semanticAnchors == null || semanticAnchors.isEmpty()) {
@@ -107,7 +108,8 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
                             result.subject(),
                             result.predicate(),
                             result.object(),
-                            UUID.fromString(result.chunkId())
+                            UUID.fromString(result.chunkId()),
+                            result.score() // simulate weight with score
                     ))
                     .toList();
 
