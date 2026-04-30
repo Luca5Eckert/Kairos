@@ -1,7 +1,7 @@
 package com.kairos.context_engine.infrastructure.graph;
 
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
-import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
 import lombok.RequiredArgsConstructor;
@@ -65,13 +65,13 @@ public class KnowledgeGraphSearchAdapter implements KnowledgeGraphSearch {
      * @return knowledge triples ranked by passage score; never {@code null}
      */
     @Override
-    public List<KnowledgeTriple> expandKnowledge(List<Chunk> semanticAnchors) {
+    public List<KnowledgeTriple> expandKnowledge(List<PassageCandidate> semanticAnchors) {
         if (semanticAnchors == null || semanticAnchors.isEmpty()) {
             return List.of();
         }
 
         List<String> anchorIds = semanticAnchors.stream()
-                .map(chunk -> chunk.getId().toString())
+                .map(anchors -> anchors.chunkId().toString())
                 .toList();
 
         log.info("Expanding knowledge graph | anchors={} ids={}", anchorIds.size(), anchorIds);
