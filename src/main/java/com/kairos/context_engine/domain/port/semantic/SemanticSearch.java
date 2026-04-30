@@ -1,13 +1,14 @@
 package com.kairos.context_engine.domain.port.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface SemanticSearch {
 
-    List<Chunk> findTopK(float[] queryVector, int k);
+    List<PassageCandidate> findPassageCandidate(float[] queryVector, int k);
 
     List<Chunk> findChunks(List<UUID> triples);
 }

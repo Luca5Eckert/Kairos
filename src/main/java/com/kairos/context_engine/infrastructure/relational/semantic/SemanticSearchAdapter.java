@@ -1,6 +1,7 @@
 package com.kairos.context_engine.infrastructure.relational.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
@@ -32,10 +33,13 @@ public class SemanticSearchAdapter implements SemanticSearch {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<Chunk> findTopK(float[] queryVector, int k) {
-        List<ChunkEntity> chunks = jpaChunkRepository.findTopKByEmbedding(queryVector, k);
-        return chunks.stream()
-                .map(ChunkEntity::toDomain)
+    public List<PassageCandidate> findPassageCandidate(float[] queryVector, int k) {
+        return jpaChunkRepository.findCandidates(queryVector, k)
+                .stream()
+                .map(candidate -> new PassageCandidate(
+                        candidate.getChunkId(),
+                        candidate.getDenseScore()
+                ))
                 .toList();
     }
 
