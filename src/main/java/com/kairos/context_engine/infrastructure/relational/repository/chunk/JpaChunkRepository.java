@@ -1,6 +1,7 @@
 package com.kairos.context_engine.infrastructure.relational.repository.chunk;
 
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
+import com.kairos.context_engine.infrastructure.relational.repository.projection.PassageCandidateProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +27,19 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
     List<ChunkEntity> findTopKByEmbedding(@Param("queryVector") float[] queryVector, @Param("limit") int limit);
 
     List<ChunkEntity> findAllBySource_Id(UUID sourceId);
+
+    @Query(value = """
+        SELECT
+            c.id AS chunkId,
+            1 - (c.embedding <=> cast(:queryVector AS vector)) AS denseScore
+        FROM chunks c
+        WHERE c.processed = true
+        ORDER BY c.embedding <=> cast(:queryVector AS vector)
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<PassageCandidateProjection> findCandidates(
+            @Param("queryVector") float[] queryVector,
+            @Param("limit") int limit
+    );
+
 }
