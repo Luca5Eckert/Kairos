@@ -1,6 +1,7 @@
 package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.content.Chunk;
@@ -49,11 +50,11 @@ public class SearchSourceUseCase {
     public SearchResult execute(SearchSourceQuery query) {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<Chunk> semanticAnchors = semanticSearch.findTopK(queryVector, 10);
+        List<PassageCandidate> passageCandidate = semanticSearch.findPassageCandidate(queryVector, 10);
 
-        if (semanticAnchors.isEmpty()) return SearchResult.empty();
+        if (passageCandidate.isEmpty()) return SearchResult.empty();
 
-        List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(semanticAnchors);
+        List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(passageCandidate);
 
         List<UUID> orderedChunkIds = triples.stream()
                 .map(triple -> triple.passage().chunkId())
