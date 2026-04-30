@@ -52,20 +52,25 @@ public class GenerateSourceContextUseCase {
      * @param chunks the list of chunks associated with the source, from which to extract triples and of the knowledge graph context
      */
     private void generateKnowledgeGraph(Source source, List<Chunk> chunks) {
-        knowledgeGraphStore.createContext(chunks); // TODO: this is a bad abstraction. First we to create a series of passages nodes and this will be the foundation of context.
-        createContextForKnowledgeGraph(source,chunks); // TODO: this is a causal bad abstraction. This parte will create the relationships and structure of the foundation create before.
+        List<Passage> passages = chunks.stream()
+                .map(chunk -> Passage.fromChunkId(chunk.getId()))
+                .toList();
+        knowledgeGraphStore.savePassages(passages);
+
+        createContextForKnowledgeGraph(chunks, passages);
     }
 
 
     /**
      * Extracts triples from the content of each chunk and saves them to the knowledge graph store, associating them with the corresponding chunk ID.
-     * @param source the source for which the knowledge graph context is being generated
      * @param chunks the list of chunks from which to extract triples and of the knowledge graph context
      */
-    private void createContextForKnowledgeGraph(Source source, List<Chunk> chunks) {
-        for (Chunk chunk : chunks) {
+    private void createContextForKnowledgeGraph(List<Chunk> chunks, List<Passage> passages) {
+        for (int i = 0; i < chunks.size(); i++) {
+            Chunk chunk = chunks.get(i);
+            Passage passage = passages.get(i);
+
             List<Triple> triples = tripleExtractor.extract(chunk.getContent());
-            Passage passage = Passage.fromChunkId(chunk.getId());
 
             List<TripleExtracted> extractedTriples = triples.stream()
                     .map(triple -> this.createEmbeddingTriple(triple, chunk))
