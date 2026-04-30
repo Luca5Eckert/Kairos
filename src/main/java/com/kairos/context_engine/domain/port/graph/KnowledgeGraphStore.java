@@ -1,7 +1,7 @@
 package com.kairos.context_engine.domain.port.graph;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 
 import java.util.List;
 import java.util.UUID;
@@ -12,5 +12,5 @@ public interface KnowledgeGraphStore {
 
     void saveAllForChunk(UUID chunkId, List<KnowledgeTriple> knowledgeTriples);
 
-    void createContext(List<Chunk> chunks);
+    void savePassages(List<Passage> passages);
 }

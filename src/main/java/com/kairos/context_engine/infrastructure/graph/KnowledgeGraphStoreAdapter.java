@@ -2,6 +2,7 @@ package com.kairos.context_engine.infrastructure.graph;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphStore;
 import com.kairos.context_engine.infrastructure.graph.entity.PassageNode;
 import com.kairos.context_engine.infrastructure.graph.repository.Neo4jPassageNodeRepository;
@@ -45,7 +46,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
             mergeTriple(triple, chunkId);
         }
 
-        log.info("Successfully processed {} triples across {} different chunks.", triples.size(), ensuredChunks.size());
+        log.info("Successfully processed {} triples across {} different passages.", triples.size(), ensuredChunks.size());
     }
 
     @Override
@@ -68,23 +69,23 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     @Override
     @Transactional
-    public void createContext(List<Chunk> chunks) {
-            if (chunks == null || chunks.isEmpty()) {
-                log.warn("No chunks provided for context creation.");
+    public void savePassages(List<Passage> passages) {
+            if (passages == null || passages.isEmpty()) {
+                log.warn("No passages provided for context creation.");
                 return;
             }
 
-            for (Chunk chunk : chunks) {
-                if (chunk.getId() == null) {
-                    log.error("Chunk with content '{}' has null ID. Skipping context creation for this chunk.", chunk.getContent());
+            for (Passage passage : passages) {
+                if (passage.chunkId() == null) {
+                    log.error("Passage has null ID. Skipping context creation for this passage.");
                     continue;
                 }
 
-                PassageNode passageNode = new PassageNode(chunk.getId());
+                PassageNode passageNode = new PassageNode(passage.chunkId());
                 passageNodeRepository.save(passageNode);
             }
 
-            log.info("Successfully created context for {} chunks.", chunks.size());
+            log.info("Successfully created context for {} passages.", passages.size());
     }
 
     private void mergeTriple(KnowledgeTriple triple, UUID chunkId) {
