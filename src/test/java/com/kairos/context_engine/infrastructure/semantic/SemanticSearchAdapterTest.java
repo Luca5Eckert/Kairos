@@ -1,9 +1,11 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
 import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.context_engine.infrastructure.relational.repository.projection.PassageCandidateProjection;
 import com.kairos.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
 import com.kairos.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +65,20 @@ class SemanticSearchAdapterTest {
         return new ChunkEntity(id, source, content, index, false, QUERY_VECTOR);
     }
 
+    private PassageCandidateProjection candidateProjection(UUID chunkId, double denseScore) {
+        return new PassageCandidateProjection() {
+            @Override
+            public UUID getChunkId() {
+                return chunkId;
+            }
+
+            @Override
+            public double getDenseScore() {
+                return denseScore;
+            }
+        };
+    }
+
     // =========================================================================
     // search()
     // =========================================================================
@@ -70,103 +86,100 @@ class SemanticSearchAdapterTest {
 
 
     // =========================================================================
-    // findTopK()
+    // findPassageCandidate()
     // =========================================================================
 
     @Nested
-    @DisplayName("findTopK(float[], int)")
+    @DisplayName("findPassageCandidate(float[], int)")
     class FindTopKMethod {
 
         @Test
         @DisplayName("forwards the query vector and k to jpaChunkRepository unchanged")
         void forwardsVectorAndKToRepository() {
-            when(jpaChunkRepository.findTopKByEmbedding(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(jpaChunkRepository.findCandidates(QUERY_VECTOR, 10)).thenReturn(List.of());
 
-            adapter.findTopK(QUERY_VECTOR, 10);
+            adapter.findPassageCandidate(QUERY_VECTOR, 10);
 
             ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
-            verify(jpaChunkRepository).findTopKByEmbedding(vectorCaptor.capture(), eq(10));
+            verify(jpaChunkRepository).findCandidates(vectorCaptor.capture(), eq(10));
             assertThat(vectorCaptor.getValue()).isEqualTo(QUERY_VECTOR);
         }
 
         @Test
-        @DisplayName("maps each ChunkEntity to a Chunk domain model preserving content and index")
-        void mapsChunkEntitiesToDomainModels() {
-            ChunkEntity entityA = chunkEntity(UUID.randomUUID(), sourceEntityA, "Chunk text A", 0);
-            ChunkEntity entityB = chunkEntity(UUID.randomUUID(), sourceEntityB, "Chunk text B", 1);
+        @DisplayName("maps each candidate projection to a PassageCandidate")
+        void mapsCandidateProjectionsToDomainModels() {
+            UUID idA = UUID.randomUUID();
+            UUID idB = UUID.randomUUID();
 
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt()))
-                    .thenReturn(List.of(entityA, entityB));
+            when(jpaChunkRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            candidateProjection(idA, 0.91),
+                            candidateProjection(idB, 0.72)
+                    ));
 
-            List<Chunk> result = adapter.findTopK(QUERY_VECTOR, 2);
+            List<PassageCandidate> result = adapter.findPassageCandidate(QUERY_VECTOR, 2);
 
             assertThat(result).hasSize(2);
-            assertThat(result.getFirst().getContent()).isEqualTo("Chunk text A");
-            assertThat(result.getFirst().getIndex()).isEqualTo(0);
-            assertThat(result.get(1).getContent()).isEqualTo("Chunk text B");
-            assertThat(result.get(1).getIndex()).isEqualTo(1);
+            assertThat(result)
+                    .extracting(PassageCandidate::chunkId)
+                    .containsExactly(idA, idB);
+            assertThat(result)
+                    .extracting(PassageCandidate::denseScore)
+                    .containsExactly(0.91, 0.72);
         }
 
-        @Test
-        @DisplayName("hydrates each Chunk with the embedding from its entity")
-        void hydratesChunkWithEmbedding() {
-            ChunkEntity entity = chunkEntity(UUID.randomUUID(), sourceEntityA, "Some text", 0);
-
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt()))
-                    .thenReturn(List.of(entity));
-
-            List<Chunk> result = adapter.findTopK(QUERY_VECTOR, 1);
-
-            assertThat(result.getFirst().getEmbedding()).isEqualTo(QUERY_VECTOR);
-        }
 
         @Test
-        @DisplayName("hydrates each Chunk with the correct parent Source")
-        void hydratesChunkWithCorrectSource() {
-            ChunkEntity entity = chunkEntity(UUID.randomUUID(), sourceEntityA, "Some text", 0);
+        @DisplayName("maps chunk id and dense score from candidate projection")
+        void mapsChunkIdAndDenseScore() {
+            UUID id = UUID.randomUUID();
 
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt()))
-                    .thenReturn(List.of(entity));
+            when(jpaChunkRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(candidateProjection(id, 0.84)));
 
-            List<Chunk> result = adapter.findTopK(QUERY_VECTOR, 1);
+            List<PassageCandidate> result = adapter.findPassageCandidate(QUERY_VECTOR, 1);
 
-            assertThat(result.getFirst().getSource().getId()).isEqualTo(sourceEntityA.getId());
-            assertThat(result.getFirst().getSource().getTitle()).isEqualTo(sourceEntityA.getTitle());
+            assertThat(result.getFirst().chunkId()).isEqualTo(id);
+            assertThat(result.getFirst().denseScore()).isEqualTo(0.84);
         }
 
         @Test
         @DisplayName("preserves the cosine-distance ranking order returned by the repository")
         void preservesRankingOrder() {
-            ChunkEntity first  = chunkEntity(UUID.randomUUID(), sourceEntityA, "Highest relevance", 0);
-            ChunkEntity second = chunkEntity(UUID.randomUUID(), sourceEntityA, "Medium relevance",  1);
-            ChunkEntity third  = chunkEntity(UUID.randomUUID(), sourceEntityA, "Lowest relevance",  2);
+            UUID idA = UUID.randomUUID();
+            UUID idB = UUID.randomUUID();
+            UUID idC = UUID.randomUUID();
 
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt()))
-                    .thenReturn(List.of(first, second, third));
+            when(jpaChunkRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            candidateProjection(idA, 0.95),
+                            candidateProjection(idB, 0.82),
+                            candidateProjection(idC, 0.61)
+                    ));
 
-            List<Chunk> result = adapter.findTopK(QUERY_VECTOR, 3);
+            List<PassageCandidate> result = adapter.findPassageCandidate(QUERY_VECTOR, 3);
 
             assertThat(result)
-                    .extracting(Chunk::getContent)
-                    .containsExactly("Highest relevance", "Medium relevance", "Lowest relevance");
+                    .extracting(PassageCandidate::chunkId)
+                    .containsExactly(idA, idB, idC);
         }
 
         @Test
         @DisplayName("returns an empty list when the repository finds no matching chunks")
         void returnsEmptyListWhenNoResults() {
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt())).thenReturn(List.of());
+            when(jpaChunkRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
 
-            List<Chunk> result = adapter.findTopK(QUERY_VECTOR, 10);
+            List<PassageCandidate> result = adapter.findPassageCandidate(QUERY_VECTOR, 10);
 
             assertThat(result).isEmpty();
         }
 
         @Test
-        @DisplayName("never interacts with jpaSourceRepository during findTopK")
+        @DisplayName("never interacts with jpaSourceRepository during findPassageCandidate")
         void doesNotTouchSourceRepositoryDuringFindTopK() {
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt())).thenReturn(List.of());
+            when(jpaChunkRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
 
-            adapter.findTopK(QUERY_VECTOR, 10);
+            adapter.findPassageCandidate(QUERY_VECTOR, 10);
 
             verifyNoInteractions(jpaSourceRepository);
         }
@@ -174,10 +187,10 @@ class SemanticSearchAdapterTest {
         @Test
         @DisplayName("propagates RuntimeException from jpaChunkRepository without wrapping")
         void propagatesRepositoryException() {
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt()))
+            when(jpaChunkRepository.findCandidates(any(), anyInt()))
                     .thenThrow(new RuntimeException("Connection pool exhausted"));
 
-            assertThatThrownBy(() -> adapter.findTopK(QUERY_VECTOR, 10))
+            assertThatThrownBy(() -> adapter.findPassageCandidate(QUERY_VECTOR, 10))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Connection pool exhausted");
         }
@@ -338,12 +351,12 @@ class SemanticSearchAdapterTest {
 
 
         @Test
-        @DisplayName("findTopK() and findChunks() each call only jpaChunkRepository, never jpaSourceRepository")
+        @DisplayName("findPassageCandidate() and findChunks() each call only jpaChunkRepository, never jpaSourceRepository")
         void chunkMethodsDoNotTouchSourceRepository() {
-            when(jpaChunkRepository.findTopKByEmbedding(any(), anyInt())).thenReturn(List.of());
+            when(jpaChunkRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
             when(jpaChunkRepository.findAllById(anyList())).thenReturn(List.of());
 
-            adapter.findTopK(QUERY_VECTOR, 5);
+            adapter.findPassageCandidate(QUERY_VECTOR, 5);
             adapter.findChunks(List.of(UUID.randomUUID()));
 
             verifyNoInteractions(jpaSourceRepository);
