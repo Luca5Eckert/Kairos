@@ -1,8 +1,8 @@
 package com.kairos.context_engine.infrastructure.graph;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -70,7 +70,7 @@ class KnowledgeGraphSearchAdapterTest {
         void graphName_hasHipporagPrefixAndUUIDSuffix() {
             stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            adapter.expandKnowledge(List.of(chunk()));
+            adapter.expandKnowledge(List.of(passageCandidate()));
 
             ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
             verify(gdsExecutor).projectPhraseGraph(captor.capture());
@@ -87,7 +87,7 @@ class KnowledgeGraphSearchAdapterTest {
         void singleCall_sameGraphNameUsedAcrossAllThreeOperations() {
             stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            adapter.expandKnowledge(List.of(chunk()));
+            adapter.expandKnowledge(List.of(passageCandidate()));
 
             ArgumentCaptor<String> projectCaptor = ArgumentCaptor.forClass(String.class);
             ArgumentCaptor<String> pprCaptor     = ArgumentCaptor.forClass(String.class);
@@ -107,8 +107,8 @@ class KnowledgeGraphSearchAdapterTest {
         void twoCalls_produceDistinctGraphNames() {
             stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            adapter.expandKnowledge(List.of(chunk()));
-            adapter.expandKnowledge(List.of(chunk()));
+            adapter.expandKnowledge(List.of(passageCandidate()));
+            adapter.expandKnowledge(List.of(passageCandidate()));
 
             ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
             verify(gdsExecutor, times(2)).projectPhraseGraph(captor.capture());
@@ -133,7 +133,7 @@ class KnowledgeGraphSearchAdapterTest {
             UUID id2 = UUID.randomUUID();
             stubSuccessfulExpansion(List.of(expansionRow(id1), expansionRow(id2)));
 
-            adapter.expandKnowledge(List.of(chunkWithId(id1), chunkWithId(id2)));
+            adapter.expandKnowledge(List.of(passageCandidate(id1), passageCandidate(id2)));
 
             ArgumentCaptor<List<String>> idsCaptor = ArgumentCaptor.forClass(List.class);
             verify(gdsExecutor).runPPRExpansion(
@@ -148,7 +148,7 @@ class KnowledgeGraphSearchAdapterTest {
         void pprConstants_matchExpectedValues() {
             stubSuccessfulExpansion(List.of(expansionRow(UUID.randomUUID())));
 
-            adapter.expandKnowledge(List.of(chunk()));
+            adapter.expandKnowledge(List.of(passageCandidate()));
 
             verify(gdsExecutor).runPPRExpansion(
                     anyString(), anyList(),
@@ -173,7 +173,7 @@ class KnowledgeGraphSearchAdapterTest {
             stubSuccessfulExpansion(List.of(
                     expansionRow("Paris", "CAPITAL_OF", "France", chunkId.toString())));
 
-            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunkWithId(chunkId)));
+            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(passageCandidate(chunkId)));
 
             assertThat(triples).hasSize(1);
             KnowledgeTriple triple = triples.getFirst();
@@ -190,7 +190,7 @@ class KnowledgeGraphSearchAdapterTest {
             GraphExpansionResult row = expansionRowWithScore("Paris", "CAPITAL_OF", "France", chunkId.toString(), 0.85, 0.42);
             stubSuccessfulExpansion(List.of(row));
 
-            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunkWithId(chunkId)));
+            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(passageCandidate(chunkId)));
 
             assertThat(triples)
                     .singleElement()
@@ -206,7 +206,7 @@ class KnowledgeGraphSearchAdapterTest {
                     expansionRow("A", "rel1", "B", chunkId1.toString()),
                     expansionRow("C", "rel2", "D", chunkId2.toString())));
 
-            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(chunk()));
+            List<KnowledgeTriple> triples = adapter.expandKnowledge(List.of(passageCandidate()));
 
             assertThat(triples).hasSize(2);
             assertThat(triples.get(0).passage().chunkId()).isEqualTo(chunkId1);
@@ -218,7 +218,7 @@ class KnowledgeGraphSearchAdapterTest {
         void repositoryReturnsEmpty_resultIsEmpty() {
             stubSuccessfulExpansion(List.of());
 
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(passageCandidate()));
 
             assertThat(result).isEmpty();
         }
@@ -240,7 +240,7 @@ class KnowledgeGraphSearchAdapterTest {
                     expansionRow("X", "rel", "Y", null),
                     expansionRow("A", "rel", "B", validId.toString())));
 
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(passageCandidate()));
 
             assertThat(result)
                     .hasSize(1)
@@ -255,7 +255,7 @@ class KnowledgeGraphSearchAdapterTest {
                     expansionRow("X", "rel", "Y", null),
                     expansionRow("A", "rel", "B", null)));
 
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(passageCandidate()));
 
             assertThat(result).isEmpty();
         }
@@ -267,7 +267,7 @@ class KnowledgeGraphSearchAdapterTest {
             stubSuccessfulExpansion(List.of(
                     expansionRow(null, null, null, chunkId.toString())));
 
-            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+            List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(passageCandidate()));
 
             assertThat(result).isEmpty();
         }
@@ -289,7 +289,7 @@ class KnowledgeGraphSearchAdapterTest {
             when(gdsExecutor.runPPRExpansion(anyString(), anyList(), anyInt(), anyDouble(), anyInt()))
                     .thenThrow(pprFailure);
 
-            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
+            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(passageCandidate())))
                     .isSameAs(pprFailure);
 
             verify(gdsExecutor).dropProjectedGraph(anyString());
@@ -301,7 +301,7 @@ class KnowledgeGraphSearchAdapterTest {
             RuntimeException projectionFailure = new RuntimeException("GDS projection failure");
             doThrow(projectionFailure).when(gdsExecutor).projectPhraseGraph(anyString());
 
-            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
+            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(passageCandidate())))
                     .isSameAs(projectionFailure);
 
             verify(gdsExecutor).dropProjectedGraph(anyString());
@@ -316,7 +316,7 @@ class KnowledgeGraphSearchAdapterTest {
                     .when(gdsExecutor).dropProjectedGraph(anyString());
 
             assertThatCode(() -> {
-                List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(chunk()));
+                List<KnowledgeTriple> result = adapter.expandKnowledge(List.of(passageCandidate()));
                 assertThat(result).hasSize(1);
             }).doesNotThrowAnyException();
         }
@@ -332,7 +332,7 @@ class KnowledgeGraphSearchAdapterTest {
                     .thenThrow(pprFailure);
             doThrow(dropFailure).when(gdsExecutor).dropProjectedGraph(anyString());
 
-            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(chunk())))
+            assertThatThrownBy(() -> adapter.expandKnowledge(List.of(passageCandidate())))
                     .isSameAs(pprFailure)
                     .isNotSameAs(dropFailure);
         }
@@ -342,7 +342,7 @@ class KnowledgeGraphSearchAdapterTest {
         void emptyResult_graphStillDropped() {
             stubSuccessfulExpansion(List.of());
 
-            adapter.expandKnowledge(List.of(chunk()));
+            adapter.expandKnowledge(List.of(passageCandidate()));
 
             verify(gdsExecutor).dropProjectedGraph(anyString());
         }
@@ -388,14 +388,12 @@ class KnowledgeGraphSearchAdapterTest {
     // Helpers
     // ═════════════════════════════════════════════════════════════════════════
 
-    private Chunk chunk() {
-        return chunkWithId(UUID.randomUUID());
+    private PassageCandidate passageCandidate() {
+        return passageCandidate(UUID.randomUUID());
     }
 
-    private Chunk chunkWithId(UUID id) {
-        Chunk chunk = mock(Chunk.class);
-        when(chunk.getId()).thenReturn(id);
-        return chunk;
+    private PassageCandidate passageCandidate(UUID id) {
+        return new PassageCandidate(id, 1.0);
     }
 
     private void stubSuccessfulExpansion(List<GraphExpansionResult> rows) {

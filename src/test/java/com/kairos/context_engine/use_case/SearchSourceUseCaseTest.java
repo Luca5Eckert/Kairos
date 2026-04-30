@@ -6,6 +6,7 @@ import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.*;
@@ -72,6 +73,10 @@ class SearchSourceUseCaseTest {
         return KnowledgeTriple.create("Consciousness", "is_part_of", "Mind", Passage.fromChunkId(chunkId), 1.0);
     }
 
+    private PassageCandidate passageCandidate(Chunk chunk) {
+        return new PassageCandidate(chunk.getId(), 1.0);
+    }
+
     // =========================================================================
     // Happy path
     // =========================================================================
@@ -85,17 +90,18 @@ class SearchSourceUseCaseTest {
         void embedsSearchTermAndForwardsVector() {
             var query   = new SearchSourceQuery(SEARCH_TERM);
             var anchor  = chunk(UUID.randomUUID(), "Consciousness arises from neural activity.", 0);
+            var candidate = passageCandidate(anchor);
             var triple  = triple(anchor.getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
-            when(knowledgeGraphSearch.expandKnowledge(List.of(anchor))).thenReturn(List.of(triple));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(candidate));
+            when(knowledgeGraphSearch.expandKnowledge(List.of(candidate))).thenReturn(List.of(triple));
             when(semanticSearch.findChunks(List.of(anchor.getId()))).thenReturn(List.of(anchor));
 
             useCase.execute(query);
 
             ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
-            verify(semanticSearch).findTopK(vectorCaptor.capture(), eq(10));
+            verify(semanticSearch).findPassageCandidate(vectorCaptor.capture(), eq(10));
             assertThat(vectorCaptor.getValue()).isEqualTo(QUERY_VECTOR);
         }
 
@@ -104,11 +110,12 @@ class SearchSourceUseCaseTest {
         void returnsNonEmptyResultWithTriplesAndChunks() {
             var query  = new SearchSourceQuery(SEARCH_TERM);
             var anchor = chunk(UUID.randomUUID(), "The mind supervenes on the brain.", 0);
+            var candidate = passageCandidate(anchor);
             var triple = triple(anchor.getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
-            when(knowledgeGraphSearch.expandKnowledge(List.of(anchor))).thenReturn(List.of(triple));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(candidate));
+            when(knowledgeGraphSearch.expandKnowledge(List.of(candidate))).thenReturn(List.of(triple));
             when(semanticSearch.findChunks(List.of(anchor.getId()))).thenReturn(List.of(anchor));
 
             SearchResult result = useCase.execute(query);
@@ -127,16 +134,19 @@ class SearchSourceUseCaseTest {
                     chunk(UUID.randomUUID(), "Chunk B", 1),
                     chunk(UUID.randomUUID(), "Chunk C", 2)
             );
+            List<PassageCandidate> candidates = anchors.stream()
+                    .map(SearchSourceUseCaseTest.this::passageCandidate)
+                    .toList();
             var triple = triple(anchors.getFirst().getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(anchors);
-            when(knowledgeGraphSearch.expandKnowledge(anchors)).thenReturn(List.of(triple));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(candidates);
+            when(knowledgeGraphSearch.expandKnowledge(candidates)).thenReturn(List.of(triple));
             when(semanticSearch.findChunks(anyList())).thenReturn(List.of(anchors.getFirst()));
 
             useCase.execute(query);
 
-            verify(knowledgeGraphSearch).expandKnowledge(anchors);
+            verify(knowledgeGraphSearch).expandKnowledge(candidates);
         }
     }
 
@@ -152,7 +162,7 @@ class SearchSourceUseCaseTest {
         @DisplayName("returns SearchResult.empty() immediately")
         void returnsEmptyResultWhenNoAnchors() {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -163,7 +173,7 @@ class SearchSourceUseCaseTest {
         @DisplayName("never calls the knowledge graph when no anchors are present")
         void neverCallsGraphWhenNoAnchors() {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -174,7 +184,7 @@ class SearchSourceUseCaseTest {
         @DisplayName("never calls findChunks when no anchors are present")
         void neverCallsFindChunksWhenNoAnchors() {
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of());
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -210,7 +220,7 @@ class SearchSourceUseCaseTest {
 
             // Semantic store returns chunks in reverse order (simulating unordered DB result)
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(chunkFirst));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(passageCandidate(chunkFirst)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(orderedTriples);
             when(semanticSearch.findChunks(anyList())).thenReturn(
                     List.of(chunkThird, chunkSecond, chunkFirst)  // intentionally scrambled
@@ -239,7 +249,7 @@ class SearchSourceUseCaseTest {
             );
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(sharedChunk));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(passageCandidate(sharedChunk)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(triplesWithDuplicate);
             when(semanticSearch.findChunks(anyList())).thenReturn(List.of(sharedChunk, uniqueChunk));
 
@@ -265,7 +275,7 @@ class SearchSourceUseCaseTest {
             );
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(passageCandidate(anchor)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(triples);
             when(semanticSearch.findChunks(anyList())).thenReturn(List.of());
 
@@ -295,7 +305,7 @@ class SearchSourceUseCaseTest {
             var anchor = chunk(UUID.randomUUID(), "Orphan chunk with no graph connections.", 0);
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(passageCandidate(anchor)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of());
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
@@ -318,7 +328,7 @@ class SearchSourceUseCaseTest {
             List<KnowledgeTriple> triples = List.of(triple(idPresent), triple(idMissing));
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(presentChunk));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(passageCandidate(presentChunk)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(triples);
             when(semanticSearch.findChunks(anyList())).thenReturn(List.of(presentChunk)); // idMissing absent
 
@@ -332,11 +342,11 @@ class SearchSourceUseCaseTest {
         @DisplayName("always requests exactly top-10 anchors from the semantic port")
         void alwaysRequestsTopTenAnchors() {
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(any(), eq(10))).thenReturn(List.of());
+            when(semanticSearch.findPassageCandidate(any(), eq(10))).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery("any term"));
 
-            verify(semanticSearch).findTopK(any(), eq(10));
+            verify(semanticSearch).findPassageCandidate(any(), eq(10));
         }
 
         @Test
@@ -344,11 +354,12 @@ class SearchSourceUseCaseTest {
         void singleChunkSingleTriple() {
             var id     = UUID.randomUUID();
             var single = chunk(id, "The only result.", 0);
+            var candidate = passageCandidate(single);
             var triple = triple(id);
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(single));
-            when(knowledgeGraphSearch.expandKnowledge(List.of(single))).thenReturn(List.of(triple));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(candidate));
+            when(knowledgeGraphSearch.expandKnowledge(List.of(candidate))).thenReturn(List.of(triple));
             when(semanticSearch.findChunks(List.of(id))).thenReturn(List.of(single));
 
             SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
@@ -383,7 +394,7 @@ class SearchSourceUseCaseTest {
             var anchor = chunk(UUID.randomUUID(), "Anchor.", 0);
 
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
+            when(semanticSearch.findPassageCandidate(any(), anyInt())).thenReturn(List.of(passageCandidate(anchor)));
             when(knowledgeGraphSearch.expandKnowledge(anyList()))
                     .thenThrow(new RuntimeException("Neo4j connection refused"));
 
@@ -399,7 +410,7 @@ class SearchSourceUseCaseTest {
             var triple = triple(anchor.getId());
 
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
+            when(semanticSearch.findPassageCandidate(any(), anyInt())).thenReturn(List.of(passageCandidate(anchor)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of(triple));
             when(semanticSearch.findChunks(anyList()))
                     .thenThrow(new RuntimeException("pgvector query timeout"));
@@ -425,14 +436,14 @@ class SearchSourceUseCaseTest {
             var triple = triple(anchor.getId());
 
             when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(QUERY_VECTOR, 10)).thenReturn(List.of(anchor));
+            when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(passageCandidate(anchor)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of(triple));
             when(semanticSearch.findChunks(anyList())).thenReturn(List.of(anchor));
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
             verify(embeddingPort, times(1)).embed(any());
-            verify(semanticSearch, times(1)).findTopK(any(), anyInt());
+            verify(semanticSearch, times(1)).findPassageCandidate(any(), anyInt());
             verify(knowledgeGraphSearch, times(1)).expandKnowledge(anyList());
             verify(semanticSearch, times(1)).findChunks(anyList());
         }
@@ -443,7 +454,7 @@ class SearchSourceUseCaseTest {
             var anchor = chunk(UUID.randomUUID(), "Anchor.", 0);
 
             when(embeddingPort.embed(any())).thenReturn(QUERY_VECTOR);
-            when(semanticSearch.findTopK(any(), anyInt())).thenReturn(List.of(anchor));
+            when(semanticSearch.findPassageCandidate(any(), anyInt())).thenReturn(List.of(passageCandidate(anchor)));
             when(knowledgeGraphSearch.expandKnowledge(anyList())).thenReturn(List.of());
 
             useCase.execute(new SearchSourceQuery(SEARCH_TERM));
