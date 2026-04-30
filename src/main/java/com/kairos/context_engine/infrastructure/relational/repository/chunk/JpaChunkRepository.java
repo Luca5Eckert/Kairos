@@ -28,12 +28,17 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
 
     List<ChunkEntity> findAllBySource_Id(UUID sourceId);
 
+    /**
+     * Executes a native pgvector cosine distance search and returns a projection with the chunk ID and dense score.
+     * @param queryVector The dense embedding representation of the query.
+     * @param limit The top-k threshold.
+     * @return A list of passage candidates with their chunk ID and dense score, ordered by the shortest cosine distance.
+     */
     @Query(value = """
         SELECT
             c.id AS chunkId,
             1 - (c.embedding <=> cast(:queryVector AS vector)) AS denseScore
         FROM chunks c
-        WHERE c.processed = true
         ORDER BY c.embedding <=> cast(:queryVector AS vector)
         LIMIT :limit
         """, nativeQuery = true)
