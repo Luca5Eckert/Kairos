@@ -50,11 +50,11 @@ public class SearchSourceUseCase {
     public SearchResult execute(SearchSourceQuery query) {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<PassageCandidate> passageCandidate = semanticSearch.findPassageCandidate(queryVector, 10);
+        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, 10);
 
-        if (passageCandidate.isEmpty()) return SearchResult.empty();
+        if (passageCandidates.isEmpty()) return SearchResult.empty();
 
-        List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(passageCandidate);
+        List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(passageCandidates);
 
         List<UUID> orderedChunkIds = triples.stream()
                 .map(triple -> triple.passage().chunkId())
