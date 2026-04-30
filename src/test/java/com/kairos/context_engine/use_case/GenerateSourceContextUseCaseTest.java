@@ -2,6 +2,7 @@ package com.kairos.context_engine.use_case;
 
 import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
 import com.kairos.context_engine.application.use_case.GenerateSourceContextUseCase;
+import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphStore;
 import com.kairos.context_engine.domain.port.extraction.TripleExtractor;
@@ -100,17 +101,20 @@ class GenerateSourceContextUseCaseTest {
     @Test
     @DisplayName("execute - creates graph context before saving extracted triples")
     void execute_createsGraphContextForLoadedChunks() {
-        Chunk chunk = chunk("chunk content", 0);
+        UUID chunkId = UUID.randomUUID();
+
+        Chunk chunk = new Chunk(chunkId, source, "passage content", 0, false, null);
+        Passage passage = new Passage(chunkId);
         Triple triple = new Triple("backpropagation", "USES", "chain rule");
 
         when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
         when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
         when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
-        when(tripleExtractor.extract("chunk content")).thenReturn(List.of(triple));
+        when(tripleExtractor.extract("passage content")).thenReturn(List.of(triple));
 
         useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        verify(knowledgeGraphStore).createContext(List.of(chunk));
+        verify(knowledgeGraphStore).savePassages(List.of(passage));
 
         ArgumentCaptor<List<KnowledgeTriple>> triplesCaptor = ArgumentCaptor.captor();
         verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), triplesCaptor.capture());
@@ -205,7 +209,7 @@ class GenerateSourceContextUseCaseTest {
 
         verifyNoInteractions(embeddingProvider, tripleExtractor);
         verify(chunkRepository, never()).save(any(Chunk.class));
-        verify(knowledgeGraphStore).createContext(List.of());
+        verify(knowledgeGraphStore).savePassages(List.of());
         verify(knowledgeGraphStore, never()).saveAllForChunk(any(), anyList());
     }
 }
