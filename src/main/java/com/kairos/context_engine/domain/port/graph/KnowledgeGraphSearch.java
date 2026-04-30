@@ -1,10 +1,10 @@
 package com.kairos.context_engine.domain.port.graph;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 
 import java.util.List;
 
 public interface KnowledgeGraphSearch {
-    List<KnowledgeTriple> expandKnowledge(List<Chunk> semanticAnchors);
+    List<KnowledgeTriple> expandKnowledge(List<PassageCandidate> semanticAnchors);
 }
