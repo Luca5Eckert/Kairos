@@ -61,7 +61,7 @@ graph TB
     subgraph Semantic Layer
       E[OnnxEmbeddingProvider\nall-MiniLM-L6-v2\nmean pooling + L2 normalize]
       V[SemanticSearchAdapter\npgvector cosine]
-      X[ChunkerExtractorAdapter\nchunkSize=200 tokens, overlap=40]
+      X[ChunkerExtractorAdapter\nchunkSize=200 tokens, overlap=50]
     end
 
     subgraph Graph Layer
@@ -197,18 +197,24 @@ This layering allows infrastructure replacement without touching domain or appli
 
 ## Ingestion Pipeline
 
-Ingestion is asynchronous and event-driven inside the service boundary.
+Ingestion runs in two phases: a synchronous upload phase and an asynchronous context generation phase.
 
-1. `POST /sources` persists the source and emits a `CreatedSourceEvent`
-2. `CreatedSourceListener` consumes the event asynchronously via Spring's application event mechanism
-3. `GenerateSourceContextUseCase` drives the full context generation flow:
-   - **Chunking** — token-based sliding window (`chunkSize=200 tokens`, `overlap=40 tokens`)
-   - **Chunk embedding** — each chunk embedded to `float[384]` via ONNX Runtime + DJL tokenizer; L2-normalized; stored in PostgreSQL with a `vector(384)` column
-   - **Triple extraction** — Gemini Flash receives each chunk and returns structured OpenIE triples (`subject → predicate → object`) via a carefully engineered prompt; wrapped in exponential-backoff retry via `@Retryable` (Resilience4j)
-   - **Triple embedding** — each triple key (`subject-predicate-object`) is embedded and persisted alongside the chunk reference, building a concept-level vector index
-   - **Graph construction** — `Passage` nodes and `PhraseNode` concepts are merged into Neo4j; `TRIPLE` and `CONTAINS` relationships carry the predicate text and extraction weight
+**Phase 1 — `UploadSourceUseCase` (synchronous, within the HTTP request)**
 
-The result is a **triple index**: semantic chunk vectors in PostgreSQL, concept embeddings in PostgreSQL, and a structural knowledge graph in Neo4j. All three are produced in a single ingestion pass.
+1. Persist the `Source` to PostgreSQL
+2. **Chunking** — token-based sliding window (`chunkSize=200 tokens`, `overlap=50 tokens`); chunks are persisted immediately as `Chunk` rows in PostgreSQL
+3. Emit `CreatedSourceEvent` and return `201 Created`
+
+**Phase 2 — `GenerateSourceContextUseCase` (asynchronous, via `CreatedSourceListener`)**
+
+4. `CreatedSourceListener` receives the event and invokes `GenerateSourceContextUseCase`
+5. Load the source and its already-persisted chunks from PostgreSQL
+6. **Chunk embedding** — each chunk embedded to `float[384]` via ONNX Runtime + DJL tokenizer; L2-normalized; stored in the `chunks.embedding vector(384)` column
+7. **Triple extraction** — Gemini Flash receives each chunk and returns structured OpenIE triples (`subject → predicate → object`) via a carefully engineered prompt; wrapped in exponential-backoff retry via `@Retryable` (Resilience4j)
+8. **Triple embedding** — each triple key (`subject-predicate-object`) is embedded and persisted in the `triples` table, building a concept-level vector index
+9. **Graph construction** — `Passage` nodes and `PhraseNode` concepts are merged into Neo4j; `TRIPLE` and `CONTAINS` relationships carry the predicate text and extraction weight
+
+The result is a **triple index**: semantic chunk vectors in PostgreSQL, concept embeddings in PostgreSQL, and a structural knowledge graph in Neo4j. The upload returns immediately; the AI-heavy work happens fully in the background.
 
 ---
 
@@ -285,11 +291,14 @@ Authenticates an existing user by `identifier` (username or email) and password.
 
 ### Sources — `POST /sources`
 
-Ingests a new source document. Persists the content, triggers asynchronous context generation (chunking → embedding → triple extraction → graph construction), and returns `201 Created` immediately.
+Ingests a new source document. Request body: `{ title, content, authorId }`.
+
+- Synchronously persists the source and its text chunks (`chunkSize=200 tokens`, `overlap=50 tokens`), then returns `201 Created` immediately.
+- A `CreatedSourceEvent` triggers background processing: chunk embedding, triple extraction via Gemini Flash, triple embedding, and knowledge graph construction in Neo4j.
 
 ### Sources — `GET /sources`
 
-Executes graph-augmented retrieval against the knowledge base. Accepts a `searchTerm` query parameter. Returns a `SearchResult` containing:
+Executes graph-augmented retrieval against the knowledge base. Request body: `{ termQuery }`. Returns a `SearchResult` containing:
 
 - **`chunks`** — text chunks ranked by PPR graph score, hydrated from PostgreSQL
 - **`knowledgeTriples`** — the activated knowledge graph path (`subject → predicate → object`) that explains why each chunk was selected
