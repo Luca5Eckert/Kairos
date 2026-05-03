@@ -6,13 +6,16 @@
 <a href="https://github.com/pgvector/pgvector"><img src="https://img.shields.io/badge/pgvector-enabled-blue"></a>
 <a href="https://neo4j.com/"><img src="https://img.shields.io/badge/Neo4j-5.19-blue"></a>
 <a href="https://onnxruntime.ai/"><img src="https://img.shields.io/badge/ONNX%20Runtime-1.20.0-black"></a>
+<a href="https://resilience4j.readme.io/"><img src="https://img.shields.io/badge/Resilience4j-2.3.0-green"></a>
 <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-blue"></a>
 
-You read. You take notes. You highlight things that feel important. Three weeks later you have an intuition that something connects — but you can't remember where it was, how it was phrased, or what it actually links to.
+You read. You take notes. You highlight things that feel important. Three weeks later you have an intuition that something connects — but you can't remember where it was, how it was phrased, or what it links to.
 
 The problem isn't that you forgot. The problem is that the structure was never built in the first place.
 
 **Kairos** is a JVM-native knowledge graph engine. You ingest content — notes, articles, ideas. Kairos reads it, understands it, and automatically constructs the conceptual structure behind it: a growing graph of what you know and how it connects. Retrieval is not keyword matching or naive vector similarity — it is multi-hop reasoning across the knowledge graph, surfacing connections you never consciously made.
+
+The entire AI pipeline runs on the JVM. No Python sidecar, no external embedding service. The sentence transformer model is loaded as an ONNX file and executed directly via ONNX Runtime, with DJL handling HuggingFace tokenization. This keeps the system self-contained, deterministic, and easy to deploy.
 
 ---
 
@@ -33,116 +36,162 @@ The problem isn't that you forgot. The problem is that the structure was never b
 
 ## System Design
 
-Kairos is organized into five operational layers: API, application orchestration, semantic representation, graph reasoning, and persistence.
+Kairos is organized into six operational concerns: authentication, source management, context generation, knowledge retrieval, semantic indexing, and graph reasoning.
 
 ```mermaid
 graph TB
     C[Client]
 
-    subgraph API Layer
-      API[SourceController\nPOST /sources\nGET /sources]
+    subgraph Auth Layer
+      AC[AuthController\nPOST /auth/register\nPOST /auth/login\nPOST /auth/confirm-email]
+      JWT[JwtSessionIssuerAdapter\nSpring Security + OAuth2 JWT]
+    end
+
+    subgraph Context Engine API
+      SC[SourceController\nPOST /sources\nGET /sources]
     end
 
     subgraph Application Layer
       U[UploadSourceUseCase]
-      L[CreatedSourceListener Async]
+      L[CreatedSourceListener\nAsync Event]
       G[GenerateSourceContextUseCase]
       S[SearchSourceUseCase]
     end
 
     subgraph Semantic Layer
-      E[OnnxEmbeddingProvider\nmean pooling + L2 normalize]
+      E[OnnxEmbeddingProvider\nall-MiniLM-L6-v2\nmean pooling + L2 normalize]
       V[SemanticSearchAdapter\npgvector cosine]
-      X[ChunkerExtractorAdapter\nchunkSize=200 tokens, overlap=40 tokens]
+      X[ChunkerExtractorAdapter\nchunkSize=200 tokens, overlap=40]
     end
 
     subgraph Graph Layer
-      T[GeminiTripleExtractorAdapter\nOpenIE triples]
-      K[KnowledgeGraphStoreAdapter]
-      P[KnowledgeGraphSearchAdapter\nNeo4j GDS PageRank]
+      GX[GeminiTripleExtractorAdapter\nOpenIE · Retry + Backoff]
+      KS[KnowledgeGraphStoreAdapter]
+      KQ[KnowledgeGraphSearchAdapter\nGDS Personalized PageRank]
+      GE[KnowledgeGraphGdsExecutor\nOrphan cleanup @Scheduled]
     end
 
     subgraph Persistence
-      PG[(PostgreSQL + pgvector)]
-      N[(Neo4j)]
+      PG[(PostgreSQL + pgvector\nsources · chunks · triples)]
+      N[(Neo4j Enterprise\nPhraseNode · Passage · TRIPLE · CONTAINS)]
     end
 
-    C --> API
-    API --> U
+    C --> AC
+    AC --> JWT
+    C --> SC
+    SC --> U
     U --> L
     L --> G
     G --> X
     G --> E
-    G --> T
+    G --> GX
     G --> PG
-    G --> K
-    K --> N
+    G --> KS
+    KS --> N
 
-    API --> S
+    SC --> S
     S --> E
     S --> V
     V --> PG
-    S --> P
-    P --> N
+    S --> KQ
+    KQ --> GE
+    GE --> N
     S --> PG
 ```
 
-The design intent is to separate **semantic proximity** (vector similarity) from **structural relevance propagation** (graph traversal), then combine both in a deterministic retrieval flow.
+The design intent is to separate **semantic proximity** (vector similarity) from **structural relevance propagation** (graph traversal), then combine both in a deterministic retrieval flow. Authentication gates every protected endpoint via stateless JWT tokens.
 
 ---
 
 ## Theoretical Foundation
 
-Kairos is based on three retrieval principles, inspired by [HippoRAG 2](https://arxiv.org/abs/2502.14802) (NeurIPS 2024) — a neurobiologically-motivated retrieval framework that treats the knowledge graph as an artificial hippocampal index.
+Kairos is built on [HippoRAG 2](https://arxiv.org/abs/2502.14802) — a neurobiologically-motivated retrieval architecture that models the knowledge graph as an artificial hippocampal index, mirroring how the human brain consolidates and retrieves associative memory.
 
-### 1) Distributional Semantics for Initial Recall
+The domain model has been designed to accurately reflect HippoRAG's data structures: `Concept` nodes (the `PhraseNode` graph vertices), `KnowledgeTriple` records linking concepts through typed predicates, and `Passage` nodes as graph anchors keyed by `chunkId`. Each layer of the domain corresponds directly to a component in the HippoRAG retrieval graph.
 
-Text chunks and queries are projected into the same 384-dimensional embedding space using `all-MiniLM-L6-v2`, running locally on the JVM via ONNX Runtime. Similarity is measured with cosine distance (`<=>` in pgvector), giving high-recall semantic anchors even when lexical overlap is weak.
+### 1 · Distributional Semantics for Initial Recall
 
-### 2) Graph Diffusion for Multi-hop Expansion
+Text chunks and query strings are projected into the same 384-dimensional embedding space using `all-MiniLM-L6-v2`, executed locally on the JVM via ONNX Runtime. Embeddings are L2-normalized after inference to stabilize cosine similarity ranking across the full chunk distribution. Cosine distance (`<=>` in pgvector) with an HNSW index gives high-recall semantic anchors even when lexical overlap is weak.
 
-Anchors alone are local signals. Kairos treats them as seeds in a knowledge graph and applies Personalized PageRank (PPR) via Neo4j GDS, propagating relevance through connected concepts and passages. This enables multi-hop contextualization: a query about "weight updates" can surface a passage about "backpropagation" via "gradient descent" — without any of those terms appearing in the same chunk.
+Triple keys (`subject-predicate-object`) are also embedded and stored in PostgreSQL, creating a separate vector index over the extracted knowledge — a foundation for future concept-level semantic search that goes beyond chunk-level retrieval.
 
-### 3) Representation Alignment and Score Stability
+### 2 · Graph Diffusion for Multi-hop Expansion
 
-Embeddings are L2-normalized after ONNX inference. Normalization keeps vector magnitude from dominating cosine distance and stabilizes ranking behavior across chunk and query distributions.
+Semantic anchors are local signals. Kairos treats them as seeds in the knowledge graph and runs Personalized PageRank (PPR) via Neo4j GDS, propagating relevance through connected `PhraseNode` concepts and `Passage` anchors. This enables multi-hop contextualization: a query about "weight updates" can surface a passage about "backpropagation" via "gradient descent" — without those terms appearing in the same chunk or even the same source.
 
-In short: dense retrieval proposes where to start, graph diffusion determines what else is contextually important.
+GDS projections are created per request under a unique `hipporag-<uuid>` name to isolate concurrent retrievals, and are guaranteed to be released in a `finally` block. A scheduled background job cleans up projections left behind by abrupt JVM termination or pod eviction.
+
+### 3 · Representation Alignment and Score Stability
+
+L2 normalization after ONNX inference ensures that vector magnitude does not dominate cosine distance. PPR weights on `TRIPLE` relationships carry the semantic confidence assigned at extraction time, allowing the graph diffusion to be guided by extraction quality — not just structural connectivity.
+
+In short: dense retrieval proposes where to start; graph diffusion determines what else is contextually relevant.
 
 ---
 
 ## Architecture Profile
 
-Kairos follows hexagonal architecture. Every external dependency — pgvector, Neo4j, Gemini, the ONNX model — is accessed through a port interface. Adapters implement the ports. The application layer orchestrates use cases without knowing about infrastructure.
+Kairos is organized into bounded contexts following hexagonal architecture. Every external dependency — pgvector, Neo4j, Gemini, ONNX Runtime — is accessed through a port interface. Adapters implement the ports. The application layer orchestrates use cases without any knowledge of infrastructure.
 
 ```
-domain/
-  model/      Source, Chunk, KnowledgeTriple, SearchResult
-  port/
-    embedding/  EmbeddingProvider
-    event/      SourceEventPublisher
-    extraction/ ChunkerExtractor, TripleExtractor
-    graph/      KnowledgeGraphStore, KnowledgeGraphSearch
-    repository/ SourceRepository, ChunkRepository
-    semantic/   SemanticSearch
+auth/
+  domain/
+    model/    AuthenticatedSession, AuthenticatedUser, PendingUser
+    policy/   PasswordPolicy
+    port/     AuthenticatorPort, SessionIssuerPort, PasswordEncoderPort,
+              CodeConfirmationPort, EmailConfirmationSenderPort,
+              UserRegistrationPort
+  application/
+    use_case/ RegisterUseCase, ConfirmEmailUseCase, LoginUseCase
+  infrastructure/
+    security/ JwtSessionIssuerAdapter, SpringPasswordEncoderAdapter,
+              UserAuthenticatorAdapter, AuthSecurityConfiguration
+    email/    LoggingEmailConfirmationSenderAdapter
+  presentation/
+    controller/ AuthController
 
-application/
-  use_case/   UploadSourceUseCase, GenerateSourceContextUseCase,
-              SearchSourceUseCase
+user/
+  domain/
+    model/      User, Role
+    repository/ UserRepository
+  infrastructure/
+    persistence/ UserEntity, UserEntityMapper, UserEntityRepository
 
-infrastructure/
-  ai/gemini/            GeminiTripleExtractorAdapter
-  embedding/onnx/       OnnxEmbeddingProvider
-  event/                CreatedSourceListener, SpringSourceEventPublisher
-  extraction/           ChunkerExtractorAdapter, GeminiTripleExtractorAdapter
-  graph/neo4j/          KnowledgeGraphStoreAdapter, KnowledgeGraphSearchAdapter
-  relational/           PostgreSQL repositories, pgvector semantic search
-
-presentation/
-  controller/ SourceController
+context_engine/
+  domain/
+    model/
+      content/    Source, Chunk, TripleExtracted
+      knowledge/  Concept, KnowledgeTriple, Passage
+      retrieval/
+        candidate/ PassageCandidate, TripleCandidate
+        graph/     GraphSearchRequest, GraphSearchResult, FilteredTriple
+        ranking/   RankedChunk, ScoredPassage
+        seed/      GraphSeed, GraphSeedTarget, SeedType,
+                   PassageSeedTarget, ConceptSeedTarget
+        source/    RetrievalSource
+    port/
+      embedding/  EmbeddingProvider
+      event/      SourceEventPublisher
+      extraction/ ChunkerExtractor, TripleExtractor
+      graph/      KnowledgeGraphStore, KnowledgeGraphSearch
+      repository/ SourceRepository, ChunkRepository, TripleRepository
+      semantic/   SemanticSearch
+  application/
+    use_case/   UploadSourceUseCase, GenerateSourceContextUseCase,
+                SearchSourceUseCase
+  infrastructure/
+    ai/gemini/        GeminiRestClient (retry + backoff), GeminiResponseParser
+    embedding/onnx/   OnnxEmbeddingProvider, OrtTensorFactory
+    event/            CreatedSourceListener, SpringSourceEventPublisher
+    extraction/       ChunkerExtractorAdapter, GeminiTripleExtractorAdapter
+    graph/            KnowledgeGraphStoreAdapter, KnowledgeGraphSearchAdapter,
+                      KnowledgeGraphGdsExecutor, KnowledgeGraphMutationExecutor
+    relational/       PostgreSQL repositories, SemanticSearchAdapter
+  presentation/
+    controller/ SourceController
 ```
 
-This allows infrastructure replacement — for example, swapping Gemini for a local Ollama model — without touching domain or application logic.
+This layering allows infrastructure replacement without touching domain or application logic. Swapping Gemini for a local Ollama model, or replacing pgvector with a dedicated vector database, requires only a new adapter implementation behind the existing port contract.
 
 ---
 
@@ -150,18 +199,16 @@ This allows infrastructure replacement — for example, swapping Gemini for a lo
 
 Ingestion is asynchronous and event-driven inside the service boundary.
 
-1. `POST /sources` persists a new source and emits `CreatedSourceEvent`
-2. `CreatedSourceListener` consumes the event asynchronously
-3. `GenerateSourceContextUseCase` runs the full context generation flow:
-   - Token-based chunking (`chunkSize=200 tokens`, `overlap=40 tokens`)
-   - Embedding generation per chunk (ONNX Runtime + DJL HuggingFace Tokenizers)
-   - Chunk persistence in PostgreSQL with `vector(384)` column
-   - Knowledge triple extraction per chunk via Gemini Flash (Open Information Extraction)
-   - Graph persistence in Neo4j (`PhraseNode`, `Passage`, `TRIPLE`, `CONTAINS` edges)
+1. `POST /sources` persists the source and emits a `CreatedSourceEvent`
+2. `CreatedSourceListener` consumes the event asynchronously via Spring's application event mechanism
+3. `GenerateSourceContextUseCase` drives the full context generation flow:
+   - **Chunking** — token-based sliding window (`chunkSize=200 tokens`, `overlap=40 tokens`)
+   - **Chunk embedding** — each chunk embedded to `float[384]` via ONNX Runtime + DJL tokenizer; L2-normalized; stored in PostgreSQL with a `vector(384)` column
+   - **Triple extraction** — Gemini Flash receives each chunk and returns structured OpenIE triples (`subject → predicate → object`) via a carefully engineered prompt; wrapped in exponential-backoff retry via `@Retryable` (Resilience4j)
+   - **Triple embedding** — each triple key (`subject-predicate-object`) is embedded and persisted alongside the chunk reference, building a concept-level vector index
+   - **Graph construction** — `Passage` nodes and `PhraseNode` concepts are merged into Neo4j; `TRIPLE` and `CONTAINS` relationships carry the predicate text and extraction weight
 
-The resulting state forms a **dual index**: a vector index for semantic recall and a graph index for relational expansion. Both are built from the same ingestion pass — no separate indexing step is required.
-
-PostgreSQL stores `chunk_index` (position of the chunk within the source: `0, 1, 2, ...`). Neo4j stores `chunkId` (the UUID identity of that chunk) for cross-layer linkage during retrieval hydration.
+The result is a **triple index**: semantic chunk vectors in PostgreSQL, concept embeddings in PostgreSQL, and a structural knowledge graph in Neo4j. All three are produced in a single ingestion pass.
 
 ---
 
@@ -169,22 +216,28 @@ PostgreSQL stores `chunk_index` (position of the chunk within the source: `0, 1,
 
 Search executes graph-augmented retrieval in a single synchronous flow:
 
-1. Embed the query text using the same ONNX model used at ingest time
-2. Retrieve the top-10 semantically similar chunks from pgvector (cosine distance)
-3. Resolve the `PhraseNode` graph nodes linked to those anchor chunks
-4. Run Personalized PageRank in Neo4j GDS, seeded by the anchor nodes
-5. Rank `Passage` nodes by propagated PPR relevance score
-6. Hydrate the ordered chunk payloads from PostgreSQL
-7. Return a `SearchResult` containing the ranked chunks and the activated knowledge triples
+1. Embed the query string using the same ONNX model used at ingest time
+2. Retrieve the top-10 `PassageCandidate` records from pgvector (cosine distance over chunk embeddings)
+3. If no candidates are found, return an empty `SearchResult` immediately
+4. Pass candidates to `KnowledgeGraphSearch.expandKnowledge` — a dedicated GDS pipeline:
+   - Project a named in-memory GDS graph (`PhraseNode` nodes, `TRIPLE` edges)
+   - Run Personalized PageRank seeded by the `Passage` nodes linked to the semantic anchors
+   - Rank passages by their maximum propagated score; return the top-10 with their associated triples
+   - Drop the GDS projection in a `finally` block (orphan cleanup via `@Scheduled` fallback)
+5. Extract the ordered `chunkId` list from the ranked `KnowledgeTriple` results
+6. Hydrate chunk payloads from PostgreSQL, preserving PPR rank order
+7. Return a `SearchResult` containing ranked `Chunk` objects and the activated `KnowledgeTriple` graph path
 
 Current implementation constants:
 
 | Parameter               | Value |
 |-------------------------|-------|
-| Anchor count            | 10    |
+| Semantic anchor count   | 10    |
 | PPR max iterations      | 20    |
 | PPR damping factor      | 0.85  |
 | Passage expansion limit | 10    |
+
+> **In progress:** the retrieval flow is currently being extended to implement the complete HippoRAG 2 pipeline — including concept-level seeding alongside passage seeds, RRF score fusion between dense and graph-expanded candidates, and explicit `GraphSeed` construction that routes `ConceptSeedTarget` and `PassageSeedTarget` through typed PPR seeding strategies.
 
 ---
 
@@ -192,23 +245,25 @@ Current implementation constants:
 
 ### PostgreSQL + pgvector
 
-| Table     | Columns                                                              |
-|-----------|----------------------------------------------------------------------|
-| `sources` | `id`, `title`, `content`, `status`                                   |
-| `chunks`  | `id`, `source_id`, `content`, `chunk_index`, `embedding vector(384)` |
+| Table     | Columns                                                                        |
+|-----------|--------------------------------------------------------------------------------|
+| `sources` | `id`, `title`, `content`, `status`                                             |
+| `chunks`  | `id`, `source_id`, `content`, `chunk_index`, `embedding vector(384)`, `status` |
+| `triples` | `id`, `key`, `subject`, `predicate`, `object`, `embedding vector(384)`, `chunk_id` |
+| `users`   | `id`, `name`, `username`, `email`, `password_hash`, `role`, `status`           |
 
-An HNSW index is created on `chunks.embedding` using the cosine operator class for approximate nearest-neighbor search.
+HNSW indexes are maintained on `chunks.embedding` and `triples.embedding` using the cosine operator class. The `triples.key` is the normalized `subject-predicate-object` string used as the embedding input.
 
-### Neo4j
+### Neo4j (Enterprise + GDS)
 
-| Element      | Description                                                             |
-|--------------|-------------------------------------------------------------------------|
-| `PhraseNode` | Concept nodes extracted from content                                    |
-| `Passage`    | Chunk references, keyed by `chunkId` (UUID)                             |
-| `TRIPLE`     | Relationships between phrase nodes, carrying `predicate` and `chunk_id` |
-| `CONTAINS`   | Edges from `Passage` nodes to their associated `PhraseNode` concepts    |
+| Element      | Description                                                                |
+|--------------|----------------------------------------------------------------------------|
+| `PhraseNode` | Concept node extracted from chunk content; identified by `name`            |
+| `Passage`    | Chunk reference node keyed by `chunkId` (UUID); bridge to PostgreSQL       |
+| `TRIPLE`     | Directed relationship between two `PhraseNode` nodes; carries `predicate` and `weight` |
+| `CONTAINS`   | Directed relationship from `Passage` to each `PhraseNode` it references   |
 
-This schema supports semantic lookup in PostgreSQL and contextual expansion in Neo4j without cross-database joins. The `chunkId` UUID is the bridge between both stores.
+This schema supports semantic lookup in PostgreSQL and multi-hop contextual expansion in Neo4j without cross-database joins. The `chunkId` UUID is the single bridge between both stores.
 
 ---
 
@@ -216,33 +271,48 @@ This schema supports semantic lookup in PostgreSQL and contextual expansion in N
 
 Full API documentation is available via Swagger UI at `/swagger-ui.html` when the application is running.
 
-### `POST /sources`
+### Authentication — `POST /auth/register`
 
-Ingests a new source. Persists the content and triggers asynchronous context generation — chunking, embedding, triple extraction, and graph construction run in the background. Returns `201 Created` immediately.
+Registers a new user. Validates the password against the domain `PasswordPolicy`, hashes it via Spring Security Crypto, and sends an email confirmation code. Returns `201 Created`.
 
-### `GET /sources`
+### Authentication — `POST /auth/confirm-email`
 
-Executes hybrid retrieval against the knowledge base. Returns a `SearchResult` containing:
+Confirms a pending registration using the emailed code. On success, activates the user account and returns a signed JWT access token with role claims.
 
-- **`chunks`** — ranked list of the most contextually relevant text chunks from ingested sources
-- **`knowledgeTriples`** — the knowledge graph triples activated during PPR propagation, exposing the conceptual reasoning path behind the result
+### Authentication — `POST /auth/login`
+
+Authenticates an existing user by `identifier` (username or email) and password. Returns a signed JWT access token and the user's roles.
+
+### Sources — `POST /sources`
+
+Ingests a new source document. Persists the content, triggers asynchronous context generation (chunking → embedding → triple extraction → graph construction), and returns `201 Created` immediately.
+
+### Sources — `GET /sources`
+
+Executes graph-augmented retrieval against the knowledge base. Accepts a `searchTerm` query parameter. Returns a `SearchResult` containing:
+
+- **`chunks`** — text chunks ranked by PPR graph score, hydrated from PostgreSQL
+- **`knowledgeTriples`** — the activated knowledge graph path (`subject → predicate → object`) that explains why each chunk was selected
 
 ---
 
 ## Technology Stack
 
-| Concern               | Implementation                                          |
-|-----------------------|---------------------------------------------------------|
-| Language / runtime    | Java 21 · Virtual Threads                               |
-| Application framework | Spring Boot 4.0.5 · WebFlux                             |
-| Embedding model       | ONNX Runtime 1.20.0 · all-MiniLM-L6-v2 (384 dimensions) |
-| Tokenizer             | DJL HuggingFace Tokenizers                              |
-| Vector store          | PostgreSQL 16 · pgvector · HNSW index                   |
-| Graph store           | Neo4j 5.19 · GDS (Personalized PageRank)                |
-| Triple extraction     | Gemini Flash — isolated behind a port; swappable        |
-| Infrastructure        | Docker Compose                                          |
+| Concern                 | Implementation                                                            |
+|-------------------------|---------------------------------------------------------------------------|
+| Language / runtime      | Java 21 · Virtual Threads (JVM-native, no Python sidecar)                 |
+| Application framework   | Spring Boot 4.0.5 · Spring MVC · Spring Data JPA · Spring Data Neo4j      |
+| Security                | Spring Security · OAuth2 Resource Server · JWT (Nimbus JOSE)              |
+| Resilience              | Resilience4j 2.3.0 · `@Retryable` with exponential backoff               |
+| Embedding model         | ONNX Runtime 1.20.0 · `all-MiniLM-L6-v2` (384 dimensions) · runs on JVM  |
+| Tokenizer               | DJL HuggingFace Tokenizers (JNI — no Python runtime required)             |
+| Vector store            | PostgreSQL 16 · pgvector extension · HNSW index (cosine)                  |
+| Graph store             | Neo4j 5.19 Enterprise · GDS plugin (Personalized PageRank)                |
+| Triple extraction       | Gemini Flash · prompt-engineered OpenIE · port-isolated; swappable        |
+| Validation              | Bean Validation (Jakarta) · domain-level policy objects                   |
+| Infrastructure          | Docker Compose · health-checked service dependencies                      |
 
-No ML framework wrappers. The embedding pipeline runs directly on the JVM via ONNX Runtime — the model is a file, not a service.
+The embedding pipeline has zero external service dependencies. `all-MiniLM-L6-v2` is loaded as an ONNX model file at startup; tokenization runs via DJL's JNI bindings to the HuggingFace tokenizer library. Mean pooling and L2 normalization are computed in plain Java. The entire inference path runs inside the JVM process.
 
 ---
 
@@ -266,8 +336,8 @@ Edit `.env` and set the required variables:
 | `POSTGRES_PASSWORD` | Password for the PostgreSQL instance                                                |
 | `NEO4J_PASSWORD`    | Password for the Neo4j instance                                                     |
 | `GEMINI_API_KEY`    | Gemini API key for triple extraction ([get one free](https://aistudio.google.com/)) |
+| `GEMINI_MODEL`      | Gemini model name (e.g. `gemini-1.5-flash`)                                         |
 | `POSTGRES_DB`       | Database name (default: `kairos`)                                                   |
-| `NEO4J_URI`         | Neo4j bolt URI (default: `bolt://localhost:7687`)                                   |
 
 ### 2. Start the stack
 
@@ -289,14 +359,16 @@ Navigate to `http://localhost:8080/swagger-ui.html` for interactive API document
 
 ## Roadmap
 
-| Area                | Goal                                                                                                                                                               |
-|---------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Retrieval fusion    | RRF fusion between dense candidates and graph-expanded candidates (HippoRAG 2 full pipeline)                                                                       |
-| Structural learning | Edge weight reinforcement via co-activation and co-definition — concepts that consistently appear together accumulate stronger graph edges over time (see ADR-004) |
-| Graph quality       | Synonym consolidation via embedding similarity — automatically linking `backprop` to `backpropagation` without manual normalization                                |
-| Explainability      | Expose retrieval traces: which anchors were selected, how PPR scored them, what determined final ordering                                                          |
-| Frontend            | Graph View (D3.js force-directed), Source View, Semantic Search UI                                                                                                 |
-| Operations          | Observability, controlled reindex, and backfill workflows                                                                                                          |
+| Area                    | Status       | Goal                                                                                                                       |
+|-------------------------|--------------|----------------------------------------------------------------------------------------------------------------------------|
+| Retrieval pipeline      | 🔄 In progress | Complete HippoRAG 2 flow: concept-level graph seeding, `GraphSeed` routing (`PassageSeedTarget` + `ConceptSeedTarget`), RRF score fusion between dense and graph-expanded candidates |
+| Triple semantic search  | 🔄 In progress | Use `triples.embedding` to seed PPR at the concept level, not just at the passage level — enabling finer-grained graph anchoring |
+| Structural learning     | 📋 Planned   | Edge weight reinforcement via co-activation — concepts that consistently appear together accumulate stronger `TRIPLE` weights over time |
+| Graph quality           | 📋 Planned   | Synonym consolidation via embedding similarity — automatically linking `backprop` to `backpropagation` without manual normalization |
+| Explainability          | 📋 Planned   | Expose retrieval traces: which anchors were selected, PPR scores, what determined final chunk ordering |
+| Email delivery          | 📋 Planned   | Replace `LoggingEmailConfirmationSenderAdapter` with a real SMTP / transactional email adapter |
+| Frontend                | 📋 Planned   | Graph View (D3.js force-directed), Source View, Semantic Search UI                                                         |
+| Operations              | 📋 Planned   | Observability (Micrometer/Actuator), controlled reindex, and backfill workflows                                            |
 
 ---
 
