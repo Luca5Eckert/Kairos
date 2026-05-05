@@ -2,14 +2,15 @@ package com.kairos.context_engine.domain.model;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 
 import java.util.List;
 
 public record SearchResult(
-        List<Chunk> chunks,
+        List<RankedChunk> chunks,
         List<KnowledgeTriple> knowledgeTriples
 ) {
-    public static SearchResult from(List<KnowledgeTriple> triples, List<Chunk> expandedContext) {
+    public static SearchResult from(List<KnowledgeTriple> triples, List<RankedChunk> expandedContext) {
         return new SearchResult(expandedContext, triples);
     }
 

@@ -18,4 +18,8 @@ public record GraphSearchRequest(
 
         seeds = List.copyOf(seeds);
     }
+
+    public static GraphSearchRequest from(List<GraphSeed> seeds, int limit) {
+        return new GraphSearchRequest(seeds, limit);
+    }
 }
