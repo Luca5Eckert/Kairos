@@ -1,8 +1,9 @@
-package com.kairos.context_engine.infrastructure.graph;
+package com.kairos.context_engine.infrastructure.graph.adapter;
 
 import com.kairos.context_engine.domain.model.knowledge.Concept;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
