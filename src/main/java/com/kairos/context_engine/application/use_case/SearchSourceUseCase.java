@@ -44,12 +44,9 @@ public class SearchSourceUseCase {
     private final SemanticSearch semanticSearch;
 
     /**
-     * Executes the graph-augmented search query.
-     *
-     * @param query the search query containing the user's textual input.
-     * @return a {@link SearchResult} containing the expanded context (hydrated text chunks)
-     * and the semantic triples, strictly ordered by the graph convergence score.
-     * Returns an empty result if no initial semantic anchors are found in the knowledge base.
+     * Executes a search query against the knowledge graph, returning a ranked list of relevant chunks and activated triples.
+     * @param query the search query containing the search term and any additional parameters
+     * @return a SearchResult containing the activated triples from the knowledge graph and a ranked list of relevant chunks based on the search query
      */
     public SearchResult execute(SearchSourceQuery query) {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
