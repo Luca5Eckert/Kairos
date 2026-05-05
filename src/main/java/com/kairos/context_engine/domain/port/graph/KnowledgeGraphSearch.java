@@ -8,7 +8,7 @@ import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
 import java.util.List;
 
 public interface KnowledgeGraphSearch {
-    List<KnowledgeTriple> expandKnowledge(List<PassageCandidate> semanticAnchors);
 
     GraphSearchResult expandKnowledge(GraphSearchRequest graphSearchRequest);
+
 }

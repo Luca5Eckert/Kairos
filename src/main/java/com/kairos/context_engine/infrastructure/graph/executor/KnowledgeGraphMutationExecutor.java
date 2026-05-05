@@ -1,4 +1,4 @@
-package com.kairos.context_engine.infrastructure.graph;
+package com.kairos.context_engine.infrastructure.graph.executor;
 
 import lombok.RequiredArgsConstructor;
 import org.neo4j.driver.Driver;
