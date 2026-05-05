@@ -6,8 +6,6 @@ import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
-import com.kairos.context_engine.domain.model.retrieval.seed.PassageSeedTarget;
-import com.kairos.context_engine.domain.model.retrieval.seed.SeedType;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.SearchResult;
@@ -16,10 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Orchestrates the HippoRAG 2 retrieval flow, combining dense vector search with
@@ -39,6 +33,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchSourceUseCase {
 
+    private static final int SEMANTIC_ANCHOR_LIMIT = 10;
+    private static final int GRAPH_PASSAGE_LIMIT = 20;
+
     private final EmbeddingProvider embeddingPort;
     private final KnowledgeGraphSearch knowledgeGraphSearch;
     private final SemanticSearch semanticSearch;
@@ -51,15 +48,21 @@ public class SearchSourceUseCase {
     public SearchResult execute(SearchSourceQuery query) {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, 10);
+        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, SEMANTIC_ANCHOR_LIMIT);
 
         var seeds = instanceSeedsFromCandidates(passageCandidates);
 
-        var graphSearchRequest = GraphSearchRequest.from(seeds, 20);
+        if (seeds.isEmpty()) {
+            return SearchResult.empty();
+        }
+
+        var graphSearchRequest = GraphSearchRequest.from(seeds, GRAPH_PASSAGE_LIMIT);
 
         GraphSearchResult result = knowledgeGraphSearch.expandKnowledge(graphSearchRequest);
 
-        List<RankedChunk> rankedChunks = semanticSearch.hydrateAndRankChunks(result.scoredPassages());
+        List<RankedChunk> rankedChunks = result.scoredPassages().isEmpty()
+                ? List.of()
+                : semanticSearch.hydrateAndRankChunks(result.scoredPassages());
 
         return SearchResult.from(result.activatedTriples(), rankedChunks);
     }
@@ -67,7 +70,8 @@ public class SearchSourceUseCase {
 
     private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates) {
         return passageCandidates.stream()
-                .map(candidate -> new GraphSeed(new PassageSeedTarget(candidate.chunkId()), SeedType.PASSAGE, candidate.denseScore()))
+                .filter(candidate -> candidate.denseScore() > 0)
+                .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()))
                 .toList();
 
     }
