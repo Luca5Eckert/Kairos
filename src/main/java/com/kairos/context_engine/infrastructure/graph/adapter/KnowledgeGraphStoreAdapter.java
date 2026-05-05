@@ -1,8 +1,9 @@
-package com.kairos.context_engine.infrastructure.graph;
+package com.kairos.context_engine.infrastructure.graph.adapter;
 
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphStore;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
 import com.kairos.context_engine.infrastructure.graph.entity.PassageNode;
 import com.kairos.context_engine.infrastructure.graph.repository.Neo4jPassageNodeRepository;
 import lombok.RequiredArgsConstructor;
