@@ -2,6 +2,9 @@ package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
+import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
+import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
+import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
 import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
@@ -344,6 +347,89 @@ class SemanticSearchAdapterTest {
     // =========================================================================
     // Cross-method isolation
     // =========================================================================
+
+    @Nested
+    @DisplayName("hydrateAndRankChunks(List<ScoredPassage>)")
+    class HydrateAndRankChunksMethod {
+
+        @Test
+        @DisplayName("returns empty list immediately when given a null scored passage list")
+        void returnsEmptyForNullInput() {
+            List<RankedChunk> result = adapter.hydrateAndRankChunks(null);
+
+            assertThat(result).isEmpty();
+            verifyNoInteractions(jpaChunkRepository);
+        }
+
+        @Test
+        @DisplayName("returns empty list immediately when given an empty scored passage list")
+        void returnsEmptyForEmptyInput() {
+            List<RankedChunk> result = adapter.hydrateAndRankChunks(List.of());
+
+            assertThat(result).isEmpty();
+            verifyNoInteractions(jpaChunkRepository);
+        }
+
+        @Test
+        @DisplayName("hydrates chunks while preserving scored passage order")
+        void preservesScoredPassageOrder() {
+            UUID idA = UUID.randomUUID();
+            UUID idB = UUID.randomUUID();
+            ChunkEntity entityA = chunkEntity(idA, sourceEntityA, "First in repository", 0);
+            ChunkEntity entityB = chunkEntity(idB, sourceEntityB, "Second in repository", 1);
+
+            when(jpaChunkRepository.findAllById(anyList()))
+                    .thenReturn(List.of(entityA, entityB));
+
+            List<RankedChunk> result = adapter.hydrateAndRankChunks(List.of(
+                    new ScoredPassage(idB, 0.91),
+                    new ScoredPassage(idA, 0.72)
+            ));
+
+            assertThat(result)
+                    .extracting(rankedChunk -> rankedChunk.chunk().getId())
+                    .containsExactly(idB, idA);
+            assertThat(result)
+                    .extracting(RankedChunk::rank)
+                    .containsExactly(1, 2);
+            assertThat(result)
+                    .extracting(RankedChunk::score)
+                    .containsExactly(0.91, 0.72);
+        }
+
+        @Test
+        @DisplayName("ignores scored passages whose chunk is missing from storage")
+        void ignoresMissingChunks() {
+            UUID presentId = UUID.randomUUID();
+            UUID missingId = UUID.randomUUID();
+            ChunkEntity present = chunkEntity(presentId, sourceEntityA, "Present chunk", 0);
+
+            when(jpaChunkRepository.findAllById(anyList())).thenReturn(List.of(present));
+
+            List<RankedChunk> result = adapter.hydrateAndRankChunks(List.of(
+                    new ScoredPassage(missingId, 0.98),
+                    new ScoredPassage(presentId, 0.75)
+            ));
+
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().chunk().getId()).isEqualTo(presentId);
+            assertThat(result.getFirst().rank()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("marks hydrated ranked chunks as graph-sourced")
+        void usesGraphRetrievalSource() {
+            UUID id = UUID.randomUUID();
+            when(jpaChunkRepository.findAllById(anyList()))
+                    .thenReturn(List.of(chunkEntity(id, sourceEntityA, "Graph result", 0)));
+
+            List<RankedChunk> result = adapter.hydrateAndRankChunks(List.of(new ScoredPassage(id, 0.64)));
+
+            assertThat(result)
+                    .singleElement()
+                    .satisfies(rankedChunk -> assertThat(rankedChunk.source()).isEqualTo(RetrievalSource.GRAPH));
+        }
+    }
 
     @Nested
     @DisplayName("cross-method isolation")
