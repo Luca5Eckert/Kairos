@@ -1,7 +1,7 @@
 package com.kairos.context_engine.presentation.dto.response;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ public record ContextResponse(
 
     public static ContextResponse of(
             List<KnowledgeTriple> knowledgeTriples,
-            List<Chunk> chunks
+            List<RankedChunk> chunks
     ) {
         List<KnowledgeTripleResponse> knowledgeTripleResponses = knowledgeTriples.stream()
                 .map(KnowledgeTripleResponse::of)
