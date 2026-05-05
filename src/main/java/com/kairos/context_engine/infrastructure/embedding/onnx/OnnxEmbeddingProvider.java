@@ -36,12 +36,9 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     private static final Logger log = LoggerFactory.getLogger(OnnxEmbeddingProvider.class);
 
     /**
-     * Maximum number of tokens sent to the model.
-     *
-     * <p>all-MiniLM-L6-v2 supports up to 512 tokens. This limit is set conservatively
-     * to 256 to account for the sliding-window chunking strategy defined in ADR-005
-     * (200-token chunks with 40-token overlap). Sequences exceeding this limit are
-     * truncated with a warning, since truncation silently degrades embedding quality.
+     * all-MiniLM-L6-v2 is commonly used with max sequence length 256.
+     * Inputs longer than 256 word pieces are truncated by default in the
+     * Sentence Transformers pipeline.
      */
     private static final int MAX_SEQUENCE_LENGTH = 256;
 
