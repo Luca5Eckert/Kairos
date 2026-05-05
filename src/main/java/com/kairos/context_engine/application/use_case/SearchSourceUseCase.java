@@ -2,10 +2,14 @@ package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
+import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
+import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
+import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
+import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
+import com.kairos.context_engine.domain.model.retrieval.seed.PassageSeedTarget;
+import com.kairos.context_engine.domain.model.retrieval.seed.SeedType;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
-import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.SearchResult;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import lombok.RequiredArgsConstructor;
@@ -52,38 +56,23 @@ public class SearchSourceUseCase {
 
         List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, 10);
 
-        if (passageCandidates.isEmpty()) return SearchResult.empty();
+        var seeds = instanceSeedsFromCandidates(passageCandidates);
 
-        List<KnowledgeTriple> triples = knowledgeGraphSearch.expandKnowledge(passageCandidates);
+        var graphSearchRequest = GraphSearchRequest.from(seeds, 20);
 
-        List<UUID> orderedChunkIds = triples.stream()
-                .map(triple -> triple.passage().chunkId())
-                .distinct()
-                .toList();
+        GraphSearchResult result = knowledgeGraphSearch.expandKnowledge(graphSearchRequest);
 
-        List<Chunk> expandedContext = fetchAndSortExpandedContext(orderedChunkIds);
+        List<RankedChunk> rankedChunks = semanticSearch.hydrateAndRankChunks(result.scoredPassages());
 
-        return SearchResult.from(triples, expandedContext);
+        return SearchResult.from(result.activatedTriples(), rankedChunks);
     }
 
-    /**
-     * Hydrates the chunk payloads from the semantic store and enforces the relevance ranking
-     * established by the knowledge graph expansion phase.
-     *
-     * @param orderedChunkIds a list of UUIDs strictly ordered by graph relevance.
-     * @return a list of fully hydrated {@link Chunk} objects preserving the input order.
-     */
-    private List<Chunk> fetchAndSortExpandedContext(List<UUID> orderedChunkIds) {
-        if (orderedChunkIds.isEmpty()) return List.of();
 
-        List<Chunk> unsortedChunks = semanticSearch.findChunks(orderedChunkIds);
-
-        Map<UUID, Chunk> chunkMap = unsortedChunks.stream()
-                .collect(Collectors.toMap(Chunk::getId, Function.identity()));
-
-        return orderedChunkIds.stream()
-                .map(chunkMap::get)
+    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates) {
+        return passageCandidates.stream()
+                .map(candidate -> new GraphSeed(new PassageSeedTarget(candidate.chunkId()), SeedType.PASSAGE, candidate.denseScore()))
                 .toList();
+
     }
 
 }
