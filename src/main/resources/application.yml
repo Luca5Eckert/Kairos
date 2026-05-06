@@ -2,6 +2,11 @@ spring:
   application:
     name: kairos
 
+  data:
+    neo4j:
+      repositories:
+        type: none
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:kairos}
     username: ${POSTGRES_USER:kairos}
@@ -13,7 +18,6 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
     open-in-view: false
 
