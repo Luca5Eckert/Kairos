@@ -40,7 +40,7 @@ public class GenerateSourceContextUseCase {
         Source source = sourceRepository.findById(command.sourceId())
                 .orElseThrow(() -> new RuntimeException("Source not found for id: " + command.sourceId()));
 
-        List<Chunk> chunks = chunkRepository.findAllBySourceId(source.getId());
+        List<Chunk> chunks = chunkRepository.findAllNotProcessedBySourceId(source.getId());
 
         embedChunks(chunks);
         generateKnowledgeGraph(source, chunks);
