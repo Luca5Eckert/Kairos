@@ -47,4 +47,5 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
             @Param("limit") int limit
     );
 
+    List<ChunkEntity> findAllBySource_IdAndProcessedFalse(UUID sourceId);
 }

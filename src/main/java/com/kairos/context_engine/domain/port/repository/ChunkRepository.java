@@ -9,4 +9,6 @@ public interface ChunkRepository {
     Chunk save(Chunk chunk);
 
     List<Chunk> findAllBySourceId(UUID id);
+
+    List<Chunk> findAllNotProcessedBySourceId(UUID sourceId);
 }

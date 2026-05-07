@@ -32,4 +32,14 @@ public class SpringChunkRepositoryAdapter implements ChunkRepository {
                 .map(ChunkEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Chunk> findAllNotProcessedBySourceId(UUID sourceId) {
+        var entities = chunkRepository.findAllBySource_IdAndProcessedFalse(sourceId);
+
+        return entities.stream()
+                .map(ChunkEntity::toDomain)
+                .toList();
+    }
+
 }
