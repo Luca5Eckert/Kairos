@@ -1,6 +1,8 @@
 package com.kairos.context_engine.infrastructure.relational.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.knowledge.Concept;
+import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
@@ -8,6 +10,7 @@ import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.context_engine.infrastructure.relational.repository.triple.JpaTripleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,7 @@ import java.util.stream.Collectors;
 public class SemanticSearchAdapter implements SemanticSearch {
 
     private final JpaChunkRepository jpaChunkRepository;
+    private final JpaTripleRepository jpaTripleRepository;
 
     /**
      * Performs a nearest-neighbor vector search over text chunks to identify semantic anchors.
@@ -92,6 +96,18 @@ public class SemanticSearchAdapter implements SemanticSearch {
                 .toList();
     }
 
+    @Override
+    public List<ConceptCandidate> findConceptCandidate(float[] queryVector, int semanticAnchorLimit) {
+        var passageCandidates = jpaTripleRepository.findCandidates(queryVector, semanticAnchorLimit);
+
+        return passageCandidates.stream()
+                .map(candidate -> new ConceptCandidate(
+                        new Concept(candidate.getName()),
+                        candidate.getSimilarityScore()
+                ))
+                .toList();
+    }
+
     private RankedChunk toRankedChunk(ScoredPassage scoredPassage, Chunk chunk, AtomicInteger rank) {
         if (chunk == null) {
             return null;
@@ -104,5 +120,7 @@ public class SemanticSearchAdapter implements SemanticSearch {
                 RetrievalSource.GRAPH
         );
     }
+
+
 
 }
