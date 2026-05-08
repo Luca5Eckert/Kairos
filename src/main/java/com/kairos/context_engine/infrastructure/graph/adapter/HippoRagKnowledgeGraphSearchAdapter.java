@@ -12,6 +12,7 @@ import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGds
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
 import lombok.extern.slf4j.Slf4j;
+import org.neo4j.driver.exceptions.ClientException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -65,9 +66,11 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
         }
 
         String graphName = GRAPH_NAME_PREFIX + UUID.randomUUID();
+        boolean projected = false;
 
         try {
             executor.projectKnowledgeGraph(graphName);
+            projected = true;
 
             List<PassageScoringResult> passageScores = executor.runPPRPassageScores(
                     graphName, passageAnchorIds, conceptNames,
@@ -88,8 +91,16 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
                     toActivatedTriples(tripleRows, scoredPassages)
             );
 
+        } catch (ClientException e) {
+            if (isMissingGdsProcedure(e)) {
+                log.warn("Neo4j Graph Data Science procedures are unavailable. Returning empty graph expansion.");
+                return GraphSearchResult.empty();
+            }
+            throw e;
         } finally {
-            dropSafely(graphName);
+            if (projected) {
+                dropSafely(graphName);
+            }
         }
     }
 
@@ -100,6 +111,12 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
             if (!removed.isEmpty()) {
                 log.warn("Orphan GDS cleanup removed {} projection(s): {}", removed.size(), removed);
             }
+        } catch (ClientException e) {
+            if (isMissingGdsProcedure(e)) {
+                log.warn("Neo4j Graph Data Science procedures are unavailable. Skipping orphan projection cleanup.");
+                return;
+            }
+            log.error("Orphan GDS cleanup job failed.", e);
         } catch (Exception e) {
             log.error("Orphan GDS cleanup job failed.", e);
         }
@@ -155,6 +172,12 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
         } catch (Exception e) {
             log.warn("Failed to drop GDS projection '{}'. It will be collected by orphan cleanup.", graphName, e);
         }
+    }
+
+    private boolean isMissingGdsProcedure(ClientException e) {
+        String message = e.getMessage();
+        return message != null
+                && message.contains("There is no procedure with the name `gds.");
     }
 
 }

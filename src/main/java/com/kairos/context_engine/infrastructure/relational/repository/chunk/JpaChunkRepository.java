@@ -29,6 +29,7 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
             c.id AS chunkId,
             1 - (c.embedding <=> cast(:queryVector AS vector)) AS denseScore
         FROM chunks c
+        WHERE c.embedding IS NOT NULL
         ORDER BY c.embedding <=> cast(:queryVector AS vector)
         LIMIT :limit
         """, nativeQuery = true)

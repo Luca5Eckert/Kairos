@@ -48,6 +48,7 @@ public class SemanticSearchAdapter implements SemanticSearch {
     public List<PassageCandidate> findPassageCandidate(float[] queryVector, int k) {
         return jpaChunkRepository.findCandidates(queryVector, k)
                 .stream()
+                .filter(candidate -> candidate.getChunkId() != null && candidate.getDenseScore() != null)
                 .map(candidate -> new PassageCandidate(
                         candidate.getChunkId(),
                         candidate.getDenseScore()
@@ -102,6 +103,7 @@ public class SemanticSearchAdapter implements SemanticSearch {
         var conceptCandidate = jpaTripleRepository.findCandidates(queryVector, semanticAnchorLimit);
 
         return conceptCandidate.stream()
+                .filter(candidate -> candidate.getName() != null && candidate.getSimilarity() != null)
                 .map(candidate -> new ConceptCandidate(
                         new Concept(candidate.getName()),
                         candidate.getSimilarity()
