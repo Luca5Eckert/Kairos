@@ -1,9 +1,6 @@
 package com.kairos.share.exception;
 
 import com.kairos.context_engine.domain.exception.EmbeddingException;
-import com.kairos.context_engine.infrastructure.ai.gemini.exception.ApiException;
-import com.kairos.context_engine.infrastructure.ai.gemini.exception.GeminiIntegrationException;
-import com.kairos.context_engine.infrastructure.ai.gemini.exception.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -24,9 +21,6 @@ public class GlobalHandlerException {
 
     @ExceptionHandler({
             RuntimeException.class,
-            ApiException.class,
-            GeminiIntegrationException.class,
-            JsonProcessingException.class,
             EmbeddingException.class
     })
     public ResponseEntity<ErrorResponse> handle(RuntimeException e, HttpServletRequest request) {
