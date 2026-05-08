@@ -96,7 +96,7 @@ class SemanticSearchAdapterTest {
             }
 
             @Override
-            public double getSimilarityScore() {
+            public double getSimilarity() {
                 return similarityScore;
             }
         };

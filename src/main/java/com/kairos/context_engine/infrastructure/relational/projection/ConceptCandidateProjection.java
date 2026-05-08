@@ -4,7 +4,7 @@ public interface ConceptCandidateProjection {
 
     String getName();
 
-    double getSimilarityScore();
+    double getSimilarity();
 
 
 }
