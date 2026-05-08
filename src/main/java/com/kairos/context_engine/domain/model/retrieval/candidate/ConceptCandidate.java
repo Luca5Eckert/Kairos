@@ -8,10 +8,10 @@ public record ConceptCandidate(
 ) {
     public ConceptCandidate {
         if (concept == null) {
-            throw new IllegalArgumentException("Concept candidate triple cannot be null");
+            throw new IllegalArgumentException("Concept cannot be null");
         }
         if (!Double.isFinite(similarityScore)) {
-            throw new IllegalArgumentException("Concept candidate similarityScore must be finite");
+            throw new IllegalArgumentException("SimilarityScore must be finite");
         }
     }
 }
