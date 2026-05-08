@@ -72,6 +72,11 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
                 .user(user -> user.text(PROMPT).param("text", text))
                 .call()
                 .entity(TripleExtractionResult.class);
+
+        assert result != null;
+        return result.triples().stream()
+                .map(t -> new Triple(t.subject(), t.predicate(), t.object(), t.weight()))
+                .toList();
     }
 
 
