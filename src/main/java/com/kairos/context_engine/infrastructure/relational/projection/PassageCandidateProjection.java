@@ -1,4 +1,4 @@
-package com.kairos.context_engine.infrastructure.relational.repository.projection;
+package com.kairos.context_engine.infrastructure.relational.projection;
 
 import java.util.UUID;
 

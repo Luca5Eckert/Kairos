@@ -1,7 +1,7 @@
 package com.kairos.context_engine.infrastructure.relational.repository.chunk;
 
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
-import com.kairos.context_engine.infrastructure.relational.repository.projection.PassageCandidateProjection;
+import com.kairos.context_engine.infrastructure.relational.projection.PassageCandidateProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
