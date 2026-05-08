@@ -1,6 +1,6 @@
 package com.kairos.auth.infrastructure.security;
 
-import com.kairos.auth.infrastructure.security.config.AuthSecurityConfiguration;
+import com.kairos.share.security.AuthSecurityConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
