@@ -16,16 +16,6 @@ import java.util.UUID;
 @Repository
 public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
 
-    /**
-     * Executes a native pgvector cosine distance search.
-     *
-     * @param queryVector The dense embedding representation of the query.
-     * @param limit       The top-k threshold.
-     * @return A list of chunks ordered by the shortest cosine distance.
-     */
-    @Query(value = "SELECT * FROM chunks ORDER BY embedding <=> cast(:queryVector as vector) LIMIT :limit", nativeQuery = true)
-    List<ChunkEntity> findTopKByEmbedding(@Param("queryVector") float[] queryVector, @Param("limit") int limit);
-
     List<ChunkEntity> findAllBySource_Id(UUID sourceId);
 
     /**
