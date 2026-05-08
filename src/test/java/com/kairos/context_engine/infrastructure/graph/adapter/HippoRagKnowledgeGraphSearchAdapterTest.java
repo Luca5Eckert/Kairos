@@ -6,6 +6,7 @@ import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
 import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
+import org.neo4j.driver.exceptions.ClientException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -156,6 +157,21 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
         assertThatCode(() -> adapter.expandKnowledge(
                 GraphSearchRequest.from(List.of(GraphSeed.passage(chunkId, 0.9)), 20)))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("returns empty graph expansion when GDS procedures are unavailable")
+    void missingGdsProceduresReturnEmptyGraphExpansion() {
+        doThrow(new ClientException(
+                "Neo.ClientError.Procedure.ProcedureNotFound",
+                "There is no procedure with the name `gds.graph.project` registered for this database instance."
+        )).when(executor).projectKnowledgeGraph(anyString());
+
+        GraphSearchResult result = adapter.expandKnowledge(
+                GraphSearchRequest.from(List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20));
+
+        assertThat(result).isEqualTo(GraphSearchResult.empty());
+        verify(executor, never()).dropProjectedGraph(anyString());
     }
 
     @Test

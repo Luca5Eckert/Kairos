@@ -82,7 +82,21 @@ class SemanticSearchAdapterTest {
             }
 
             @Override
-            public double getDenseScore() {
+            public Double getDenseScore() {
+                return denseScore;
+            }
+        };
+    }
+
+    private PassageCandidateProjection candidateProjection(UUID chunkId, Double denseScore) {
+        return new PassageCandidateProjection() {
+            @Override
+            public UUID getChunkId() {
+                return chunkId;
+            }
+
+            @Override
+            public Double getDenseScore() {
                 return denseScore;
             }
         };
@@ -96,7 +110,21 @@ class SemanticSearchAdapterTest {
             }
 
             @Override
-            public double getSimilarity() {
+            public Double getSimilarity() {
+                return similarityScore;
+            }
+        };
+    }
+
+    private ConceptCandidateProjection conceptCandidateProjection(String name, Double similarityScore) {
+        return new ConceptCandidateProjection() {
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public Double getSimilarity() {
                 return similarityScore;
             }
         };
@@ -198,6 +226,24 @@ class SemanticSearchAdapterTest {
         }
 
         @Test
+        @DisplayName("skips candidate projections with null dense scores")
+        void skipsNullDenseScores() {
+            UUID id = UUID.randomUUID();
+
+            when(jpaChunkRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            candidateProjection(id, null),
+                            candidateProjection(UUID.randomUUID(), 0.73)
+                    ));
+
+            List<PassageCandidate> result = adapter.findPassageCandidate(QUERY_VECTOR, 2);
+
+            assertThat(result)
+                    .singleElement()
+                    .satisfies(candidate -> assertThat(candidate.denseScore()).isEqualTo(0.73));
+        }
+
+        @Test
         @DisplayName("never interacts with jpaSourceRepository during findPassageCandidate")
         void doesNotTouchSourceRepositoryDuringFindTopK() {
             when(jpaChunkRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
@@ -296,6 +342,22 @@ class SemanticSearchAdapterTest {
             List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 10);
 
             assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("skips candidate projections with null similarity scores")
+        void skipsNullSimilarityScores() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            conceptCandidateProjection("missing embedding", null),
+                            conceptCandidateProjection("valid concept", 0.64)
+                    ));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 2);
+
+            assertThat(result)
+                    .singleElement()
+                    .satisfies(candidate -> assertThat(candidate.similarityScore()).isEqualTo(0.64));
         }
 
         @Test

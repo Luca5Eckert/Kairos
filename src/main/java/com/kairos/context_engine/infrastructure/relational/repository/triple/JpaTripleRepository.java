@@ -26,9 +26,11 @@ public interface JpaTripleRepository extends JpaRepository<TripleEntity, String>
                     WITH concepts AS (
                         SELECT DISTINCT subject AS concept, embedding
                         FROM triples
+                        WHERE embedding IS NOT NULL
                         UNION ALL
                         SELECT DISTINCT object AS concept, embedding
                         FROM triples
+                        WHERE embedding IS NOT NULL
                     )
                     SELECT
                         c.concept AS name,
