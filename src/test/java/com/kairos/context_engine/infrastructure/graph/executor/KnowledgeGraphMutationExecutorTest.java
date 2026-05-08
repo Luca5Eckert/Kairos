@@ -44,6 +44,29 @@ class KnowledgeGraphMutationExecutorTest {
     }
 
     @Test
+    void mergePassage_shouldRunQueryWithCorrectParameters() {
+        UUID chunkId = UUID.randomUUID();
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Map> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+
+        doAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            callback.execute(transactionContext);
+            return null;
+        }).when(session).executeWrite(any());
+
+        when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
+
+        executor.mergePassage(chunkId);
+
+        verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
+
+        assertThat(queryCaptor.getValue()).contains("MERGE (p:Passage {chunkId: $chunkId})");
+        assertThat(paramsCaptor.getValue()).containsEntry("chunkId", chunkId.toString());
+    }
+
+    @Test
     void mergeTriple_shouldOpenSessionAndExecuteWrite() {
         UUID chunkId = UUID.randomUUID();
 

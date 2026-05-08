@@ -11,6 +11,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class KnowledgeGraphMutationExecutor {
 
+    private static final String MERGE_PASSAGE = """
+            MERGE (p:Passage {chunkId: $chunkId})
+            """;
+
     private static final String MERGE_TRIPLE_FOR_CHUNK = """
             MERGE (p:Passage {chunkId: $chunkId})
             MERGE (s:PhraseNode {name: $subjectName})
@@ -22,6 +26,10 @@ public class KnowledgeGraphMutationExecutor {
             """;
 
     private final Driver neo4jDriver;
+
+    public void mergePassage(UUID chunkId) {
+        runWrite(MERGE_PASSAGE, Map.of("chunkId", chunkId.toString()));
+    }
 
     public void mergeTriple(String subjectName, String objectName, String predicate, UUID chunkId, double weight) {
         runWrite(MERGE_TRIPLE_FOR_CHUNK, Map.of(
