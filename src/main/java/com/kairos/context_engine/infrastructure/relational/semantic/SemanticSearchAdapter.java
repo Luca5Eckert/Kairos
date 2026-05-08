@@ -104,7 +104,7 @@ public class SemanticSearchAdapter implements SemanticSearch {
         return conceptCandidate.stream()
                 .map(candidate -> new ConceptCandidate(
                         new Concept(candidate.getName()),
-                        candidate.getSimilarityScore()
+                        candidate.getSimilarity()
                 ))
                 .toList();
     }
