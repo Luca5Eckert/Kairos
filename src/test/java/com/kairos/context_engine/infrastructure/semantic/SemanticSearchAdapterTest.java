@@ -1,6 +1,8 @@
 package com.kairos.context_engine.infrastructure.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
+import com.kairos.context_engine.domain.model.knowledge.Concept;
+import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
@@ -8,8 +10,10 @@ import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
 import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.context_engine.infrastructure.relational.projection.ConceptCandidateProjection;
 import com.kairos.context_engine.infrastructure.relational.projection.PassageCandidateProjection;
 import com.kairos.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
+import com.kairos.context_engine.infrastructure.relational.repository.triple.JpaTripleRepository;
 import com.kairos.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +45,9 @@ class SemanticSearchAdapterTest {
     @Mock
     private JpaChunkRepository jpaChunkRepository;
 
+    @Mock
+    private JpaTripleRepository jpaTripleRepository;
+
     @InjectMocks
     private SemanticSearchAdapter adapter;
 
@@ -63,7 +70,6 @@ class SemanticSearchAdapterTest {
         );
     }
 
-    // Helper: builds a ChunkEntity backed by a given SourceEntity
     private ChunkEntity chunkEntity(UUID id, SourceEntity source, String content, int index) {
         return new ChunkEntity(id, source, content, index, false, QUERY_VECTOR);
     }
@@ -78,6 +84,20 @@ class SemanticSearchAdapterTest {
             @Override
             public double getDenseScore() {
                 return denseScore;
+            }
+        };
+    }
+
+    private ConceptCandidateProjection conceptCandidateProjection(String name, double similarityScore) {
+        return new ConceptCandidateProjection() {
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public double getSimilarityScore() {
+                return similarityScore;
             }
         };
     }
@@ -196,6 +216,241 @@ class SemanticSearchAdapterTest {
             assertThatThrownBy(() -> adapter.findPassageCandidate(QUERY_VECTOR, 10))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Connection pool exhausted");
+        }
+    }
+
+    // =========================================================================
+    // findConceptCandidate()
+    // =========================================================================
+
+    @Nested
+    @DisplayName("findConceptCandidate(float[], int)")
+    class FindConceptCandidateMethod {
+
+        @Test
+        @DisplayName("forwards the query vector and limit to jpaTripleRepository unchanged")
+        void forwardsVectorAndLimitToRepository() {
+            when(jpaTripleRepository.findCandidates(QUERY_VECTOR, 10)).thenReturn(List.of());
+
+            adapter.findConceptCandidate(QUERY_VECTOR, 10);
+
+            ArgumentCaptor<float[]> vectorCaptor = ArgumentCaptor.forClass(float[].class);
+            verify(jpaTripleRepository).findCandidates(vectorCaptor.capture(), eq(10));
+            assertThat(vectorCaptor.getValue()).isEqualTo(QUERY_VECTOR);
+        }
+
+        @Test
+        @DisplayName("maps each candidate projection to a ConceptCandidate")
+        void mapsCandidateProjectionsToDomainModels() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            conceptCandidateProjection("consciousness", 0.91),
+                            conceptCandidateProjection("qualia", 0.72)
+                    ));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 2);
+
+            assertThat(result).hasSize(2);
+            assertThat(result)
+                    .extracting(candidate -> candidate.concept().name())
+                    .containsExactly("consciousness", "qualia");
+            assertThat(result)
+                    .extracting(ConceptCandidate::similarityScore)
+                    .containsExactly(0.91, 0.72);
+        }
+
+        @Test
+        @DisplayName("maps concept name and similarity score from candidate projection")
+        void mapsNameAndSimilarityScore() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection("neural correlates", 0.84)));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+
+            assertThat(result.getFirst().concept().name()).isEqualTo("neural correlates");
+            assertThat(result.getFirst().similarityScore()).isEqualTo(0.84);
+        }
+
+        @Test
+        @DisplayName("preserves the similarity ranking order returned by the repository")
+        void preservesRankingOrder() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            conceptCandidateProjection("intentionality", 0.95),
+                            conceptCandidateProjection("phenomenology", 0.82),
+                            conceptCandidateProjection("epistemology", 0.61)
+                    ));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 3);
+
+            assertThat(result)
+                    .extracting(candidate -> candidate.concept().name())
+                    .containsExactly("intentionality", "phenomenology", "epistemology");
+        }
+
+        @Test
+        @DisplayName("returns an empty list when the repository finds no matching concepts")
+        void returnsEmptyListWhenNoResults() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 10);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("never interacts with jpaChunkRepository during findConceptCandidate")
+        void doesNotTouchChunkRepository() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
+
+            adapter.findConceptCandidate(QUERY_VECTOR, 10);
+
+            verifyNoInteractions(jpaChunkRepository);
+        }
+
+        @Test
+        @DisplayName("never interacts with jpaSourceRepository during findConceptCandidate")
+        void doesNotTouchSourceRepository() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt())).thenReturn(List.of());
+
+            adapter.findConceptCandidate(QUERY_VECTOR, 10);
+
+            verifyNoInteractions(jpaSourceRepository);
+        }
+
+        @Test
+        @DisplayName("propagates RuntimeException from jpaTripleRepository without wrapping")
+        void propagatesRepositoryException() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenThrow(new RuntimeException("Embedding computation failed"));
+
+            assertThatThrownBy(() -> adapter.findConceptCandidate(QUERY_VECTOR, 10))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Embedding computation failed");
+        }
+
+        @Test
+        @DisplayName("creates Concept instances with correct names from projection")
+        void createsConceptInstancesCorrectly() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection("mind", 0.75)));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+
+            Concept resultConcept = result.getFirst().concept();
+            assertThat(resultConcept).isEqualTo(new Concept("mind"));
+        }
+
+        @Test
+        @DisplayName("handles extreme similarity scores correctly (very low)")
+        void handlesExtremeLowScores() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection("concept", 0.0)));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+
+            assertThat(result.getFirst().similarityScore()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("handles extreme similarity scores correctly (very high)")
+        void handlesExtremeHighScores() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection("concept", 1.0)));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+
+            assertThat(result.getFirst().similarityScore()).isEqualTo(1.0);
+        }
+
+        @Test
+        @DisplayName("handles concept names with special characters")
+        void handlesSpecialCharactersInNames() {
+            String specialName = "concept-with_special.chars@2024";
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection(specialName, 0.85)));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+
+            assertThat(result.getFirst().concept().name()).isEqualTo(specialName);
+        }
+
+        @Test
+        @DisplayName("handles concept names with whitespace correctly")
+        void handlesWhitespaceInNames() {
+            String nameWithSpaces = "multi word concept phrase";
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection(nameWithSpaces, 0.75)));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+
+            assertThat(result.getFirst().concept().name()).isEqualTo(nameWithSpaces);
+        }
+
+        @Test
+        @DisplayName("processes large result sets efficiently")
+        void handlesLargeResultSets() {
+            List<ConceptCandidateProjection> largeResultSet = new java.util.ArrayList<>();
+            for (int i = 0; i < 100; i++) {
+                largeResultSet.add(conceptCandidateProjection("concept_" + i, 1.0 - (i * 0.01)));
+            }
+
+            when(jpaTripleRepository.findCandidates(any(), anyInt())).thenReturn(largeResultSet);
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 100);
+
+            assertThat(result).hasSize(100);
+            assertThat(result.getFirst().concept().name()).isEqualTo("concept_0");
+            assertThat(result.getLast().concept().name()).isEqualTo("concept_99");
+        }
+
+        @Test
+        @DisplayName("calls repository only once per invocation")
+        void callsRepositoryOnlyOnce() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(conceptCandidateProjection("concept", 0.85)));
+
+            adapter.findConceptCandidate(QUERY_VECTOR, 5);
+
+            verify(jpaTripleRepository, times(1)).findCandidates(any(float[].class), eq(5));
+        }
+
+        @Test
+        @DisplayName("returns different results on successive calls with different parameters")
+        void returnsDifferentResultsOnDifferentCalls() {
+            ConceptCandidateProjection proj1 = conceptCandidateProjection("consciousness", 0.90);
+            ConceptCandidateProjection proj2 = conceptCandidateProjection("phenomenology", 0.75);
+
+            when(jpaTripleRepository.findCandidates(any(), eq(1)))
+                    .thenReturn(List.of(proj1));
+            when(jpaTripleRepository.findCandidates(any(), eq(2)))
+                    .thenReturn(List.of(proj1, proj2));
+
+            List<ConceptCandidate> result1 = adapter.findConceptCandidate(QUERY_VECTOR, 1);
+            List<ConceptCandidate> result2 = adapter.findConceptCandidate(QUERY_VECTOR, 2);
+
+            assertThat(result1).hasSize(1);
+            assertThat(result2).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("maintains immutability - does not modify returned list")
+        void maintainsImmutability() {
+            when(jpaTripleRepository.findCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            conceptCandidateProjection("concept1", 0.80),
+                            conceptCandidateProjection("concept2", 0.60)
+                    ));
+
+            List<ConceptCandidate> result = adapter.findConceptCandidate(QUERY_VECTOR, 2);
+            int originalSize = result.size();
+
+            // Try to modify (should fail or not affect returned list)
+            assertThatThrownBy(() -> result.add(new ConceptCandidate(
+                    new Concept("fake"), 0.5
+            ))).isInstanceOf(UnsupportedOperationException.class);
+
+            assertThat(result).hasSize(originalSize);
         }
     }
 
