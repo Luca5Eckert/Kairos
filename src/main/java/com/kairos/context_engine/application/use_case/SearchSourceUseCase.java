@@ -1,6 +1,7 @@
 package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
+import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Orchestrates the HippoRAG 2 retrieval flow, combining dense vector search with
@@ -49,8 +51,9 @@ public class SearchSourceUseCase {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
         List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, SEMANTIC_ANCHOR_LIMIT);
+        List<ConceptCandidate> conceptCandidates = semanticSearch.findConceptCandidate(queryVector, SEMANTIC_ANCHOR_LIMIT);
 
-        var seeds = instanceSeedsFromCandidates(passageCandidates);
+        var seeds = instanceSeedsFromCandidates(passageCandidates, conceptCandidates);
 
         if (seeds.isEmpty()) {
             return SearchResult.empty();
@@ -68,12 +71,16 @@ public class SearchSourceUseCase {
     }
 
 
-    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates) {
-        return passageCandidates.stream()
+    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates, List<ConceptCandidate> conceptCandidates) {
+        var passageSeed = passageCandidates.stream()
                 .filter(candidate -> candidate.denseScore() > 0)
-                .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()))
-                .toList();
+                .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()));
 
+        var conceptSeed = conceptCandidates.stream()
+                .filter(candidate -> candidate.similarityScore() > 0)
+                .map(candidate -> GraphSeed.concept(candidate.concept().name(), candidate.similarityScore()));
+
+        return Stream.concat(passageSeed, conceptSeed).toList();
     }
 
 }
