@@ -37,7 +37,7 @@ public interface JpaTripleRepository extends JpaRepository<TripleEntity, String>
                     GROUP BY c.concept
                     ORDER BY MAX(1 - (c.embedding <=> cast(:queryVector AS vector))) DESC
                     LIMIT :limit
-                    """
+                    """, nativeQuery = true
     )
     List<ConceptCandidateProjection> findCandidates(
             @Param("queryVector") float[] queryVector,
