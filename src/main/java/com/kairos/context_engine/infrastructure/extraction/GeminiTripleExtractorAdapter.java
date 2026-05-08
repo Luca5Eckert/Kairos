@@ -31,8 +31,7 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
             - Do not invent facts that are not grounded in the text.
             - Do not extract trivial, redundant, circular, or self-referential triples.
             - Prefer fewer high-quality triples over many weak or generic ones.
-            - If no meaningful triples can be extracted, return:
-              { "triples": [] }
+            - If no meaningful triples can be extracted, return an empty triples list.
             
             Normalization rules:
             - All subjects, predicates, and objects must be in English.
