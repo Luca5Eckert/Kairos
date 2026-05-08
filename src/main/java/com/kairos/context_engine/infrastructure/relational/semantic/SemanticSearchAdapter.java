@@ -97,10 +97,11 @@ public class SemanticSearchAdapter implements SemanticSearch {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ConceptCandidate> findConceptCandidate(float[] queryVector, int semanticAnchorLimit) {
-        var passageCandidates = jpaTripleRepository.findCandidates(queryVector, semanticAnchorLimit);
+        var conceptCandidate = jpaTripleRepository.findCandidates(queryVector, semanticAnchorLimit);
 
-        return passageCandidates.stream()
+        return conceptCandidate.stream()
                 .map(candidate -> new ConceptCandidate(
                         new Concept(candidate.getName()),
                         candidate.getSimilarityScore()
