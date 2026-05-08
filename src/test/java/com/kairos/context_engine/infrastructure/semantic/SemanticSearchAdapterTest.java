@@ -8,7 +8,7 @@ import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
 import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
-import com.kairos.context_engine.infrastructure.relational.repository.projection.PassageCandidateProjection;
+import com.kairos.context_engine.infrastructure.relational.projection.PassageCandidateProjection;
 import com.kairos.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
 import com.kairos.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import org.junit.jupiter.api.BeforeEach;
