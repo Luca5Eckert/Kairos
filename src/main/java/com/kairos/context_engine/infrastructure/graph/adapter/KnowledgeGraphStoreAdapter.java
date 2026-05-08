@@ -4,8 +4,6 @@ import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphStore;
 import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
-import com.kairos.context_engine.infrastructure.graph.entity.PassageNode;
-import com.kairos.context_engine.infrastructure.graph.repository.Neo4jPassageNodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,7 +19,6 @@ import java.util.UUID;
 public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     private final KnowledgeGraphMutationExecutor mutationExecutor;
-    private final Neo4jPassageNodeRepository passageNodeRepository;
 
     @Override
     @Transactional
@@ -81,8 +78,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
                     continue;
                 }
 
-                PassageNode passageNode = new PassageNode(passage.chunkId());
-                passageNodeRepository.save(passageNode);
+                mutationExecutor.mergePassage(passage.chunkId());
             }
 
             log.info("Successfully created context for {} passages.", passages.size());
