@@ -16,9 +16,11 @@ import com.kairos.context_engine.domain.port.repository.TripleRepository;
 import com.kairos.context_engine.domain.model.content.TripleExtracted;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,21 +35,55 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for {@link GenerateSourceContextUseCase}.
+ * Tests the orchestration of chunk embedding, triple extraction, and knowledge graph generation.
+ *
+ * Testing Strategy:
+ * - Source resolution and error handling
+ * - Chunk loading (unprocessed chunks only)
+ * - Embedding generation for chunks
+ * - Triple extraction and embedding
+ * - Knowledge graph persistence
+ * - Transaction semantics and ordering
+ */
 @ExtendWith(MockitoExtension.class)
+@DisplayName("GenerateSourceContextUseCase")
 class GenerateSourceContextUseCaseTest {
 
-    @Mock private TripleExtractor tripleExtractor;
-    @Mock private EmbeddingProvider embeddingProvider;
-    @Mock private KnowledgeGraphStore knowledgeGraphStore;
-    @Mock private ChunkRepository chunkRepository;
-    @Mock private SourceRepository sourceRepository;
-    @Mock private TripleRepository tripleRepository;
+    @Mock
+    private TripleExtractor tripleExtractor;
+
+    @Mock
+    private EmbeddingProvider embeddingProvider;
+
+    @Mock
+    private KnowledgeGraphStore knowledgeGraphStore;
+
+    @Mock
+    private ChunkRepository chunkRepository;
+
+    @Mock
+    private SourceRepository sourceRepository;
+
+    @Mock
+    private TripleRepository tripleRepository;
+
+    @Captor
+    private ArgumentCaptor<List<TripleExtracted>> tripleExtractedCaptor;
+
+    @Captor
+    private ArgumentCaptor<List<KnowledgeTriple>> knowledgeTripleCaptor;
+
+    @Captor
+    private ArgumentCaptor<List<Passage>> passageCaptor;
 
     @InjectMocks
     private GenerateSourceContextUseCase useCase;
@@ -65,151 +101,427 @@ class GenerateSourceContextUseCaseTest {
         return Chunk.create(UUID.randomUUID(), source, content, index, false, null);
     }
 
-    @Test
-    @DisplayName("execute - loads chunks already persisted for the source")
-    void execute_loadsPersistedChunksForSource() {
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of());
-
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
-
-        verify(chunkRepository).findAllBySourceId(sourceId);
+    private Triple triple(String subject, String predicate, String object) {
+        return new Triple(subject, predicate, object);
     }
 
-    @Test
-    @DisplayName("execute - embeds each persisted chunk and saves it with the generated embedding")
-    void execute_embedsAndSavesPersistedChunks() {
-        Chunk first = chunk("first chunk", 0);
-        Chunk second = chunk("second chunk", 1);
-        float[] firstEmbedding = new float[]{0.1f, 0.2f};
-        float[] secondEmbedding = new float[]{0.3f, 0.4f};
+    // =========================================================================
+    // Execution Flow & Happy Path
+    // =========================================================================
 
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(first, second));
-        when(embeddingProvider.embed("first chunk")).thenReturn(firstEmbedding);
-        when(embeddingProvider.embed("second chunk")).thenReturn(secondEmbedding);
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+    @Nested
+    @DisplayName("execute(GenerateSourceContextCommand)")
+    class ExecuteMethod {
 
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+        @Test
+        @DisplayName("resolves source from repository by ID")
+        void resolveSource() {
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of());
 
-        assertThat(first.getEmbedding()).isEqualTo(firstEmbedding);
-        assertThat(second.getEmbedding()).isEqualTo(secondEmbedding);
-        verify(chunkRepository, times(2)).save(first);
-        verify(chunkRepository, times(2)).save(second);
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(sourceRepository).findById(sourceId);
+        }
+
+        @Test
+        @DisplayName("loads unprocessed chunks for the source")
+        void loadUnprocessedChunks() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(chunkRepository).findAllNotProcessedBySourceId(sourceId);
+        }
+
+        @Test
+        @DisplayName("throws RuntimeException when source not found")
+        void throwsExceptionWhenSourceNotFound() {
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining(sourceId.toString())
+                    .hasMessageContaining("Source not found");
+
+            // Verify no downstream operations when source fails
+            verifyNoInteractions(chunkRepository, embeddingProvider, tripleExtractor);
+        }
+
+        @Test
+        @DisplayName("skips processing when no unprocessed chunks exist")
+        void skipsProcessingWhenNoChunks() {
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verifyNoInteractions(embeddingProvider, tripleExtractor, tripleRepository);
+            verify(chunkRepository, never()).save(any(Chunk.class));
+            // knowledgeGraphStore.savePassages() is still called with empty list
+            verify(knowledgeGraphStore).savePassages(List.of());
+            verify(knowledgeGraphStore, never()).saveAllForChunk(any(UUID.class), anyList());
+        }
     }
 
-    @Test
-    @DisplayName("execute - creates graph context before saving extracted triples")
-    void execute_createsGraphContextForLoadedChunks() {
-        UUID chunkId = UUID.randomUUID();
+    // =========================================================================
+    // Chunk Embedding Phase
+    // =========================================================================
 
-        Chunk chunk = new Chunk(chunkId, source, "passage content", 0, false, null);
-        Passage passage = new Passage(chunkId);
-        Triple triple = new Triple("backpropagation", "USES", "chain rule");
+    @Nested
+    @DisplayName("Chunk Embedding Phase")
+    class ChunkEmbeddingPhase {
 
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
-        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
-        when(tripleExtractor.extract("passage content")).thenReturn(List.of(triple));
+        @Test
+        @DisplayName("embeds each chunk's content")
+        void embedsChunkContent() {
+            Chunk first = chunk("first content", 0);
+            Chunk second = chunk("second content", 1);
+            float[] firstEmbedding = new float[]{0.1f, 0.2f};
+            float[] secondEmbedding = new float[]{0.3f, 0.4f};
 
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId))
+                    .thenReturn(List.of(first, second));
+            when(embeddingProvider.embed("first content")).thenReturn(firstEmbedding);
+            when(embeddingProvider.embed("second content")).thenReturn(secondEmbedding);
+            when(tripleExtractor.extract(anyString())).thenReturn(List.of());
 
-        verify(knowledgeGraphStore).savePassages(List.of(passage));
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        ArgumentCaptor<List<KnowledgeTriple>> triplesCaptor = ArgumentCaptor.captor();
-        verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), triplesCaptor.capture());
+            assertThat(first.getEmbedding()).isEqualTo(firstEmbedding);
+            assertThat(second.getEmbedding()).isEqualTo(secondEmbedding);
+        }
 
-        assertThat(triplesCaptor.getValue())
-                .hasSize(1)
-                .allSatisfy(knowledgeTriple ->
-                        assertThat(knowledgeTriple.passage().chunkId()).isEqualTo(chunk.getId()));
+        @Test
+        @DisplayName("saves each chunk after embedding")
+        void savesChunksAfterEmbedding() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            // Save called twice: once in embedChunks, once in createContextForKnowledgeGraph
+            verify(chunkRepository, times(2)).save(chunk);
+        }
+
+        @Test
+        @DisplayName("calls embedding provider once per chunk")
+        void callsEmbeddingProviderOncePerChunk() {
+            Chunk first = chunk("first", 0);
+            Chunk second = chunk("second", 1);
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId))
+                    .thenReturn(List.of(first, second));
+            when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            // Called twice: once for "first" chunk, once for "second" chunk (in embedChunks phase)
+            verify(embeddingProvider, times(2)).embed(anyString());
+        }
     }
 
-    @Test
-    @DisplayName("execute - saves extracted triples with embeddings in the triple repository")
-    void execute_savesExtractedTriplesWithEmbeddings() {
-        Chunk chunk = chunk("chunk content", 0);
-        Triple triple = new Triple("spring", "USES", "jpa");
-        float[] tripleEmbedding = new float[]{0.7f, 0.8f};
+    // =========================================================================
+    // Knowledge Graph Generation Phase
+    // =========================================================================
 
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
-        when(embeddingProvider.embed("chunk content")).thenReturn(new float[]{0.1f});
-        when(embeddingProvider.embed("spring-USES-jpa")).thenReturn(tripleEmbedding);
-        when(tripleExtractor.extract("chunk content")).thenReturn(List.of(triple));
+    @Nested
+    @DisplayName("Knowledge Graph Generation Phase")
+    class KnowledgeGraphGenerationPhase {
 
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+        @Test
+        @DisplayName("saves passages for all chunks")
+        void savesPassages() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of());
 
-        ArgumentCaptor<List<TripleExtracted>> triplesCaptor = ArgumentCaptor.captor();
-        verify(tripleRepository).saveAll(triplesCaptor.capture());
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-        assertThat(triplesCaptor.getValue()).hasSize(1);
-        TripleExtracted extracted = triplesCaptor.getValue().getFirst();
-        assertThat(extracted.getKey()).isEqualTo("spring-USES-jpa");
-        assertThat(extracted.getSuject()).isEqualTo("spring");
-        assertThat(extracted.getPredicate()).isEqualTo("USES");
-        assertThat(extracted.getObject()).isEqualTo("jpa");
-        assertThat(extracted.getChunk()).isEqualTo(chunk);
-        assertThat(extracted.getEmbedding()).isEqualTo(tripleEmbedding);
+            verify(knowledgeGraphStore).savePassages(passageCaptor.capture());
+            List<Passage> savedPassages = passageCaptor.getValue();
+            assertThat(savedPassages).hasSize(1);
+            assertThat(savedPassages.getFirst().chunkId()).isEqualTo(chunk.getId());
+        }
+
+        @Test
+        @DisplayName("extracts triples from chunk content")
+        void extractsTriplesFromContent() {
+            Chunk chunk = chunk("machine learning content", 0);
+            Triple triple = triple("neural network", "USES", "backpropagation");
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("machine learning content")).thenReturn(List.of(triple));
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(tripleExtractor).extract("machine learning content");
+        }
+
+        @Test
+        @DisplayName("generates embeddings for each extracted triple")
+        void generatesTripleEmbeddings() {
+            Chunk chunk = chunk("content", 0);
+            Triple triple = triple("spring", "USES", "jpa");
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed("spring-USES-jpa")).thenReturn(new float[]{0.7f, 0.8f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of(triple));
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(embeddingProvider).embed("spring-USES-jpa");
+        }
+
+        @Test
+        @DisplayName("saves extracted triples with embeddings to repository")
+        void savesExtractedTriplesToRepository() {
+            Chunk chunk = chunk("content", 0);
+            Triple triple = triple("spring", "USES", "jpa");
+            float[] tripleEmbedding = new float[]{0.7f, 0.8f};
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed("spring-USES-jpa")).thenReturn(tripleEmbedding);
+            when(tripleExtractor.extract("content")).thenReturn(List.of(triple));
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(tripleRepository).saveAll(tripleExtractedCaptor.capture());
+            List<TripleExtracted> saved = tripleExtractedCaptor.getValue();
+
+            assertThat(saved).hasSize(1);
+            TripleExtracted extracted = saved.getFirst();
+            assertThat(extracted.getKey()).isEqualTo("spring-USES-jpa");
+            assertThat(extracted.getSuject()).isEqualTo("spring");
+            assertThat(extracted.getPredicate()).isEqualTo("USES");
+            assertThat(extracted.getObject()).isEqualTo("jpa");
+            assertThat(extracted.getEmbedding()).isEqualTo(tripleEmbedding);
+        }
+
+        @Test
+        @DisplayName("saves knowledge triples to graph store by chunk")
+        void savesKnowledgeTriplesToGraph() {
+            Chunk chunk = chunk("content", 0);
+            Triple triple = triple("concept", "RELATES_TO", "other");
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of(triple));
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), knowledgeTripleCaptor.capture());
+            List<KnowledgeTriple> saved = knowledgeTripleCaptor.getValue();
+
+            assertThat(saved).hasSize(1);
+            assertThat(saved.getFirst().passage().chunkId()).isEqualTo(chunk.getId());
+        }
+
+        @Test
+        @DisplayName("handles empty triple extraction gracefully")
+        void handlesEmptyTripleExtraction() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(tripleRepository).saveAll(tripleExtractedCaptor.capture());
+            assertThat(tripleExtractedCaptor.getValue()).isEmpty();
+
+            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), knowledgeTripleCaptor.capture());
+            assertThat(knowledgeTripleCaptor.getValue()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("marks chunks as processed after extraction")
+        void marksChunksAsProcessed() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            assertThat(chunk.isProcessed()).isTrue();
+        }
     }
 
-    @Test
-    @DisplayName("execute - marks each processed chunk and saves it after graph extraction")
-    void execute_marksChunksAsProcessedAfterTripleExtraction() {
-        Chunk chunk = chunk("chunk content", 0);
+    // =========================================================================
+    // Integration & Ordering Tests
+    // =========================================================================
 
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
-        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+    @Nested
+    @DisplayName("Integration & Execution Order")
+    class IntegrationTests {
 
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+        @Test
+        @DisplayName("executes operations in correct order: embed -> graph generation -> mark processed")
+        void executesInCorrectOrder() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of());
 
-        assertThat(chunk.isProcessed()).isTrue();
-        verify(chunkRepository, times(2)).save(chunk);
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            var inOrder = inOrder(
+                    chunkRepository,
+                    embeddingProvider,
+                    knowledgeGraphStore,
+                    tripleExtractor,
+                    tripleRepository
+            );
+
+            // 1. Embedding provider called for chunk content
+            inOrder.verify(embeddingProvider).embed("content");
+            // 2. First save after embedding
+            inOrder.verify(chunkRepository).save(chunk);
+            // 3. Graph operations (passages saved)
+            inOrder.verify(knowledgeGraphStore).savePassages(anyList());
+            // 4. Graph operations (triples saved)
+            inOrder.verify(tripleRepository).saveAll(anyList());
+            inOrder.verify(knowledgeGraphStore).saveAllForChunk(any(UUID.class), anyList());
+            // 5. Second save after marking processed
+            inOrder.verify(chunkRepository).save(chunk);
+        }
+
+        @Test
+        @DisplayName("processes multiple chunks independently")
+        void processesMultipleChunksIndependently() {
+            Chunk first = chunk("first content", 0);
+            Chunk second = chunk("second content", 1);
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId))
+                    .thenReturn(List.of(first, second));
+            when(embeddingProvider.embed("first content")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed("second content")).thenReturn(new float[]{0.2f});
+            when(tripleExtractor.extract("first content")).thenReturn(List.of());
+            when(tripleExtractor.extract("second content")).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            // Verify both chunks processed
+            verify(knowledgeGraphStore, times(2)).saveAllForChunk(any(UUID.class), anyList());
+            verify(chunkRepository, times(4)).save(any(Chunk.class)); // 2x per chunk
+        }
+
+        @Test
+        @DisplayName("saves passages once for all chunks")
+        void savesPassagesOnceForAllChunks() {
+            Chunk first = chunk("first", 0);
+            Chunk second = chunk("second", 1);
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId))
+                    .thenReturn(List.of(first, second));
+            when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(knowledgeGraphStore, times(1)).savePassages(passageCaptor.capture());
+            assertThat(passageCaptor.getValue()).hasSize(2);
+        }
     }
 
-    @Test
-    @DisplayName("execute - stores an empty triple list when extraction finds no triples")
-    void execute_noTriplesExtracted_savesEmptyKnowledgeTriples() {
-        Chunk chunk = chunk("chunk content", 0);
+    // =========================================================================
+    // Error Handling & Edge Cases
+    // =========================================================================
 
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of(chunk));
-        when(embeddingProvider.embed(anyString())).thenReturn(new float[]{0.1f});
-        when(tripleExtractor.extract(anyString())).thenReturn(List.of());
+    @Nested
+    @DisplayName("Error Handling & Edge Cases")
+    class ErrorHandlingTests {
 
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+        @Test
+        @DisplayName("propagates embedding provider exceptions")
+        void propagatesEmbeddingException() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content"))
+                    .thenThrow(new RuntimeException("Embedding service unavailable"));
 
-        ArgumentCaptor<List<KnowledgeTriple>> captor = ArgumentCaptor.captor();
-        verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), captor.capture());
-        assertThat(captor.getValue()).isEmpty();
-    }
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Embedding service unavailable");
+        }
 
-    @Test
-    @DisplayName("execute - source not found throws RuntimeException with sourceId in message")
-    void execute_sourceNotFound_throwsException() {
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.empty());
+        @Test
+        @DisplayName("propagates triple extraction exceptions")
+        void propagatesExtractionException() {
+            Chunk chunk = chunk("content", 0);
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(tripleExtractor.extract("content"))
+                    .thenThrow(new RuntimeException("Triple extraction failed"));
 
-        assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining(sourceId.toString());
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Triple extraction failed");
+        }
 
-        verifyNoInteractions(embeddingProvider, tripleExtractor, knowledgeGraphStore);
-        verify(chunkRepository, never()).findAllBySourceId(any());
-    }
+        @Test
+        @DisplayName("propagates repository exceptions")
+        void propagatesRepositoryException() {
+            when(sourceRepository.findById(sourceId))
+                    .thenThrow(new RuntimeException("Database connection failed"));
 
-    @Test
-    @DisplayName("execute - no persisted chunks skips embedding and triple extraction")
-    void execute_noChunks_skipsPerChunkWork() {
-        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
-        when(chunkRepository.findAllBySourceId(sourceId)).thenReturn(List.of());
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Database connection failed");
+        }
 
-        useCase.execute(GenerateSourceContextCommand.of(sourceId));
+        @Test
+        @DisplayName("handles multiple triples per chunk")
+        void handlesMultipleTriplesPerChunk() {
+            Chunk chunk = chunk("content", 0);
+            List<Triple> triples = List.of(
+                    triple("A", "R1", "B"),
+                    triple("B", "R2", "C"),
+                    triple("C", "R3", "D")
+            );
 
-        verifyNoInteractions(embeddingProvider, tripleExtractor);
-        verify(chunkRepository, never()).save(any(Chunk.class));
-        verify(knowledgeGraphStore).savePassages(List.of());
-        verify(knowledgeGraphStore, never()).saveAllForChunk(any(), anyList());
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed("A-R1-B")).thenReturn(new float[]{0.5f});
+            when(embeddingProvider.embed("B-R2-C")).thenReturn(new float[]{0.6f});
+            when(embeddingProvider.embed("C-R3-D")).thenReturn(new float[]{0.7f});
+            when(tripleExtractor.extract("content")).thenReturn(triples);
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            verify(tripleRepository).saveAll(tripleExtractedCaptor.capture());
+            assertThat(tripleExtractedCaptor.getValue()).hasSize(3);
+
+            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), knowledgeTripleCaptor.capture());
+            assertThat(knowledgeTripleCaptor.getValue()).hasSize(3);
+        }
     }
 }
