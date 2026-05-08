@@ -1,6 +1,19 @@
 spring:
+
   application:
     name: kairos
+
+  ai:
+    model:
+      chat: google-genai
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          options:
+            model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
+            temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
+            max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
 
   data:
     neo4j:
@@ -26,6 +39,7 @@ spring:
     authentication:
       username: ${NEO4J_USER:neo4j}
       password: ${NEO4J_PASSWORD}
+
 
 management:
   endpoints:
