@@ -3,7 +3,7 @@ package com.kairos.auth.infrastructure.security.adapter;
 import com.kairos.auth.domain.model.AuthenticatedSession;
 import com.kairos.auth.domain.model.AuthenticatedUser;
 import com.kairos.auth.domain.port.SessionIssuerPort;
-import com.kairos.auth.infrastructure.security.config.AuthProperties;
+import com.kairos.share.security.AuthProperties;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
