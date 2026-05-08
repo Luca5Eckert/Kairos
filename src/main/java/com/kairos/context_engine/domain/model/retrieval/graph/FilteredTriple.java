@@ -1,10 +1,10 @@
 package com.kairos.context_engine.domain.model.retrieval.graph;
 
-import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
-import com.kairos.context_engine.domain.model.retrieval.candidate.TripleCandidate;
+import com.kairos.context_engine.domain.model.knowledge.Concept;
+import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 
 public record FilteredTriple(
-        TripleCandidate candidate,
+        ConceptCandidate candidate,
         boolean accepted
 ) {
     public FilteredTriple {
@@ -13,8 +13,8 @@ public record FilteredTriple(
         }
     }
 
-    public KnowledgeTriple triple() {
-        return candidate.triple();
+    public Concept concept() {
+        return candidate.concept();
     }
 
     public double similarityScore() {
