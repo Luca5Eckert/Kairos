@@ -9,8 +9,7 @@ import ai.onnxruntime.OrtSession;
 import com.kairos.context_engine.domain.exception.EmbeddingException;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.infrastructure.embedding.onnx.factory.TensorFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -31,9 +30,8 @@ import java.util.Objects;
  * </ol>
  */
 @Component
+@Slf4j
 public class OnnxEmbeddingProvider implements EmbeddingProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(OnnxEmbeddingProvider.class);
 
     /**
      * all-MiniLM-L6-v2 is commonly used with max sequence length 256.
