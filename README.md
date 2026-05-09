@@ -35,9 +35,9 @@ The result is a retrieval engine that reasons about relationships, not just prox
 
 ## How It Works
 
-When a source document is ingested, Kairos builds three things in parallel: a durable chunk store in PostgreSQL, a vector index in pgvector for semantic recall, and a knowledge graph in Neo4j that maps the concepts and relationships extracted from the text.
+When a source document is ingested, Kairos first persists the source and durable chunks in PostgreSQL, then triggers asynchronous enrichment that computes embeddings, extracts triples, and updates both pgvector-backed semantic indexes and the Neo4j knowledge graph.
 
-At query time, dense retrieval identifies the most relevant starting points. The knowledge graph then expands outward — activating connected concepts, related passages, and extracted facts that a pure vector search would miss. The two signals are combined into a single ranked response.
+At query time, dense retrieval identifies passage and concept starting points. The knowledge graph then expands outward — activating connected concepts, related passages, and extracted facts that a pure vector search would miss. Final ranking is based on graph expansion scores, and chunk payloads are rehydrated from PostgreSQL.
 
 The entire pipeline runs JVM-native. Embeddings are generated in-process via ONNX Runtime, with no external embedding service required. Triple extraction is the only step that calls an LLM — handled by Gemini through Spring AI, behind a domain port that can be swapped without touching the retrieval logic.
 
@@ -126,10 +126,10 @@ The codebase follows a hexagonal architecture:
 `GET /sources` accepts a `termQuery` and returns graph-augmented context.
 
 1. Embed the query using the same local ONNX model as ingestion.
-2. Retrieve semantically similar chunks from pgvector.
-3. Promote top hits to graph seed nodes.
+2. Retrieve semantically similar chunks and concepts from pgvector-backed stores.
+3. Promote top passage and concept candidates to graph seed nodes using score thresholds.
 4. Run Personalized PageRank via Neo4j GDS, propagating importance through connected concepts.
-5. Rank passages using the combined semantic and graph scores.
+5. Rank passages by graph expansion score.
 6. Rehydrate chunk text from PostgreSQL.
 7. Return ranked chunks alongside the activated knowledge triples.
 
@@ -137,24 +137,20 @@ Current retrieval defaults:
 
 | Parameter | Default | Effect |
 | --- | --- | --- |
-| `KAIROS_SEMANTIC_ANCHOR_LIMIT` | `10` | Number of vector hits used as graph seeds |
+| `KAIROS_SEMANTIC_ANCHOR_LIMIT` | `10` | Top-k semantic candidates fetched for passages and concepts |
 | `KAIROS_GRAPH_PASSAGE_LIMIT` | `20` | Maximum passages returned after graph expansion |
 | `KAIROS_SEED_MIN_SCORE` | `0.45` | Minimum similarity score to qualify as a seed |
 | `KAIROS_SEED_RELATIVE_THRESHOLD` | `0.85` | Seeds must score within this fraction of the top hit |
 
 ## Data Model
 
-PostgreSQL holds the relational core: `sources` store the original documents, `chunks` hold the split content with their `embedding vector(384)` and processing `status`, `triples` persist each extracted subject-predicate-object fact alongside its own embedding, and `users` covers auth with roles and statuses.
+PostgreSQL holds the relational core: `sources` store the original documents, `chunks` hold the split content with their `embedding vector(384)` and a `processed` flag, `triples` persist each extracted subject-predicate-object fact alongside its own embedding, and `users` covers auth with roles and statuses.
 
 Neo4j holds the semantic graph. Every chunk becomes a `Passage` node. Every concept extracted from that chunk becomes a `PhraseNode`. A `TRIPLE` edge connects two concepts with a directed relationship, and a `CONTAINS` edge links a passage to each concept it mentions. Graph traversal during retrieval walks these edges to find what is meaningfully related, not just textually similar.
 
 ## API
 
-Interactive API documentation is available at:
-
-```
-http://localhost:8080/swagger-ui.html
-```
+OpenAPI/Swagger UI is not configured in the current build.
 
 ### Auth
 
@@ -236,7 +232,7 @@ curl http://localhost:8080/actuator/health
 ### 4. Run tests
 
 ```bash
-./mvnw.cmd test
+./mvnw test
 ```
 
 ## Try It in 5 Minutes
