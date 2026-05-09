@@ -72,7 +72,8 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
                 .call()
                 .entity(TripleExtractionResult.class);
 
-        assert result != null;
+        if (result == null || result.triples() == null) return List.of();
+
         return result.triples().stream()
                 .map(t -> new Triple(t.subject(), t.predicate(), t.object(), t.weight()))
                 .toList();
