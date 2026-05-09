@@ -24,7 +24,7 @@ services:
       - kairos-net
 
   neo4j:
-    image: neo4j:5.19
+    image: neo4j:5.26
     container_name: kairos-neo4j
     restart: unless-stopped
     environment:
