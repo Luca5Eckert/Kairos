@@ -58,6 +58,15 @@ logging:
   level:
     com.kairos: INFO
 
+kairos:
+  retrieval:
+    semantic-anchor-limit: ${KAIROS_SEMANTIC_ANCHOR_LIMIT:10}
+    graph-passage-limit: ${KAIROS_GRAPH_PASSAGE_LIMIT:20}
+    seed-min-score: ${KAIROS_SEED_MIN_SCORE:0.45}
+    seed-relative-threshold: ${KAIROS_SEED_RELATIVE_THRESHOLD:0.85}
+  graph:
+    orphan-cleanup-interval-ms: ${KAIROS_GRAPH_ORPHAN_CLEANUP_INTERVAL_MS:600000}
+
 auth:
   session:
     secret: ${AUTH_SESSION_SECRET:dev-only-change-me-dev-only-change-me}
