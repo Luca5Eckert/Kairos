@@ -5,7 +5,11 @@ import java.util.List;
 public record TripleExtractionResult(
         List<ExtractedTriple> triples
 ) {
-    public List<ExtractedTriple> triplesOrEmpty() {
-        return triples == null ? List.of() : triples;
+    public TripleExtractionResult {
+        triples = triples == null ? List.of() : List.copyOf(triples);
     }
+    public List<ExtractedTriple> triplesOrEmpty() {
+        return triples;
+    }
+
 }
