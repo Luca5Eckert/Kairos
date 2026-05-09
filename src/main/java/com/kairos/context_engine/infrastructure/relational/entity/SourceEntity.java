@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,7 +40,7 @@ public class SourceEntity {
         this.id = sourceId;
         this.title = title;
         this.content = content;
-        this.chunkEntities = List.of();
+        this.chunkEntities = new ArrayList<>();
     }
 
     public static SourceEntity of(Source source) {
@@ -47,7 +48,7 @@ public class SourceEntity {
                 source.getId(),
                 source.getTitle(),
                 source.getContent(),
-                List.of()
+                new ArrayList<>()
         );
     }
 
