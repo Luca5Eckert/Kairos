@@ -12,6 +12,7 @@ import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.SearchResult;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -35,12 +36,21 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class SearchSourceUseCase {
 
-    private static final int SEMANTIC_ANCHOR_LIMIT = 10;
-    private static final int GRAPH_PASSAGE_LIMIT = 20;
-
     private final EmbeddingProvider embeddingPort;
     private final KnowledgeGraphSearch knowledgeGraphSearch;
     private final SemanticSearch semanticSearch;
+
+    @Value("${kairos.retrieval.semantic-anchor-limit:10}")
+    private int semanticAnchorLimit = 10;
+
+    @Value("${kairos.retrieval.graph-passage-limit:20}")
+    private int graphPassageLimit = 20;
+
+    @Value("${kairos.retrieval.seed-min-score:0.45}")
+    private double seedMinScore = 0.45d;
+
+    @Value("${kairos.retrieval.seed-relative-threshold:0.85}")
+    private double seedRelativeThreshold = 0.85d;
 
     /**
      * Executes a search query against the knowledge graph, returning a ranked list of relevant chunks and activated triples.
@@ -50,8 +60,8 @@ public class SearchSourceUseCase {
     public SearchResult execute(SearchSourceQuery query) {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, SEMANTIC_ANCHOR_LIMIT);
-        List<ConceptCandidate> conceptCandidates = semanticSearch.findConceptCandidate(queryVector, SEMANTIC_ANCHOR_LIMIT);
+        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, semanticAnchorLimit);
+        List<ConceptCandidate> conceptCandidates = semanticSearch.findConceptCandidate(queryVector, semanticAnchorLimit);
 
         var seeds = instanceSeedsFromCandidates(passageCandidates, conceptCandidates);
 
@@ -59,7 +69,7 @@ public class SearchSourceUseCase {
             return SearchResult.empty();
         }
 
-        var graphSearchRequest = GraphSearchRequest.from(seeds, GRAPH_PASSAGE_LIMIT);
+        var graphSearchRequest = GraphSearchRequest.from(seeds, graphPassageLimit);
 
         GraphSearchResult result = knowledgeGraphSearch.expandKnowledge(graphSearchRequest);
 
@@ -72,15 +82,36 @@ public class SearchSourceUseCase {
 
 
     private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates, List<ConceptCandidate> conceptCandidates) {
+        double passageThreshold = seedThreshold(
+                passageCandidates.stream()
+                        .mapToDouble(PassageCandidate::denseScore)
+                        .max()
+                        .orElse(0d)
+        );
+        double conceptThreshold = seedThreshold(
+                conceptCandidates.stream()
+                        .mapToDouble(ConceptCandidate::similarityScore)
+                        .max()
+                        .orElse(0d)
+        );
+
         var passageSeed = passageCandidates.stream()
-                .filter(candidate -> candidate.denseScore() > 0)
+                .filter(candidate -> candidate.denseScore() >= passageThreshold)
                 .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()));
 
         var conceptSeed = conceptCandidates.stream()
-                .filter(candidate -> candidate.similarityScore() > 0)
+                .filter(candidate -> candidate.similarityScore() >= conceptThreshold)
                 .map(candidate -> GraphSeed.concept(candidate.concept().name(), candidate.similarityScore()));
 
         return Stream.concat(passageSeed, conceptSeed).toList();
+    }
+
+    private double seedThreshold(double bestScore) {
+        if (bestScore <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        return Math.max(seedMinScore, bestScore * seedRelativeThreshold);
     }
 
 }

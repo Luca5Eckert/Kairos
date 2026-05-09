@@ -5,13 +5,16 @@ import com.kairos.context_engine.application.use_case.SearchSourceUseCase;
 import com.kairos.context_engine.domain.model.SearchResult;
 import com.kairos.context_engine.domain.model.content.Chunk;
 import com.kairos.context_engine.domain.model.content.Source;
+import com.kairos.context_engine.domain.model.knowledge.Concept;
 import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.knowledge.Passage;
+import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
+import com.kairos.context_engine.domain.model.retrieval.seed.ConceptSeedTarget;
 import com.kairos.context_engine.domain.model.retrieval.seed.PassageSeedTarget;
 import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
@@ -32,7 +35,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -65,25 +67,29 @@ class SearchSourceUseCaseTest {
     }
 
     @Test
-    @DisplayName("builds a graph request from positive semantic candidates")
-    void buildsGraphRequestFromPositiveCandidates() {
+    @DisplayName("builds a graph request only from strong passage candidates")
+    void buildsGraphRequestFromStrongPassageCandidates() {
         UUID strongId = UUID.randomUUID();
-        UUID weakId = UUID.randomUUID();
+        UUID relatedId = UUID.randomUUID();
         UUID ignoredId = UUID.randomUUID();
+        UUID weakId = UUID.randomUUID();
         List<PassageCandidate> candidates = List.of(
                 new PassageCandidate(strongId, 0.91),
+                new PassageCandidate(relatedId, 0.82),
                 new PassageCandidate(ignoredId, 0.0),
                 new PassageCandidate(weakId, 0.22)
         );
 
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
         when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(candidates);
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
         ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
         verify(semanticSearch).findPassageCandidate(QUERY_VECTOR, 10);
+        verify(semanticSearch).findConceptCandidate(QUERY_VECTOR, 10);
         verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
         verify(semanticSearch, never()).hydrateAndRankChunks(any());
 
@@ -92,10 +98,35 @@ class SearchSourceUseCaseTest {
         assertThat(request.seeds()).hasSize(2);
         assertThat(request.seeds())
                 .extracting(seed -> ((PassageSeedTarget) seed.target()).chunkId())
-                .containsExactly(strongId, weakId);
+                .containsExactly(strongId, relatedId);
         assertThat(request.seeds())
                 .extracting(seed -> seed.weight())
-                .containsExactly(0.91, 0.22);
+                .containsExactly(0.91, 0.82);
+        assertThat(result).isEqualTo(SearchResult.empty());
+    }
+
+    @Test
+    @DisplayName("filters weak concept candidates before graph expansion")
+    void filtersWeakConceptCandidatesBeforeGraphExpansion() {
+        when(embeddingPort.embed("Spring")).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(
+                new ConceptCandidate(new Concept("spring data"), 0.88),
+                new ConceptCandidate(new Concept("lucas"), 0.39)
+        ));
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
+
+        SearchResult result = useCase.execute(new SearchSourceQuery("Spring"));
+
+        ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
+
+        GraphSearchRequest request = requestCaptor.getValue();
+        assertThat(request.seeds()).singleElement()
+                .satisfies(seed -> {
+                    assertThat(((ConceptSeedTarget) seed.target()).concept().name()).isEqualTo("spring data");
+                    assertThat(seed.weight()).isEqualTo(0.88);
+                });
         assertThat(result).isEqualTo(SearchResult.empty());
     }
 
@@ -104,6 +135,7 @@ class SearchSourceUseCaseTest {
     void returnsEmptyWhenNoCandidatesExist() {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
         when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -120,6 +152,7 @@ class SearchSourceUseCaseTest {
                 new PassageCandidate(UUID.randomUUID(), 0.0),
                 new PassageCandidate(UUID.randomUUID(), -0.15)
         ));
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -146,6 +179,7 @@ class SearchSourceUseCaseTest {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
         when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
                 .thenReturn(List.of(new PassageCandidate(topId, 0.9)));
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenReturn(new GraphSearchResult(scoredPassages, List.of(triple)));
         when(semanticSearch.hydrateAndRankChunks(scoredPassages)).thenReturn(rankedChunks);
@@ -175,6 +209,7 @@ class SearchSourceUseCaseTest {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
         when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
                 .thenReturn(List.of(new PassageCandidate(UUID.randomUUID(), 0.9)));
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenThrow(new RuntimeException("Neo4j connection refused"));
 
@@ -192,6 +227,7 @@ class SearchSourceUseCaseTest {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
         when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
                 .thenReturn(List.of(new PassageCandidate(chunkId, 0.9)));
+        when(semanticSearch.findConceptCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenReturn(new GraphSearchResult(scoredPassages, List.of()));
         when(semanticSearch.hydrateAndRankChunks(scoredPassages))

@@ -1,6 +1,19 @@
 spring:
+
   application:
     name: kairos
+
+  ai:
+    model:
+      chat: google-genai
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          options:
+            model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
+            temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
+            max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
 
   data:
     neo4j:
@@ -27,6 +40,7 @@ spring:
       username: ${NEO4J_USER:neo4j}
       password: ${NEO4J_PASSWORD}
 
+
 management:
   endpoints:
     web:
@@ -43,6 +57,15 @@ server:
 logging:
   level:
     com.kairos: INFO
+
+kairos:
+  retrieval:
+    semantic-anchor-limit: ${KAIROS_SEMANTIC_ANCHOR_LIMIT:10}
+    graph-passage-limit: ${KAIROS_GRAPH_PASSAGE_LIMIT:20}
+    seed-min-score: ${KAIROS_SEED_MIN_SCORE:0.45}
+    seed-relative-threshold: ${KAIROS_SEED_RELATIVE_THRESHOLD:0.85}
+  graph:
+    orphan-cleanup-interval-ms: ${KAIROS_GRAPH_ORPHAN_CLEANUP_INTERVAL_MS:600000}
 
 auth:
   session:
