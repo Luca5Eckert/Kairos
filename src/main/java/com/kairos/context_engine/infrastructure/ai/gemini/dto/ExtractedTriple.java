@@ -4,6 +4,6 @@ public record ExtractedTriple(
         String subject,
         String predicate,
         String object,
-        double weight
+        Double weight
 ) {
 }
