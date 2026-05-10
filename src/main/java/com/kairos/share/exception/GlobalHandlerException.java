@@ -1,5 +1,6 @@
 package com.kairos.share.exception;
 
+import com.kairos.auth.infrastructure.email.EmailConfirmationDeliveryException;
 import com.kairos.context_engine.domain.exception.EmbeddingException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,22 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 @Slf4j
 @ControllerAdvice
 public class GlobalHandlerException {
+
+    @ExceptionHandler(EmailConfirmationDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handle(EmailConfirmationDeliveryException e, HttpServletRequest request) {
+        log.warn("[503 SERVICE_UNAVAILABLE] {} {} | {}: {}",
+                request.getMethod(), request.getRequestURI(),
+                e.getClass().getSimpleName(), e.getMessage());
+
+        var response = ErrorResponse.toInstance(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "Email delivery unavailable",
+                e.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
 
     @ExceptionHandler({
             RuntimeException.class,
