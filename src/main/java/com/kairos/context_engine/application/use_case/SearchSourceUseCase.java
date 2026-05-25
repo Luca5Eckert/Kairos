@@ -104,9 +104,19 @@ public class SearchSourceUseCase {
                 .filter(candidate -> candidate.denseScore() >= passageThreshold)
                 .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()));
 
+        double conceptThreshold = seedThreshold(
+                conceptSeeds == null
+                        ? 0d
+                        : conceptSeeds.stream()
+                                .mapToDouble(GraphSeed::weight)
+                                .max()
+                                .orElse(0d)
+        );
+
         var conceptSeed = conceptSeeds == null
                 ? Stream.<GraphSeed>empty()
-                : conceptSeeds.stream();
+                : conceptSeeds.stream()
+                        .filter(seed -> seed.weight() >= conceptThreshold);
 
         return Stream.concat(passageSeed, conceptSeed).toList();
     }

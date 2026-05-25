@@ -144,6 +144,41 @@ class SearchSourceUseCaseTest {
     }
 
     @Test
+    @DisplayName("filters weak concept seeds returned by recognition memory before graph expansion")
+    void filtersWeakRecognizedConceptSeedsBeforeGraphExpansion() {
+        TripleCandidate tripleCandidate = new TripleCandidate(
+                "spring-IMPLEMENTS-repository pattern",
+                "spring",
+                "IMPLEMENTS",
+                "repository pattern",
+                UUID.randomUUID(),
+                0.88
+        );
+
+        when(embeddingPort.embed("Spring")).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of(tripleCandidate));
+        when(recognitionMemory.recognize("Spring", List.of(tripleCandidate), 10))
+                .thenReturn(List.of(
+                        GraphSeed.concept("spring", 0.88),
+                        GraphSeed.concept("repository pattern", 0.39)
+                ));
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
+
+        useCase.execute(new SearchSourceQuery("Spring"));
+
+        ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
+
+        GraphSearchRequest request = requestCaptor.getValue();
+        assertThat(request.seeds()).singleElement()
+                .satisfies(seed -> {
+                    assertThat(((ConceptSeedTarget) seed.target()).concept().name()).isEqualTo("spring");
+                    assertThat(seed.weight()).isEqualTo(0.88);
+                });
+    }
+
+    @Test
     @DisplayName("keeps passage seeds and appends concept seeds recognized from triples")
     void keepsPassageSeedsAndAppendsRecognizedConceptSeeds() {
         UUID passageId = UUID.randomUUID();

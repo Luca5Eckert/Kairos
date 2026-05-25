@@ -8,6 +8,7 @@ import com.kairos.context_engine.infrastructure.recognition.dto.RecognizedConcep
 import com.kairos.context_engine.infrastructure.recognition.dto.RecognitionMemoryResult;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -43,7 +44,7 @@ public class GeminiRecognitionMemoryAdapter implements RecognitionMemory {
 
     private final ChatClient chatClient;
 
-    public GeminiRecognitionMemoryAdapter(ChatClient chatClient) {
+    public GeminiRecognitionMemoryAdapter(@Qualifier("recognitionMemoryChatClient") ChatClient chatClient) {
         this.chatClient = chatClient;
     }
 

@@ -20,4 +20,17 @@ public class ArtificialIntelligenceConfig {
                 .build();
     }
 
+    @Bean
+    ChatClient recognitionMemoryChatClient(ChatClient.Builder builder) {
+        return builder
+                .defaultSystem("""
+                        You are a graph retrieval recognition memory.
+                        Select only relevant graph seed concepts from the provided candidate triples.
+                        Return concepts exactly as they appear in the candidate triple subject or object.
+                        Do not invent facts, concepts, or relationships.
+                        """
+                )
+                .build();
+    }
+
 }

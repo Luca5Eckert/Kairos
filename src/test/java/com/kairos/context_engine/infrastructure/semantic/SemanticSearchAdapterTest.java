@@ -218,6 +218,23 @@ class SemanticSearchAdapterTest {
         }
 
         @Test
+        @DisplayName("skips projections with non-finite similarity")
+        void skipsNonFiniteSimilarity() {
+            when(jpaTripleRepository.findTripleCandidates(any(), anyInt()))
+                    .thenReturn(List.of(
+                            tripleCandidateProjection("nan", "mind", "REL", "consciousness", UUID.randomUUID(), Double.NaN),
+                            tripleCandidateProjection("positive-infinity", "brain", "REL", "neurons", UUID.randomUUID(), Double.POSITIVE_INFINITY),
+                            tripleCandidateProjection("valid", "spring", "IMPLEMENTS", "repositories", UUID.randomUUID(), 0.7)
+                    ));
+
+            List<TripleCandidate> result = adapter.findTripleCandidates(QUERY_VECTOR, 3);
+
+            assertThat(result)
+                    .singleElement()
+                    .satisfies(candidate -> assertThat(candidate.key()).isEqualTo("valid"));
+        }
+
+        @Test
         @DisplayName("never interacts with chunk or source repositories during triple lookup")
         void doesNotTouchOtherRepositories() {
             when(jpaTripleRepository.findTripleCandidates(any(), anyInt())).thenReturn(List.of());
