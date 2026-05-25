@@ -106,7 +106,8 @@ public class SemanticSearchAdapter implements SemanticSearch {
                         && hasText(candidate.getPredicate())
                         && hasText(candidate.getObject())
                         && candidate.getChunkId() != null
-                        && candidate.getSimilarity() != null)
+                        && candidate.getSimilarity() != null
+                        && Double.isFinite(candidate.getSimilarity()))
                 .map(candidate -> new TripleCandidate(
                         candidate.getKey(),
                         candidate.getSubject(),

@@ -6,6 +6,7 @@ import com.kairos.context_engine.infrastructure.ai.gemini.dto.TripleExtractionRe
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.AdvisorParams;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -71,7 +72,7 @@ public class GeminiTripleExtractorAdapter implements TripleExtractor {
 
     private final ChatClient chatClient;
 
-    public GeminiTripleExtractorAdapter(ChatClient chatClient) {
+    public GeminiTripleExtractorAdapter(@Qualifier("tripleExtractionChatClient") ChatClient chatClient) {
         this.chatClient = chatClient;
     }
 
