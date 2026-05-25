@@ -76,6 +76,8 @@ kairos:
   retrieval:
     semantic-anchor-limit: ${KAIROS_SEMANTIC_ANCHOR_LIMIT:10}
     graph-passage-limit: ${KAIROS_GRAPH_PASSAGE_LIMIT:20}
+    triple-candidate-limit: ${KAIROS_TRIPLE_CANDIDATE_LIMIT:30}
+    recognition-seed-limit: ${KAIROS_RECOGNITION_SEED_LIMIT:10}
     seed-min-score: ${KAIROS_SEED_MIN_SCORE:0.45}
     seed-relative-threshold: ${KAIROS_SEED_RELATIVE_THRESHOLD:0.85}
   graph:

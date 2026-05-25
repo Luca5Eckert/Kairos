@@ -1,8 +1,8 @@
 package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
-import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
+import com.kairos.context_engine.domain.model.retrieval.candidate.TripleCandidate;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
@@ -10,6 +10,7 @@ import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
 import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.SearchResult;
+import com.kairos.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,12 +40,19 @@ public class SearchSourceUseCase {
     private final EmbeddingProvider embeddingPort;
     private final KnowledgeGraphSearch knowledgeGraphSearch;
     private final SemanticSearch semanticSearch;
+    private final RecognitionMemory recognitionMemory;
 
     @Value("${kairos.retrieval.semantic-anchor-limit:10}")
     private int semanticAnchorLimit = 10;
 
     @Value("${kairos.retrieval.graph-passage-limit:20}")
     private int graphPassageLimit = 20;
+
+    @Value("${kairos.retrieval.triple-candidate-limit:30}")
+    private int tripleCandidateLimit = 30;
+
+    @Value("${kairos.retrieval.recognition-seed-limit:10}")
+    private int recognitionSeedLimit = 10;
 
     @Value("${kairos.retrieval.seed-min-score:0.45}")
     private double seedMinScore = 0.45d;
@@ -61,9 +69,12 @@ public class SearchSourceUseCase {
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
         List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, semanticAnchorLimit);
-        List<ConceptCandidate> conceptCandidates = semanticSearch.findConceptCandidate(queryVector, semanticAnchorLimit);
+        List<TripleCandidate> tripleCandidates = semanticSearch.findTripleCandidates(queryVector, tripleCandidateLimit);
+        List<GraphSeed> conceptSeeds = tripleCandidates.isEmpty()
+                ? List.of()
+                : recognitionMemory.recognize(query.searchTerm(), tripleCandidates, recognitionSeedLimit);
 
-        var seeds = instanceSeedsFromCandidates(passageCandidates, conceptCandidates);
+        var seeds = instanceSeedsFromCandidates(passageCandidates, conceptSeeds);
 
         if (seeds.isEmpty()) {
             return SearchResult.empty();
@@ -81,16 +92,10 @@ public class SearchSourceUseCase {
     }
 
 
-    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates, List<ConceptCandidate> conceptCandidates) {
+    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates, List<GraphSeed> conceptSeeds) {
         double passageThreshold = seedThreshold(
                 passageCandidates.stream()
                         .mapToDouble(PassageCandidate::denseScore)
-                        .max()
-                        .orElse(0d)
-        );
-        double conceptThreshold = seedThreshold(
-                conceptCandidates.stream()
-                        .mapToDouble(ConceptCandidate::similarityScore)
                         .max()
                         .orElse(0d)
         );
@@ -99,9 +104,9 @@ public class SearchSourceUseCase {
                 .filter(candidate -> candidate.denseScore() >= passageThreshold)
                 .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()));
 
-        var conceptSeed = conceptCandidates.stream()
-                .filter(candidate -> candidate.similarityScore() >= conceptThreshold)
-                .map(candidate -> GraphSeed.concept(candidate.concept().name(), candidate.similarityScore()));
+        var conceptSeed = conceptSeeds == null
+                ? Stream.<GraphSeed>empty()
+                : conceptSeeds.stream();
 
         return Stream.concat(passageSeed, conceptSeed).toList();
     }
