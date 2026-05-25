@@ -1,9 +1,8 @@
 package com.kairos.context_engine.infrastructure.relational.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.knowledge.Concept;
-import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
+import com.kairos.context_engine.domain.model.retrieval.candidate.TripleCandidate;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
 import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
@@ -99,16 +98,28 @@ public class SemanticSearchAdapter implements SemanticSearch {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ConceptCandidate> findConceptCandidate(float[] queryVector, int semanticAnchorLimit) {
-        var conceptCandidate = jpaTripleRepository.findCandidates(queryVector, semanticAnchorLimit);
-
-        return conceptCandidate.stream()
-                .filter(candidate -> candidate.getName() != null && candidate.getSimilarity() != null)
-                .map(candidate -> new ConceptCandidate(
-                        new Concept(candidate.getName()),
+    public List<TripleCandidate> findTripleCandidates(float[] queryVector, int limit) {
+        return jpaTripleRepository.findTripleCandidates(queryVector, limit)
+                .stream()
+                .filter(candidate -> hasText(candidate.getKey())
+                        && hasText(candidate.getSubject())
+                        && hasText(candidate.getPredicate())
+                        && hasText(candidate.getObject())
+                        && candidate.getChunkId() != null
+                        && candidate.getSimilarity() != null)
+                .map(candidate -> new TripleCandidate(
+                        candidate.getKey(),
+                        candidate.getSubject(),
+                        candidate.getPredicate(),
+                        candidate.getObject(),
+                        candidate.getChunkId(),
                         candidate.getSimilarity()
                 ))
                 .toList();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private RankedChunk toRankedChunk(ScoredPassage scoredPassage, Chunk chunk, AtomicInteger rank) {
