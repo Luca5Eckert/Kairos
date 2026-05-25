@@ -44,8 +44,8 @@ public class SourceController {
                 .build();
     }
 
-    @GetMapping
-    public ResponseEntity<ContextResponse> generateSourceContext(
+    @PostMapping("/search")
+    public ResponseEntity<ContextResponse> searchSourceContext(
             @RequestBody @Valid GenerateSourceContextRequest request
     ) {
         var query = SearchSourceQuery.of(request.termQuery());
