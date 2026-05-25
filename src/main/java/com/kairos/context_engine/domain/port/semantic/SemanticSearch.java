@@ -1,8 +1,8 @@
 package com.kairos.context_engine.domain.port.semantic;
 
 import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
+import com.kairos.context_engine.domain.model.retrieval.candidate.TripleCandidate;
 import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
 import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
 
@@ -17,5 +17,5 @@ public interface SemanticSearch {
 
     List<RankedChunk> hydrateAndRankChunks(List<ScoredPassage> scoredPassages);
 
-    List<ConceptCandidate> findConceptCandidate(float[] queryVector, int semanticAnchorLimit);
+    List<TripleCandidate> findTripleCandidates(float[] queryVector, int limit);
 }
