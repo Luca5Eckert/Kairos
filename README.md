@@ -4,149 +4,259 @@
 <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-4.0.5-green"></a>
 <a href="https://spring.io/projects/spring-ai"><img src="https://img.shields.io/badge/Spring%20AI-2.0.0--M6-green"></a>
 <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-blue"></a>
-<a href="https://github.com/pgvector/pgvector"><img src="https://img.shields.io/badge/pgvector-enabled-blue"></a>
+<a href="https://github.com/pgvector/pgvector"><img src="https://img.shields.io/badge/pgvector-HNSW-blue"></a>
 <a href="https://neo4j.com/"><img src="https://img.shields.io/badge/Neo4j-5.26-blue"></a>
 <a href="https://onnxruntime.ai/"><img src="https://img.shields.io/badge/ONNX%20Runtime-1.20.0-black"></a>
 <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-blue"></a>
+<img src="https://img.shields.io/badge/tests-170%20passing-brightgreen">
+<img src="https://img.shields.io/badge/line%20coverage-65.43%25-yellow">
 
-> *Kairos* (καιρός) — the ancient Greek concept of the opportune moment. The right knowledge, retrieved at the right time.
+**Standard RAG retrieves similar passages. Kairos retrieves connected knowledge.**
 
-**Standard RAG finds similar text. Kairos understands what it read.**
+Kairos is a JVM-native personal knowledge graph engine for graph-augmented retrieval. It ingests source material, splits it into durable chunks, extracts factual subject-predicate-object triples, embeds both passages and triples, and uses PostgreSQL/pgvector plus Neo4j Graph Data Science to retrieve context by meaning and relationship structure.
 
-Most retrieval systems stop at vector similarity — they return passages that look alike, not passages that *mean* something together. Kairos goes further: it extracts concepts, builds a knowledge graph from source material, and uses graph traversal to surface context that is semantically connected even when the exact same words never appear in the same passage.
-
-The result is a retrieval engine that reasons about relationships, not just proximity.
+It is built as a retrieval backend for personal knowledge systems: the user feeds sources, and Kairos builds the semantic structure needed to recover related ideas later.
 
 ## Contents
 
-- [How It Works](#how-it-works)
+- [Why Kairos Exists](#why-kairos-exists)
 - [Architecture](#architecture)
 - [Ingestion Flow](#ingestion-flow)
 - [Retrieval Flow](#retrieval-flow)
-- [Data Model](#data-model)
-- [API](#api)
 - [Quick Start](#quick-start)
-- [Try It in 5 Minutes](#try-it-in-5-minutes)
-- [Spring AI Integration](#spring-ai-integration)
-- [What Is Already Built](#what-is-already-built)
 - [Known Limitations](#known-limitations)
 - [Roadmap](#roadmap)
-- [Technology Stack](#technology-stack)
+- [Research And Technical References](#research-and-technical-references)
 
-## How It Works
+## At A Glance
 
-When a source document is ingested, Kairos first persists the source and durable chunks in PostgreSQL, then triggers asynchronous enrichment that computes embeddings, extracts triples, and updates both pgvector-backed semantic indexes and the Neo4j knowledge graph.
+| Dimension | Kairos today |
+| --- | --- |
+| Project type | JVM-native graph-augmented retrieval backend |
+| Core idea | Automatic personal knowledge graph construction from ingested sources |
+| Retrieval model | HippoRAG 2-inspired passage recall + triple recall + recognition memory + Personalized PageRank |
+| Semantic store | PostgreSQL 16 with pgvector and HNSW indexes |
+| Graph store | Neo4j 5.26 with Graph Data Science |
+| Embeddings | Local ONNX Runtime inference with `all-MiniLM-L6-v2`, no Python sidecar |
+| LLM boundary | Gemini via Spring AI, limited to triple extraction and recognition-memory seed selection |
+| Quality snapshot | 170 Maven tests passing, 0 failures, 0 errors, 1 skipped, 65.43% line coverage |
 
-At query time, dense retrieval identifies passage and concept starting points. The knowledge graph then expands outward — activating connected concepts, related passages, and extracted facts that a pure vector search would miss. Final ranking is based on graph expansion scores, and chunk payloads are rehydrated from PostgreSQL.
+## Why Kairos Exists
 
-The entire pipeline runs JVM-native. Embeddings are generated in-process via ONNX Runtime, with no external embedding service required. Triple extraction is the only step that calls an LLM — handled by Gemini through Spring AI, behind a domain port that can be swapped without touching the retrieval logic.
+Personal knowledge tools usually depend on manual structure: tags, folders, backlinks, graph links, aliases, and discipline. Kairos is built around a different product idea:
+
+> Feed the system sources. Let the graph build itself.
+
+The goal is not to be a note editor or a chatbot. Kairos is a retrieval engine that turns raw content into an expanding conceptual graph, then uses that graph to surface context the user may not have explicitly connected.
+
+## Why Not Just Vector Search
+
+Vector search is excellent at finding passages close to a query embedding. It is weaker when the answer depends on relationships spread across passages, concepts, or facts that do not share the same surface wording.
+
+| Standard vector RAG | Kairos |
+| --- | --- |
+| Retrieves chunks by embedding proximity | Retrieves passages, triples, and graph-expanded context |
+| Treats each chunk mostly independently | Connects chunks through extracted concepts and relationships |
+| Usually returns text that looks semantically similar | Can activate passages connected through graph structure |
+| LLM often carries most reasoning burden at answer time | Retrieval exposes relationship evidence before answer generation |
+| Embedding service is often external | Embeddings run locally in-process on the JVM |
+
+## Current State
+
+Kairos is an operational V1 retrieval backend. The graph-augmented ingestion and search path is implemented, while product-facing graph views, source status APIs, retry workflows, and persisted retrieval traces are still roadmap work.
+
+| Area | Current implementation |
+| --- | --- |
+| Ingestion | `POST /sources` stores a source, chunks content, persists chunks, and publishes `CreatedSourceEvent` for async enrichment |
+| Embeddings | In-process ONNX Runtime with `all-MiniLM-L6-v2`, producing `vector(384)` embeddings |
+| Triple extraction | Gemini through Spring AI `ChatClient` with native structured output |
+| Semantic storage | PostgreSQL 16 with pgvector for passage and triple vector search |
+| Graph storage | Neo4j 5.26 with `Passage`, `PhraseNode`, `CONTAINS`, and `TRIPLE` graph projection |
+| Retrieval | Dense passage recall + triple recall + recognition memory + Neo4j GDS Personalized PageRank |
+| Auth | Registration, email confirmation, login, JWT issuance, roles, statuses, and protected source routes |
+| Local infrastructure | Docker Compose services for `postgres`, `neo4j`, and `kairos` |
 
 ## Architecture
 
+Kairos follows a hexagonal architecture:
+
+| Layer | Responsibility |
+| --- | --- |
+| `domain` | Business models and ports with no framework dependency |
+| `application` | Use cases, commands, queries, and orchestration |
+| `infrastructure` | PostgreSQL, Neo4j, ONNX Runtime, Spring AI/Gemini, email, security, and event adapters |
+| `presentation` | Controllers, request DTOs, response DTOs, and mappers |
+
 ```mermaid
-graph TB
-    C[Client]
+flowchart TB
+    client["Client"]
 
-    subgraph API
-      AC[AuthController]
-      SC[SourceController]
+    subgraph api["API"]
+        auth["AuthController"]
+        sources["SourceController"]
     end
 
-    subgraph Application
-      US[UploadSourceUseCase]
-      GS[GenerateSourceContextUseCase]
-      SS[SearchSourceUseCase]
-      EV[CreatedSourceEvent]
+    subgraph app["Application"]
+        upload["UploadSourceUseCase"]
+        enrich["GenerateSourceContextUseCase"]
+        search["SearchSourceUseCase"]
+        event["CreatedSourceEvent"]
     end
 
-    subgraph AI_and_Semantic
-      CH[ChunkerExtractorAdapter]
-      EM[OnnxEmbeddingProvider]
-      AI[Spring AI ChatClient]
-      TX[GeminiTripleExtractorAdapter]
-      VS[SemanticSearchAdapter]
+    subgraph ai["AI and Semantic Adapters"]
+        chunker["ChunkerExtractorAdapter"]
+        embedder["OnnxEmbeddingProvider"]
+        extractor["GeminiTripleExtractorAdapter"]
+        recognition["GeminiRecognitionMemoryAdapter"]
+        semantic["SemanticSearchAdapter"]
     end
 
-    subgraph Graph
-      KG[KnowledgeGraphStoreAdapter]
-      KS[HippoRagKnowledgeGraphSearchAdapter]
-      GDS[Neo4j GDS Personalized PageRank]
+    subgraph graph["Graph Adapters"]
+        graphStore["KnowledgeGraphStoreAdapter"]
+        graphSearch["HippoRagKnowledgeGraphSearchAdapter"]
+        gds["Neo4j GDS PageRank"]
     end
 
-    subgraph Persistence
-      PG[(PostgreSQL + pgvector)]
-      NEO[(Neo4j)]
-    end
+    postgres[("PostgreSQL + pgvector")]
+    neo4j[("Neo4j")]
 
-    C --> AC
-    C --> SC
-    SC --> US
-    US --> CH
-    US --> EV
-    EV --> GS
-    GS --> EM
-    GS --> AI
-    AI --> TX
-    GS --> PG
-    GS --> KG
-    KG --> NEO
-    SC --> SS
-    SS --> EM
-    SS --> VS
-    VS --> PG
-    SS --> KS
-    KS --> GDS
-    GDS --> NEO
-    SS --> PG
+    client --> auth
+    client --> sources
+    sources --> upload
+    upload --> chunker
+    upload --> postgres
+    upload --> event
+    event --> enrich
+    enrich --> embedder
+    enrich --> extractor
+    enrich --> postgres
+    enrich --> graphStore
+    graphStore --> neo4j
+    sources --> search
+    search --> embedder
+    search --> semantic
+    search --> recognition
+    semantic --> postgres
+    search --> graphSearch
+    graphSearch --> gds
+    gds --> neo4j
+    search --> postgres
 ```
 
-The codebase follows a hexagonal architecture:
+The split is intentional:
 
-- `domain` — business models and ports, with no framework dependencies.
-- `application` — use cases, commands, and queries.
-- `infrastructure` — adapters for PostgreSQL, Neo4j, ONNX Runtime, Spring AI/Gemini, events, and security.
-- `presentation` — controllers, request/response DTOs, and mappers.
+- PostgreSQL is the textual and semantic source of truth.
+- pgvector handles dense similarity over stored embeddings.
+- Neo4j stores the structural graph projection.
+- Neo4j GDS runs graph propagation.
+- Gemini is constrained to extraction and recognition decisions, behind domain ports.
+- The embedding model runs locally on the JVM, with no Python sidecar.
 
 ## Ingestion Flow
 
-`POST /sources` triggers the full knowledge-building pipeline.
+`POST /sources` starts the knowledge-building pipeline.
 
-1. Persist the source document in PostgreSQL.
-2. Split content into token-bounded semantic chunks.
+1. Create and persist a `Source` in PostgreSQL.
+2. Split source content into overlapping chunks.
 3. Persist chunks immediately for durability.
-4. Publish `CreatedSourceEvent` to kick off async enrichment.
-5. Embed each chunk locally using ONNX Runtime.
-6. Extract factual subject-predicate-object triples via Spring AI + Gemini.
-7. Embed each triple key for semantic triple search.
-8. Persist triples in PostgreSQL.
-9. Merge passages, concepts, `TRIPLE`, and `CONTAINS` relationships into Neo4j.
+4. Publish `CreatedSourceEvent`.
+5. Enrich unprocessed chunks asynchronously.
+6. Embed each chunk with ONNX Runtime.
+7. Extract factual triples with Gemini through Spring AI.
+8. Embed each triple key for triple-level recall.
+9. Store extracted triples and embeddings in PostgreSQL.
+10. Merge `Passage` nodes, `PhraseNode` concepts, `CONTAINS` edges, and `TRIPLE` edges into Neo4j.
+11. Mark processed chunks as complete.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as SourceController
+    participant U as UploadSourceUseCase
+    participant PG as PostgreSQL
+    participant E as CreatedSourceEvent
+    participant G as GenerateSourceContextUseCase
+    participant ORT as ONNX Runtime
+    participant LLM as Gemini via Spring AI
+    participant NEO as Neo4j
+
+    C->>API: POST /sources
+    API->>U: UploadSourceCommand
+    U->>PG: save source and chunks
+    U->>E: publish source id
+    API-->>C: 201 Created
+    E->>G: async enrichment
+    G->>ORT: embed chunks
+    G->>LLM: extract triples
+    G->>ORT: embed triple keys
+    G->>PG: save embeddings and triples
+    G->>NEO: merge passages, concepts, and relationships
+```
 
 ## Retrieval Flow
 
-`GET /sources` accepts a `termQuery` and returns graph-augmented context.
+`POST /sources/search` accepts a `termQuery` and returns ranked chunks plus activated triples.
 
-1. Embed the query using the same local ONNX model as ingestion.
-2. Retrieve semantically similar chunks and concepts from pgvector-backed stores.
-3. Promote top passage and concept candidates to graph seed nodes using score thresholds.
-4. Run Personalized PageRank via Neo4j GDS, propagating importance through connected concepts.
-5. Rank passages by graph expansion score.
-6. Rehydrate chunk text from PostgreSQL.
-7. Return ranked chunks alongside the activated knowledge triples.
+The current search path reflects the newer HippoRAG 2-style flow implemented in [PR #59](https://github.com/Luca5Eckert/Kairos/pull/59):
 
-Current retrieval defaults:
+1. Embed the user query with the same ONNX model used during ingestion.
+2. Retrieve passage candidates from pgvector using cosine similarity.
+3. Retrieve triple candidates from pgvector using triple-key embeddings.
+4. Ask the recognition-memory adapter to select relevant triple subjects or objects as concept seeds.
+5. Combine passage seeds and recognition-derived concept seeds.
+6. Filter seeds using absolute and relative score thresholds.
+7. Run Personalized PageRank over Neo4j GDS from the selected passage and concept seeds.
+8. Rank passage nodes by graph score.
+9. Rehydrate final chunk text from PostgreSQL.
+10. Return ranked chunks and activated triples as explanatory evidence.
 
-| Parameter | Default | Effect |
+```mermaid
+flowchart LR
+    query["User query"] --> embed["ONNX query embedding"]
+    embed --> passageSearch["pgvector passage candidates"]
+    embed --> tripleSearch["pgvector triple candidates"]
+    tripleSearch --> recog["RecognitionMemory selects concept seeds"]
+    passageSearch --> seeds["Graph seeds"]
+    recog --> seeds
+    seeds --> ppr["Neo4j GDS Personalized PageRank"]
+    ppr --> scored["Scored passages"]
+    ppr --> triples["Activated triples"]
+    scored --> hydrate["Hydrate chunks from PostgreSQL"]
+    hydrate --> response["ContextResponse"]
+    triples --> response
+```
+
+Retrieval defaults:
+
+| Property | Default | Purpose |
 | --- | --- | --- |
-| `KAIROS_SEMANTIC_ANCHOR_LIMIT` | `10` | Top-k semantic candidates fetched for passages and concepts |
-| `KAIROS_GRAPH_PASSAGE_LIMIT` | `20` | Maximum passages returned after graph expansion |
-| `KAIROS_SEED_MIN_SCORE` | `0.45` | Minimum similarity score to qualify as a seed |
-| `KAIROS_SEED_RELATIVE_THRESHOLD` | `0.85` | Seeds must score within this fraction of the top hit |
+| `KAIROS_SEMANTIC_ANCHOR_LIMIT` | `10` | Passage candidates retrieved from pgvector |
+| `KAIROS_TRIPLE_CANDIDATE_LIMIT` | `30` | Triple candidates retrieved before recognition memory |
+| `KAIROS_RECOGNITION_SEED_LIMIT` | `10` | Maximum concept seeds accepted from recognition memory |
+| `KAIROS_GRAPH_PASSAGE_LIMIT` | `20` | Maximum graph-ranked passages returned |
+| `KAIROS_SEED_MIN_SCORE` | `0.45` | Minimum score required for a seed |
+| `KAIROS_SEED_RELATIVE_THRESHOLD` | `0.85` | Seed must be within this fraction of the best score |
+| `hipporag.ppr.max-iterations` | `20` | PageRank iteration cap |
+| `hipporag.ppr.damping-factor` | `0.85` | PageRank damping factor |
+| `hipporag.ppr.score-threshold` | `0.001` | Minimum activated node score |
 
 ## Data Model
 
-PostgreSQL holds the relational core: `sources` store the original documents, `chunks` hold the split content with their `embedding vector(384)` and a `processed` flag, `triples` persist each extracted subject-predicate-object fact alongside its own embedding, and `users` covers auth with roles and statuses.
+PostgreSQL stores durable application data:
 
-Neo4j holds the semantic graph. Every chunk becomes a `Passage` node. Every concept extracted from that chunk becomes a `PhraseNode`. A `TRIPLE` edge connects two concepts with a directed relationship, and a `CONTAINS` edge links a passage to each concept it mentions. Graph traversal during retrieval walks these edges to find what is meaningfully related, not just textually similar.
+- `sources`: source title and content.
+- `chunks`: source chunks, chunk order, processed flag, and `vector(384)` embeddings.
+- `triples`: extracted subject-predicate-object facts, triple key, source chunk, and `vector(384)` embeddings.
+- user/auth tables: registration, email confirmation, roles, password hash, and session identity.
+
+Neo4j stores the retrieval graph projection:
+
+- `Passage`: one node per chunk, keyed by `chunkId`.
+- `PhraseNode`: concepts extracted from triples.
+- `CONTAINS`: passage-to-concept relationship.
+- `TRIPLE`: concept-to-concept relationship with predicate, `chunk_id`, optional `user_id`, and weight.
+
+The retrieval result is passage-first. `KnowledgeTriple` values are returned as evidence explaining what the graph activated; they are not the primary ranking unit.
 
 ## API
 
@@ -156,18 +266,20 @@ OpenAPI/Swagger UI is not configured in the current build.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/auth/register` | Creates a pending user and issues an email confirmation code |
-| `POST` | `/auth/confirm-email` | Confirms the user and returns a signed JWT |
-| `POST` | `/auth/login` | Authenticates by username or email and returns a JWT |
+| `POST` | `/auth/register` | Creates a pending user and sends an email confirmation code |
+| `POST` | `/auth/confirm-email` | Confirms a pending user and returns a JWT |
+| `POST` | `/auth/login` | Authenticates by username/email and returns a JWT |
 
 ### Sources
 
+All `/sources/**` endpoints require a valid JWT bearer token.
+
 | Method | Path | Body | Description |
 | --- | --- | --- | --- |
-| `POST` | `/sources` | `{ "title", "content", "authorId" }` | Ingests a source and starts async knowledge graph construction |
-| `GET` | `/sources` | `{ "termQuery" }` | Queries the knowledge base and returns graph-augmented context |
+| `POST` | `/sources` | `{ "title", "content", "authorId" }` | Ingests a source and starts async graph enrichment |
+| `POST` | `/sources/search` | `{ "termQuery" }` | Searches the knowledge base and returns graph-augmented context |
 
-Response shape:
+Current response shape:
 
 ```json
 {
@@ -196,172 +308,196 @@ Response shape:
 ### Prerequisites
 
 - Docker and Docker Compose
-- Java 21 (only required if running Maven locally outside Docker)
+- Java 21 if running Maven locally
 - A Gemini API key
+- SMTP credentials for the Docker Compose app service
 
-### 1. Configure environment
+### 1. Create the environment file
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Bash:
 
 ```bash
 cp .env.example .env
 ```
 
-Set at minimum:
+### 2. Fill required values
 
-```env
-POSTGRES_PASSWORD=change-me
-NEO4J_PASSWORD=change-me
-GEMINI_API_KEY=your-gemini-api-key
-KAIROS_LLM_MODEL=gemini-2.5-flash
-KAIROS_LLM_TEMPERATURE=0.0
-KAIROS_LLM_MAX_OUTPUT_TOKENS=4096
-AUTH_SESSION_SECRET=change-me-to-a-long-random-secret
-```
+Docker Compose requires database, Neo4j, Gemini, auth, and mail settings. Full configuration reference for YAML keys, environment variables, retrieval tunables, and Spring AI options lives in [docs/configuration.md](docs/configuration.md).
 
-### 2. Start the stack
+### 3. Start the stack
 
 ```bash
 docker compose up --build
 ```
 
-### 3. Verify health
+The app binds to `127.0.0.1:8080` by default. PostgreSQL and Neo4j are also bound to localhost only.
+
+### 4. Check health
 
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
-### 4. Run tests
+## Try It Locally
+
+The source API is protected. Obtain a JWT through `POST /auth/login` or `POST /auth/confirm-email`, then export it as `TOKEN` before calling `/sources`.
+
+### Ingest a source
+
+```bash
+curl -X POST http://localhost:8080/sources \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "RAG and knowledge graphs",
+    "authorId": "11111111-1111-1111-1111-111111111111",
+    "content": "Retrieval augmented generation combines a retriever with a language model. The retriever finds relevant passages before the model generates an answer. Knowledge graphs improve retrieval by representing entities and relationships explicitly. Personalized PageRank can start from relevant passages and propagate importance through connected concepts."
+  }'
+```
+
+`POST /sources` returns `201 Created`. Enrichment is asynchronous, so wait a few seconds before querying.
+
+### Query the knowledge base
+
+```bash
+curl -X POST http://localhost:8080/sources/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{ "termQuery": "How can a knowledge graph improve retrieval augmented generation?" }'
+```
+
+Example response:
+
+```json
+{
+  "knowledgeGraph": [
+    {
+      "subject": "Personalized PageRank",
+      "predicate": "PROPAGATES_IMPORTANCE_THROUGH",
+      "object": "connected concepts",
+      "chunkId": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "chunkContexts": [
+    {
+      "chunkId": "00000000-0000-0000-0000-000000000000",
+      "content": "Personalized PageRank can start from relevant passages and propagate importance through connected concepts.",
+      "rank": 1,
+      "score": 0.91,
+      "source": "GRAPH"
+    }
+  ]
+}
+```
+
+Other useful queries:
+
+```json
+{ "termQuery": "What connects embeddings with semantic search?" }
+{ "termQuery": "Why is Personalized PageRank useful for retrieval?" }
+{ "termQuery": "How does graph retrieval find related concepts across passages?" }
+```
+
+## Quality And Verification
+
+Run the test suite:
+
+Windows:
+
+```powershell
+.\mvnw.cmd test
+```
+
+Unix-like shells:
 
 ```bash
 ./mvnw test
 ```
 
-## Try It in 5 Minutes
+Latest verified local run:
 
-### 1. Ingest a source
+| Date | Command | Result | Maven time |
+| --- | --- | --- | --- |
+| 2026-05-25 17:59 BRT | `.\mvnw.cmd test` | 170 tests, 0 failures, 0 errors, 1 skipped | 18.157 s |
 
-```bash
-curl -X POST http://localhost:8080/sources \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "RAG and knowledge graphs",
-    "authorId": "11111111-1111-1111-1111-111111111111",
-    "content": "Retrieval augmented generation combines a retriever with a language model. The retriever finds relevant passages before the model generates an answer. Knowledge graphs improve retrieval by representing entities and relationships explicitly. A graph can connect neural networks, gradient descent, embeddings, and semantic search even when the exact same words do not appear in every passage. Personalized PageRank can start from relevant passages and propagate importance through connected concepts."
-  }'
-```
+Additional verification:
 
-Returns `201 Created`. Knowledge graph construction runs asynchronously — wait a few seconds before querying.
+| Check | Result |
+| --- | --- |
+| `git diff --check` | Passes |
+| Surefire report files | 31 XML reports generated under `target/surefire-reports` |
+| JaCoCo report | Generated under `target/site/jacoco` |
+| JaCoCo line coverage | 65.43% |
+| JaCoCo branch coverage | 63.76% |
 
-### 2. Query the knowledge base
+Static inventory from the current workspace:
 
-```bash
-curl -X GET http://localhost:8080/sources \
-  -H "Content-Type: application/json" \
-  -d '{ "termQuery": "How can a knowledge graph improve retrieval augmented generation?" }'
-```
+| Metric | Count |
+| --- | ---: |
+| Main Java files | 131 |
+| Test Java files | 31 |
+| REST controllers | 2 |
+| Public API endpoints documented | 5 |
+| Application use cases | 6 |
+| Domain ports | 17 |
+| Infrastructure adapters | 15 |
+| Repository interfaces/adapters | 8 |
+| Persistence/graph entity classes | 7 |
+| Configuration/properties classes | 5 |
 
-Other queries worth trying:
+Test coverage by behavior includes:
 
-```json
-{ "termQuery": "What connects embeddings with semantic search?" }
-{ "termQuery": "Why is Personalized PageRank useful for context retrieval?" }
-{ "termQuery": "How does graph retrieval find related concepts across passages?" }
-```
+- Auth flows: registration, email confirmation, login, password encoding, JWT issuance, Spring Security configuration, and SMTP adapter behavior.
+- Ingestion flows: source upload, event publishing, async source-event listener, chunking, chunk embedding, triple extraction, and graph persistence orchestration.
+- Retrieval flows: query embedding orchestration, passage candidate retrieval, triple candidate retrieval, recognition-memory seed selection, seed thresholding, graph expansion, ranked chunk hydration, and empty-result behavior.
+- Graph adapters: Neo4j mutation execution, GDS projection, Personalized PageRank query parameter mapping, activated triple mapping, projection cleanup, and missing-GDS fallback paths.
+- Embedding pipeline: ONNX session behavior, tokenizer handling, `token_type_ids` fallback, truncation, mean pooling, normalization, inference failures, and input validation.
+- Source API contract: upload route, `POST /sources/search`, and removal of `GET /sources` with request body.
+- Relational adapters: chunk hydration, semantic candidate mapping, triple candidate filtering, missing/null vector-score handling, and repository ordering.
 
-## Spring AI Integration
+## Troubleshooting
 
-Kairos uses Spring AI as the LLM abstraction layer. Triple extraction is the only LLM-dependent step; everything else — chunking, embedding, graph construction, and retrieval — runs locally.
-
-Relevant dependency:
-
-```xml
-<dependency>
-    <groupId>org.springframework.ai</groupId>
-    <artifactId>spring-ai-starter-model-google-genai</artifactId>
-</dependency>
-```
-
-Configuration:
-
-```yaml
-spring:
-  ai:
-    model:
-      chat: google-genai
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY}
-        chat:
-          options:
-            model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
-            temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
-            max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
-```
-
-A dedicated `ChatClient` bean handles triple extraction with a fixed system prompt:
-
-```java
-@Bean
-ChatClient tripleExtractionChatClient(ChatClient.Builder builder) {
-    return builder
-            .defaultSystem("""
-                    You are an information extraction engine.
-                    Extract factual subject-predicate-object triples from the user's text.
-                    Do not invent facts.
-                    Return only information supported by the input.
-                    """)
-            .build();
-}
-```
-
-`GeminiTripleExtractorAdapter` calls that client with native structured output:
-
-```java
-TripleExtractionResult result = chatClient.prompt()
-        .advisors(AdvisorParams.ENABLE_NATIVE_STRUCTURED_OUTPUT)
-        .user(user -> user.text(PROMPT).param("text", text))
-        .call()
-        .entity(TripleExtractionResult.class);
-```
-
-The LLM is hidden behind the `TripleExtractor` domain port. Swapping Gemini for another model requires no changes to the application or retrieval layers.
-
-## What Is Already Built
-
-**Ingestion**
-- Token-bounded chunking with durable persistence
-- Local embedding generation via ONNX Runtime (no external service)
-- Factual triple extraction via Spring AI + Gemini
-- Triple embedding and vector storage in pgvector
-- Knowledge graph construction in Neo4j
-
-**Retrieval**
-- Semantic anchor search with pgvector
-- Graph seed promotion and Personalized PageRank expansion
-- Graph-aware passage scoring and ranking
-- Response hydration from PostgreSQL chunks
-
-**Auth and users**
-- Registration with email confirmation
-- JWT-based authentication
-- User roles and status management
-
-**Infrastructure**
-- Full Docker Compose stack for local development
-- Spring Boot Actuator health endpoint
+| Symptom | Likely cause | What to check |
+| --- | --- | --- |
+| `docker compose config` or `docker compose up` fails with a missing variable | Compose marks some values as required | Fill `POSTGRES_PASSWORD`, `NEO4J_PASSWORD`, `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` in `.env` |
+| `POST /sources` or `POST /sources/search` returns `401` | Source routes require authentication | Login or confirm email first, then send `Authorization: Bearer $TOKEN` |
+| Source upload returns `201`, but search returns little or nothing | Enrichment runs asynchronously | Wait a few seconds after `POST /sources` before querying |
+| Graph results are empty | Neo4j GDS may be unavailable or the graph has not been enriched yet | Check Neo4j plugin loading and the warning `Neo4j Graph Data Science procedures are unavailable. Returning empty graph expansion.` |
+| Gemini extraction or recognition fails | Missing or invalid Gemini key/model configuration | Check `GEMINI_API_KEY`, `KAIROS_LLM_MODEL`, and Spring AI Google GenAI settings |
+| Logs mention `token_type_ids: not declared` | The ONNX model does not require that input | This is expected for the current model path and is covered by tests |
 
 ## Known Limitations
 
-- **Authentication is not enforced on `/sources`** in the current build. This is intentional for local development. Do not expose the service publicly without securing these routes.
-- **Context generation is asynchronous.** `POST /sources` returns `201` immediately; allow a few seconds before querying.
-- **Failed chunks are not automatically retried.** A chunk that fails during embedding or triple extraction requires re-uploading the source. Tracked in [#52](https://github.com/Luca5Eckert/Kairos/issues/52).
+- Source enrichment is asynchronous. Querying immediately after ingestion can return empty or incomplete graph context.
+- Failed chunk reprocessing is not implemented yet. See [issue #52](https://github.com/Luca5Eckert/Kairos/issues/52).
+- If Neo4j GDS procedures are unavailable, graph expansion returns empty results instead of a dense fallback.
+- Weighted PPR is not fully implemented yet; seed scores are preserved and filtered, but the GDS query does not currently pass per-seed bias pairs or relationship weight properties.
+- OpenAPI/Swagger UI is not configured.
 
 ## Roadmap
 
-The core graph-augmented retrieval pipeline is fully operational. Upcoming work focuses on retrieval quality, resilience, and production-readiness.
+Recently completed:
 
-Two tracks are already in progress: refining the retrieval flow toward a complete HippoRAG 2.0-style pipeline ([#50](https://github.com/Luca5Eckert/Kairos/issues/50)) and improving passage-aware weighted Personalized PageRank ([#41](https://github.com/Luca5Eckert/Kairos/issues/41)).
+- [#40](https://github.com/Luca5Eckert/Kairos/issues/40): triple recall and recognition memory filtering.
+- [PR #59](https://github.com/Luca5Eckert/Kairos/pull/59): replaced direct concept-candidate retrieval with triple-based recognition-memory seed selection.
+- [PR #51](https://github.com/Luca5Eckert/Kairos/pull/51): finalized the passage-first graph retrieval response with ranked chunks and activated triples.
+- [PR #55](https://github.com/Luca5Eckert/Kairos/pull/55): migrated Gemini extraction to Spring AI `ChatClient` and native structured output.
 
-Next in line: automatic retry for failed chunks without re-uploading the source ([#52](https://github.com/Luca5Eckert/Kairos/issues/52)), stronger triple recall and recognition-memory filtering ([#40](https://github.com/Luca5Eckert/Kairos/issues/40)), expanding the user module beyond auth ([#31](https://github.com/Luca5Eckert/Kairos/issues/31)), and persisting question/answer history and retrieval traces for explainability ([#25](https://github.com/Luca5Eckert/Kairos/issues/25)).
+Active or planned:
+
+| Issue | Description | Expected impact |
+| --- | --- | --- |
+| [#41](https://github.com/Luca5Eckert/Kairos/issues/41) | Passage-aware weighted Personalized PageRank | Improves ranking precision for queries with multiple relevant concepts |
+| [#50](https://github.com/Luca5Eckert/Kairos/issues/50) | Continue the HippoRAG 2 retrieval refactor | Aligns retrieval more closely with the reference paper and adds stronger fallback behavior |
+| [#52](https://github.com/Luca5Eckert/Kairos/issues/52) | Reprocess failed chunks without re-uploading the full source | Improves ingestion resilience and recovery |
+| [#31](https://github.com/Luca5Eckert/Kairos/issues/31) | Expand the user module beyond auth | Prepares the system for user-scoped knowledge operations |
+| [#25](https://github.com/Luca5Eckert/Kairos/issues/25) | Persist question/answer history and retrieval traces | Creates the audit trail needed for explainability and future ranking-quality analysis |
 
 ## Technology Stack
 
@@ -370,12 +506,27 @@ Next in line: automatic retry for failed chunks without re-uploading the source 
 | Runtime | Java 21 |
 | Framework | Spring Boot 4.0.5 |
 | LLM integration | Spring AI 2.0.0-M6 + Google GenAI |
-| LLM model | Gemini (`gemini-2.5-flash` by default) |
-| Embeddings | ONNX Runtime + `all-MiniLM-L6-v2` (runs in-process, no external service) |
+| LLM model | Gemini, `gemini-2.5-flash` by default |
+| Embeddings | ONNX Runtime + `all-MiniLM-L6-v2` |
+| Tokenization | DJL Hugging Face tokenizers |
 | Vector search | PostgreSQL 16 + pgvector |
 | Graph search | Neo4j 5.26 + Graph Data Science |
 | Security | Spring Security + JWT |
+| Email | Spring Mail / JavaMailSender |
 | Infrastructure | Docker Compose |
+
+## Research And Technical References
+
+These references informed the design and README positioning:
+
+- [GitHub Docs: repository READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
+- [HippoRAG 2: From RAG to Memory](https://arxiv.org/abs/2502.14802)
+- [pgvector documentation](https://access.crunchydata.com/documentation/pgvector/latest/)
+- [Neo4j Graph Data Science PageRank](https://neo4j.com/docs/graph-data-science/current/algorithms/page-rank/)
+- [Spring AI structured output](https://docs.spring.io/spring-ai/reference/api/structured-output-converter.html)
+- [Spring AI Google GenAI Chat](https://docs.spring.io/spring-ai/reference/api/chat/google-genai-chat.html)
+- [ONNX Runtime for Java](https://onnxruntime.ai/docs/get-started/with-java.html)
+- [sentence-transformers/all-MiniLM-L6-v2 model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
 
 ---
 
