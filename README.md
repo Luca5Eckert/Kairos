@@ -477,13 +477,13 @@ Test coverage by behavior includes:
 - Source enrichment is asynchronous. Querying immediately after ingestion can return empty or incomplete graph context.
 - Failed chunk reprocessing is not implemented yet. See [issue #52](https://github.com/Luca5Eckert/Kairos/issues/52).
 - If Neo4j GDS procedures are unavailable, graph expansion returns empty results instead of a dense fallback.
-- Weighted PPR is not fully implemented yet; seed scores are preserved and filtered, but the GDS query does not currently pass per-seed bias pairs or relationship weight properties.
 - OpenAPI/Swagger UI is not configured.
 
 ## Roadmap
 
 Recently completed:
 
+- [#41](https://github.com/Luca5Eckert/Kairos/issues/41): implemented passage-aware weighted Personalized PageRank with per-seed bias and relationship weights.
 - [#40](https://github.com/Luca5Eckert/Kairos/issues/40): triple recall and recognition memory filtering.
 - [PR #59](https://github.com/Luca5Eckert/Kairos/pull/59): replaced direct concept-candidate retrieval with triple-based recognition-memory seed selection.
 - [PR #51](https://github.com/Luca5Eckert/Kairos/pull/51): finalized the passage-first graph retrieval response with ranked chunks and activated triples.
@@ -493,7 +493,6 @@ Active or planned:
 
 | Issue | Description | Expected impact |
 | --- | --- | --- |
-| [#41](https://github.com/Luca5Eckert/Kairos/issues/41) | Passage-aware weighted Personalized PageRank | Improves ranking precision for queries with multiple relevant concepts |
 | [#50](https://github.com/Luca5Eckert/Kairos/issues/50) | Continue the HippoRAG 2 retrieval refactor | Aligns retrieval more closely with the reference paper and adds stronger fallback behavior |
 | [#52](https://github.com/Luca5Eckert/Kairos/issues/52) | Reprocess failed chunks without re-uploading the full source | Improves ingestion resilience and recovery |
 | [#31](https://github.com/Luca5Eckert/Kairos/issues/31) | Expand the user module beyond auth | Prepares the system for user-scoped knowledge operations |
