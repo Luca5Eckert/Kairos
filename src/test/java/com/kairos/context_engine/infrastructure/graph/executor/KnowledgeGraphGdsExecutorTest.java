@@ -2,6 +2,8 @@ package com.kairos.context_engine.infrastructure.graph.executor;
 
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,6 +72,9 @@ class KnowledgeGraphGdsExecutorTest {
 
         assertThat(queryCaptor.getValue()).contains("CALL gds.graph.project(");
         assertThat(queryCaptor.getValue()).contains("['PhraseNode', 'Passage']");
+        assertThat(queryCaptor.getValue()).contains("properties:");
+        assertThat(queryCaptor.getValue()).contains("weight:");
+        assertThat(queryCaptor.getValue()).contains("defaultValue: 1.0");
         assertThat(paramsCaptor.getValue()).containsEntry("graphName", "hipporag-123");
     }
 
@@ -84,8 +89,8 @@ class KnowledgeGraphGdsExecutorTest {
 
         List<PassageScoringResult> rows = executor.runPPRPassageScores(
                 "hipporag-123",
-                List.of("passage-1"),
-                List.of("Concept"),
+                List.of(new WeightedPassageSeed("passage-1", 0.91)),
+                List.of(new WeightedConceptSeed("Concept", 0.8)),
                 20,
                 0.85,
                 0.001,
@@ -97,11 +102,14 @@ class KnowledgeGraphGdsExecutorTest {
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
         assertThat(queryCaptor.getValue()).contains("MATCH (passage:Passage)-[:CONTAINS]->(phrase)");
+        assertThat(queryCaptor.getValue()).contains("collect([node, seed.weight])");
+        assertThat(queryCaptor.getValue()).contains("sourceNodes: sourceNodes");
+        assertThat(queryCaptor.getValue()).contains("relationshipWeightProperty: 'weight'");
         assertThat(queryCaptor.getValue()).contains("LIMIT $limit");
         assertThat(paramsCaptor.getValue())
                 .containsEntry("graphName", "hipporag-123")
-                .containsEntry("passageAnchorIds", List.of("passage-1"))
-                .containsEntry("conceptNames", List.of("Concept"))
+                .containsEntry("passageSeeds", List.of(Map.of("chunkId", "passage-1", "weight", 0.91)))
+                .containsEntry("conceptSeeds", List.of(Map.of("name", "Concept", "weight", 0.8)))
                 .containsEntry("maxIterations", 20L)
                 .containsEntry("dampingFactor", 0.85)
                 .containsEntry("scoreThreshold", 0.001)
@@ -129,8 +137,8 @@ class KnowledgeGraphGdsExecutorTest {
 
         List<GraphExpansionResult> rows = executor.runPPRActivatedTriples(
                 "hipporag-123",
-                List.of("passage-1"),
-                List.of("Concept"),
+                List.of(new WeightedPassageSeed("passage-1", 0.91)),
+                List.of(new WeightedConceptSeed("Concept", 0.8)),
                 15,
                 0.9,
                 0.01
@@ -141,12 +149,15 @@ class KnowledgeGraphGdsExecutorTest {
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
         assertThat(queryCaptor.getValue()).contains("MATCH (phrase)-[r:TRIPLE]->(target:PhraseNode)");
+        assertThat(queryCaptor.getValue()).contains("collect([node, seed.weight])");
+        assertThat(queryCaptor.getValue()).contains("sourceNodes: sourceNodes");
+        assertThat(queryCaptor.getValue()).contains("relationshipWeightProperty: 'weight'");
         assertThat(queryCaptor.getValue()).contains("r.chunk_id              AS chunkId");
         assertThat(queryCaptor.getValue()).doesNotContain("LIMIT $limit");
         assertThat(paramsCaptor.getValue())
                 .containsEntry("graphName", "hipporag-123")
-                .containsEntry("passageAnchorIds", List.of("passage-1"))
-                .containsEntry("conceptNames", List.of("Concept"))
+                .containsEntry("passageSeeds", List.of(Map.of("chunkId", "passage-1", "weight", 0.91)))
+                .containsEntry("conceptSeeds", List.of(Map.of("name", "Concept", "weight", 0.8)))
                 .containsEntry("maxIterations", 15L)
                 .containsEntry("dampingFactor", 0.9)
                 .containsEntry("scoreThreshold", 0.01);

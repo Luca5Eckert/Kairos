@@ -4,6 +4,8 @@ import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
 import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
 import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
 import org.neo4j.driver.exceptions.ClientException;
@@ -56,8 +58,8 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
     }
 
     @Test
-    @DisplayName("separates passage and concept seeds before running PPR")
-    void separatesPassageAndConceptSeeds() {
+    @DisplayName("preserves and deduplicates weighted seeds before running PPR")
+    void preservesAndDeduplicatesWeightedSeeds() {
         UUID passageId = UUID.randomUUID();
         UUID resultId = UUID.randomUUID();
         when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt()))
@@ -67,16 +69,18 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
 
         adapter.expandKnowledge(GraphSearchRequest.from(List.of(
                 GraphSeed.passage(passageId, 0.91),
-                GraphSeed.concept("Mind", 0.8)
+                GraphSeed.passage(passageId, 0.52),
+                GraphSeed.concept("Mind", 0.8),
+                GraphSeed.concept("Mind", 0.95)
         ), 20));
 
-        ArgumentCaptor<List<String>> passageIds = ArgumentCaptor.forClass(List.class);
-        ArgumentCaptor<List<String>> conceptNames = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<WeightedPassageSeed>> passageSeeds = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<WeightedConceptSeed>> conceptSeeds = ArgumentCaptor.forClass(List.class);
 
         verify(executor).runPPRPassageScores(
                 anyString(),
-                passageIds.capture(),
-                conceptNames.capture(),
+                passageSeeds.capture(),
+                conceptSeeds.capture(),
                 eq(7),
                 eq(0.9),
                 eq(0.12),
@@ -84,15 +88,17 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
         );
         verify(executor).runPPRActivatedTriples(
                 anyString(),
-                eq(passageIds.getValue()),
-                eq(conceptNames.getValue()),
+                eq(passageSeeds.getValue()),
+                eq(conceptSeeds.getValue()),
                 eq(7),
                 eq(0.9),
                 eq(0.12)
         );
 
-        assertThat(passageIds.getValue()).containsExactly(passageId.toString());
-        assertThat(conceptNames.getValue()).containsExactly("Mind");
+        assertThat(passageSeeds.getValue())
+                .containsExactly(new WeightedPassageSeed(passageId.toString(), 0.91));
+        assertThat(conceptSeeds.getValue())
+                .containsExactly(new WeightedConceptSeed("Mind", 0.95));
     }
 
     @Test
