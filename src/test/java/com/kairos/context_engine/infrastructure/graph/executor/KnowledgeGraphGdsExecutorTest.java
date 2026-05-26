@@ -102,8 +102,10 @@ class KnowledgeGraphGdsExecutorTest {
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
         assertThat(queryCaptor.getValue()).contains("MATCH (passage:Passage)-[:CONTAINS]->(phrase)");
-        assertThat(queryCaptor.getValue()).contains("collect([node, seed.weight])");
-        assertThat(queryCaptor.getValue()).contains("sourceNodes: sourceNodes");
+        assertThat(queryCaptor.getValue()).contains("collect({nodeId: id(node), weight: seed.weight})");
+        assertThat(queryCaptor.getValue()).contains("UNWIND sourceSeeds AS sourceSeed");
+        assertThat(queryCaptor.getValue()).contains("sourceNodes: [sourceSeed.nodeId]");
+        assertThat(queryCaptor.getValue()).contains("sum(score * sourceSeed.weight) AS score");
         assertThat(queryCaptor.getValue()).contains("relationshipWeightProperty: 'weight'");
         assertThat(queryCaptor.getValue()).contains("LIMIT $limit");
         assertThat(paramsCaptor.getValue())
@@ -149,8 +151,10 @@ class KnowledgeGraphGdsExecutorTest {
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
         assertThat(queryCaptor.getValue()).contains("MATCH (phrase)-[r:TRIPLE]->(target:PhraseNode)");
-        assertThat(queryCaptor.getValue()).contains("collect([node, seed.weight])");
-        assertThat(queryCaptor.getValue()).contains("sourceNodes: sourceNodes");
+        assertThat(queryCaptor.getValue()).contains("collect({nodeId: id(node), weight: seed.weight})");
+        assertThat(queryCaptor.getValue()).contains("UNWIND sourceSeeds AS sourceSeed");
+        assertThat(queryCaptor.getValue()).contains("sourceNodes: [sourceSeed.nodeId]");
+        assertThat(queryCaptor.getValue()).contains("sum(score * sourceSeed.weight) AS score");
         assertThat(queryCaptor.getValue()).contains("relationshipWeightProperty: 'weight'");
         assertThat(queryCaptor.getValue()).contains("r.chunk_id              AS chunkId");
         assertThat(queryCaptor.getValue()).doesNotContain("LIMIT $limit");

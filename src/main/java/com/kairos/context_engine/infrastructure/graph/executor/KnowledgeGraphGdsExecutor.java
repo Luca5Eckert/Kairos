@@ -56,24 +56,26 @@ public class KnowledgeGraphGdsExecutor {
                 WITH passageSeeds
                 UNWIND passageSeeds AS seed
                 MATCH (node:Passage {chunkId: seed.chunkId})
-                RETURN collect([node, seed.weight]) AS passageSourceNodes
+                RETURN collect({nodeId: id(node), weight: seed.weight}) AS passageSourceNodes
             }
             CALL {
                 WITH conceptSeeds
                 UNWIND conceptSeeds AS seed
                 MATCH (node:PhraseNode {name: seed.name})
-                RETURN collect([node, seed.weight]) AS conceptSourceNodes
+                RETURN collect({nodeId: id(node), weight: seed.weight}) AS conceptSourceNodes
             }
-            WITH passageSourceNodes + conceptSourceNodes AS sourceNodes
-            WHERE size(sourceNodes) > 0
+            WITH passageSourceNodes + conceptSourceNodes AS sourceSeeds
+            WHERE size(sourceSeeds) > 0
+            UNWIND sourceSeeds AS sourceSeed
 
             CALL gds.pageRank.stream($graphName, {
                 maxIterations: $maxIterations,
                 dampingFactor: $dampingFactor,
-                sourceNodes: sourceNodes,
+                sourceNodes: [sourceSeed.nodeId],
                 relationshipWeightProperty: 'weight'
             })
             YIELD nodeId, score
+            WITH nodeId, sum(score * sourceSeed.weight) AS score
 
             WITH gds.util.asNode(nodeId) AS phrase, score
             WHERE score >= $scoreThreshold AND phrase:PhraseNode
@@ -100,24 +102,26 @@ public class KnowledgeGraphGdsExecutor {
                 WITH passageSeeds
                 UNWIND passageSeeds AS seed
                 MATCH (node:Passage {chunkId: seed.chunkId})
-                RETURN collect([node, seed.weight]) AS passageSourceNodes
+                RETURN collect({nodeId: id(node), weight: seed.weight}) AS passageSourceNodes
             }
             CALL {
                 WITH conceptSeeds
                 UNWIND conceptSeeds AS seed
                 MATCH (node:PhraseNode {name: seed.name})
-                RETURN collect([node, seed.weight]) AS conceptSourceNodes
+                RETURN collect({nodeId: id(node), weight: seed.weight}) AS conceptSourceNodes
             }
-            WITH passageSourceNodes + conceptSourceNodes AS sourceNodes
-            WHERE size(sourceNodes) > 0
+            WITH passageSourceNodes + conceptSourceNodes AS sourceSeeds
+            WHERE size(sourceSeeds) > 0
+            UNWIND sourceSeeds AS sourceSeed
 
             CALL gds.pageRank.stream($graphName, {
                 maxIterations: $maxIterations,
                 dampingFactor: $dampingFactor,
-                sourceNodes: sourceNodes,
+                sourceNodes: [sourceSeed.nodeId],
                 relationshipWeightProperty: 'weight'
             })
             YIELD nodeId, score
+            WITH nodeId, sum(score * sourceSeed.weight) AS score
 
             WITH gds.util.asNode(nodeId) AS phrase, score
             WHERE score >= $scoreThreshold AND phrase:PhraseNode

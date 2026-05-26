@@ -1,6 +1,7 @@
 package com.kairos.context_engine.application.use_case;
 
 import com.kairos.context_engine.application.query.SearchSourceQuery;
+import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.context_engine.domain.model.retrieval.candidate.TripleCandidate;
 import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
@@ -16,7 +17,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -88,7 +94,7 @@ public class SearchSourceUseCase {
                 ? List.of()
                 : semanticSearch.hydrateAndRankChunks(result.scoredPassages());
 
-        return SearchResult.from(result.activatedTriples(), rankedChunks);
+        return SearchResult.from(filterActivatedTriples(result.activatedTriples(), rankedChunks), rankedChunks);
     }
 
 
@@ -127,6 +133,34 @@ public class SearchSourceUseCase {
         }
 
         return Math.max(seedMinScore, bestScore * seedRelativeThreshold);
+    }
+
+    private List<KnowledgeTriple> filterActivatedTriples(List<KnowledgeTriple> triples, List<RankedChunk> rankedChunks) {
+        if (triples == null || triples.isEmpty() || rankedChunks == null || rankedChunks.isEmpty()) {
+            return List.of();
+        }
+
+        Set<UUID> selectedChunkIds = rankedChunks.stream()
+                .map(rankedChunk -> rankedChunk.chunk().getId())
+                .collect(Collectors.toSet());
+
+        record TripleKey(String subject, String predicate, String object) {}
+
+        Map<TripleKey, KnowledgeTriple> triplesByKey = new LinkedHashMap<>();
+        for (KnowledgeTriple triple : triples) {
+            if (triple.passage() == null || !selectedChunkIds.contains(triple.passage().chunkId())) {
+                continue;
+            }
+
+            TripleKey key = new TripleKey(
+                    triple.subject().name(),
+                    triple.predicate(),
+                    triple.object().name()
+            );
+            triplesByKey.putIfAbsent(key, triple);
+        }
+
+        return List.copyOf(triplesByKey.values());
     }
 
 }

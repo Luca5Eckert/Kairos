@@ -275,6 +275,41 @@ class SearchSourceUseCaseTest {
     }
 
     @Test
+    @DisplayName("filters activated triples to deduplicated ranked chunks")
+    void filtersActivatedTriplesToRankedChunks() {
+        UUID keptId = UUID.randomUUID();
+        UUID duplicateContentId = UUID.randomUUID();
+        UUID outsideId = UUID.randomUUID();
+        List<ScoredPassage> scoredPassages = List.of(
+                new ScoredPassage(keptId, 0.91),
+                new ScoredPassage(duplicateContentId, 0.82)
+        );
+        KnowledgeTriple keptTriple = triple(keptId);
+        KnowledgeTriple duplicateTriple = KnowledgeTriple.create(
+                keptTriple.subject().name(),
+                keptTriple.predicate(),
+                keptTriple.object().name(),
+                Passage.fromChunkId(duplicateContentId),
+                1.0
+        );
+        KnowledgeTriple outsideTriple = triple(outsideId);
+        List<RankedChunk> rankedChunks = List.of(rankedChunk(keptId, 1, 0.91));
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
+                .thenReturn(List.of(new PassageCandidate(keptId, 0.9)));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
+                .thenReturn(new GraphSearchResult(scoredPassages, List.of(keptTriple, duplicateTriple, outsideTriple)));
+        when(semanticSearch.hydrateAndRankChunks(scoredPassages)).thenReturn(rankedChunks);
+
+        SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        assertThat(result.chunks()).containsExactlyElementsOf(rankedChunks);
+        assertThat(result.knowledgeTriples()).containsExactly(keptTriple);
+    }
+
+    @Test
     @DisplayName("propagates embedding failures")
     void propagatesEmbeddingFailures() {
         when(embeddingPort.embed(SEARCH_TERM)).thenThrow(new RuntimeException("Embedding unavailable"));

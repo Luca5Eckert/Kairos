@@ -15,8 +15,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -89,11 +91,19 @@ public class SemanticSearchAdapter implements SemanticSearch {
         Map<UUID, Chunk> chunksById = findChunks(chunkIds).stream()
                 .collect(Collectors.toMap(Chunk::getId, Function.identity(), (existing, duplicate) -> existing));
 
+        Set<String> seenContent = new LinkedHashSet<>();
         AtomicInteger rank = new AtomicInteger(1);
-        return scoredPassages.stream()
-                .map(scoredPassage -> toRankedChunk(scoredPassage, chunksById.get(scoredPassage.chunkId()), rank))
-                .filter(Objects::nonNull)
-                .toList();
+        List<RankedChunk> rankedChunks = new ArrayList<>();
+        for (ScoredPassage scoredPassage : scoredPassages) {
+            Chunk chunk = chunksById.get(scoredPassage.chunkId());
+            if (chunk == null || !seenContent.add(chunk.getContent())) {
+                continue;
+            }
+
+            rankedChunks.add(toRankedChunk(scoredPassage, chunk, rank));
+        }
+
+        return rankedChunks;
     }
 
     @Override

@@ -342,6 +342,34 @@ class SemanticSearchAdapterTest {
                     .extracting(RankedChunk::source)
                     .containsExactly(RetrievalSource.GRAPH, RetrievalSource.GRAPH);
         }
+
+        @Test
+        @DisplayName("deduplicates hydrated chunks by content and keeps contiguous ranks")
+        void deduplicatesHydratedChunksByContent() {
+            UUID idA = UUID.randomUUID();
+            UUID idB = UUID.randomUUID();
+            UUID idC = UUID.randomUUID();
+
+            when(jpaChunkRepository.findAllById(anyList()))
+                    .thenReturn(List.of(
+                            chunkEntity(idA, sourceEntityA, "Repeated content", 0),
+                            chunkEntity(idB, sourceEntityB, "Repeated content", 0),
+                            chunkEntity(idC, sourceEntityB, "Unique content", 1)
+                    ));
+
+            List<RankedChunk> result = adapter.hydrateAndRankChunks(List.of(
+                    new ScoredPassage(idA, 0.91),
+                    new ScoredPassage(idB, 0.82),
+                    new ScoredPassage(idC, 0.72)
+            ));
+
+            assertThat(result)
+                    .extracting(rankedChunk -> rankedChunk.chunk().getId())
+                    .containsExactly(idA, idC);
+            assertThat(result)
+                    .extracting(RankedChunk::rank)
+                    .containsExactly(1, 2);
+        }
     }
 
     private ChunkEntity chunkEntity(UUID id, SourceEntity source, String content, int index) {
