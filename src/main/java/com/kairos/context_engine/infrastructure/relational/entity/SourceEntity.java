@@ -29,6 +29,9 @@ public class SourceEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "author_id", nullable = false)
+    private UUID authorId;
+
     @OneToMany(mappedBy = "source", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ChunkEntity> chunkEntities;
 
@@ -40,6 +43,15 @@ public class SourceEntity {
         this.id = sourceId;
         this.title = title;
         this.content = content;
+        this.authorId = null;
+        this.chunkEntities = new ArrayList<>();
+    }
+
+    public SourceEntity(UUID sourceId, String title, String content, UUID authorId) {
+        this.id = sourceId;
+        this.title = title;
+        this.content = content;
+        this.authorId = authorId;
         this.chunkEntities = new ArrayList<>();
     }
 
@@ -48,12 +60,13 @@ public class SourceEntity {
                 source.getId(),
                 source.getTitle(),
                 source.getContent(),
+                source.getAuthorId(),
                 new ArrayList<>()
         );
     }
 
     public Source toDomain() {
-        return new Source(this.id, this.title, this.content);
+        return new Source(this.id, this.title, this.content, this.authorId);
     }
 
 }

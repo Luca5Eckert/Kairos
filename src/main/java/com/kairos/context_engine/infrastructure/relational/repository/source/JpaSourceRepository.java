@@ -8,6 +8,6 @@ import java.util.UUID;
 
 public interface JpaSourceRepository extends JpaRepository<SourceEntity, UUID> {
 
-    Optional<SourceEntity> findFirstByTitleAndContent(String title, String content);
+    Optional<SourceEntity> findFirstByAuthorIdAndTitleAndContent(UUID authorId, String title, String content);
 
 }

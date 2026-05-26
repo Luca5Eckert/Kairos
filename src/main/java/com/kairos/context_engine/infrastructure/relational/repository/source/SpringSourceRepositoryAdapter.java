@@ -32,8 +32,8 @@ public class SpringSourceRepositoryAdapter implements SourceRepository {
     }
 
     @Override
-    public Optional<Source> findByTitleAndContent(String title, String content) {
-        return jpaSourceRepository.findFirstByTitleAndContent(title, content)
+    public Optional<Source> findByAuthorIdAndTitleAndContent(UUID authorId, String title, String content) {
+        return jpaSourceRepository.findFirstByAuthorIdAndTitleAndContent(authorId, title, content)
                 .map(SourceEntity::toDomain);
     }
 

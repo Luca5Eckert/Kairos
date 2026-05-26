@@ -8,6 +8,7 @@ import com.kairos.context_engine.domain.port.event.SourceEventPublisher;
 import com.kairos.context_engine.domain.port.repository.ChunkRepository;
 import com.kairos.context_engine.domain.port.repository.SourceRepository;
 import com.kairos.context_engine.domain.port.extraction.ChunkerExtractor;
+import com.kairos.share.security.context.RequestContextProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,12 +28,14 @@ public class UploadSourceUseCase {
     private final SourceEventPublisher eventPublisher;
 
     private final ChunkerExtractor chunkerExtractor;
+    private final RequestContextProvider requestContextProvider;
 
-    public UploadSourceUseCase(SourceRepository sourceRepository, ChunkRepository chunkRepository, SourceEventPublisher eventPublisher, ChunkerExtractor chunkerExtractor) {
+    public UploadSourceUseCase(SourceRepository sourceRepository, ChunkRepository chunkRepository, SourceEventPublisher eventPublisher, ChunkerExtractor chunkerExtractor, RequestContextProvider requestContextProvider) {
         this.sourceRepository = sourceRepository;
         this.chunkRepository = chunkRepository;
         this.eventPublisher = eventPublisher;
         this.chunkerExtractor = chunkerExtractor;
+        this.requestContextProvider = requestContextProvider;
     }
 
     /**
@@ -42,14 +45,15 @@ public class UploadSourceUseCase {
      */
     @Transactional
     public UUID execute(UploadSourceCommand command) {
+        UUID authorId = requestContextProvider.getRequestContext().userId();
         Optional<Source> existingSource = Optional
-                .ofNullable(sourceRepository.findByTitleAndContent(command.title(), command.content()))
+                .ofNullable(sourceRepository.findByAuthorIdAndTitleAndContent(authorId, command.title(), command.content()))
                 .orElse(Optional.empty());
         if (existingSource.isPresent()) {
             return existingSource.get().getId();
         }
 
-        var source = Source.create(command.title(), command.content());
+        var source = Source.create(command.title(), command.content(), authorId);
         sourceRepository.save(source);
 
         var chunks = chunkerExtractor.extract(command.content(), 200, 50);

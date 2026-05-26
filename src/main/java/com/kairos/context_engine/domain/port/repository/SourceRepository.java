@@ -21,7 +21,7 @@ public interface SourceRepository {
      */
     Optional<Source> findById(UUID id);
 
-    Optional<Source> findByTitleAndContent(String title, String content);
+    Optional<Source> findByAuthorIdAndTitleAndContent(UUID authorId, String title, String content);
 
     /**
      * Retrieve a list of sources from the repository, limited to a specified number.

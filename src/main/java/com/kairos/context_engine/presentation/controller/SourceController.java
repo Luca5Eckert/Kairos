@@ -34,8 +34,7 @@ public class SourceController {
     ) {
         var command = UploadSourceCommand.of(
                 request.title(),
-                request.content(),
-                request.authorId()
+                request.content()
         );
         uploadSourceUseCase.execute(command);
 

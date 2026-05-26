@@ -46,7 +46,25 @@ class SourceControllerTest {
 
     @Test
     void uploadSource_postsSourceAndReturnsCreated() throws Exception {
-        UUID authorId = UUID.randomUUID();
+        mockMvc.perform(post("/sources")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "title": "RAG notes",
+                                  "content": "Knowledge graphs improve retrieval."
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(uploadSourceUseCase).execute(argThat(command ->
+                command.title().equals("RAG notes")
+                        && command.content().equals("Knowledge graphs improve retrieval.")
+        ));
+    }
+
+    @Test
+    void uploadSource_doesNotMapAuthorIdSentInRequestBody() throws Exception {
+        UUID requestAuthorId = UUID.randomUUID();
 
         mockMvc.perform(post("/sources")
                         .contentType("application/json")
@@ -56,13 +74,12 @@ class SourceControllerTest {
                                   "content": "Knowledge graphs improve retrieval.",
                                   "authorId": "%s"
                                 }
-                                """.formatted(authorId)))
+                                """.formatted(requestAuthorId)))
                 .andExpect(status().isCreated());
 
         verify(uploadSourceUseCase).execute(argThat(command ->
                 command.title().equals("RAG notes")
                         && command.content().equals("Knowledge graphs improve retrieval.")
-                        && command.authorId().equals(authorId)
         ));
     }
 

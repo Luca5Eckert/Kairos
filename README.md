@@ -276,7 +276,7 @@ All `/sources/**` endpoints require a valid JWT bearer token.
 
 | Method | Path | Body | Description |
 | --- | --- | --- | --- |
-| `POST` | `/sources` | `{ "title", "content", "authorId" }` | Ingests a source and starts async graph enrichment |
+| `POST` | `/sources` | `{ "title", "content" }` | Ingests a source for the authenticated user and starts async graph enrichment |
 | `POST` | `/sources/search` | `{ "termQuery" }` | Searches the knowledge base and returns graph-augmented context |
 
 Current response shape:
@@ -365,7 +365,6 @@ curl -X POST http://localhost:8080/sources \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "title": "RAG and knowledge graphs",
-    "authorId": "11111111-1111-1111-1111-111111111111",
     "content": "Retrieval augmented generation combines a retriever with a language model. The retriever finds relevant passages before the model generates an answer. Knowledge graphs improve retrieval by representing entities and relationships explicitly. Personalized PageRank can start from relevant passages and propagate importance through connected concepts."
   }'
 ```

@@ -9,6 +9,8 @@ import com.kairos.context_engine.domain.model.content.Source;
 import com.kairos.context_engine.domain.port.repository.ChunkRepository;
 import com.kairos.context_engine.domain.port.repository.SourceRepository;
 import com.kairos.context_engine.domain.port.extraction.ChunkerExtractor;
+import com.kairos.share.security.context.RequestContext;
+import com.kairos.share.security.context.RequestContextProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +39,7 @@ class UploadSourceUseCaseTest {
     @Mock private ChunkRepository chunkRepository;
     @Mock private SourceEventPublisher eventPublisher;
     @Mock private ChunkerExtractor chunkerExtractor;
+    @Mock private RequestContextProvider requestContextProvider;
 
     @InjectMocks
     private UploadSourceUseCase useCase;
@@ -44,7 +47,8 @@ class UploadSourceUseCaseTest {
     @Test
     @DisplayName("execute - returns the id of the created source")
     void execute_validCommand_returnsSourceId() {
-        var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
+        givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
         when(chunkerExtractor.extract("some content", 200, 50)).thenReturn(List.of());
 
         UUID result = useCase.execute(command);
@@ -55,10 +59,11 @@ class UploadSourceUseCaseTest {
     @Test
     @DisplayName("execute - returns existing source id without duplicating chunks or event")
     void execute_duplicateSource_returnsExistingIdWithoutSideEffects() {
+        UUID authorId = givenAuthenticatedUser();
         UUID existingId = UUID.randomUUID();
-        var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
-        when(sourceRepository.findByTitleAndContent("Clean Code", "some content"))
-                .thenReturn(Optional.of(new Source(existingId, "Clean Code", "some content")));
+        var command = new UploadSourceCommand("Clean Code", "some content");
+        when(sourceRepository.findByAuthorIdAndTitleAndContent(authorId, "Clean Code", "some content"))
+                .thenReturn(Optional.of(new Source(existingId, "Clean Code", "some content", authorId)));
 
         UUID result = useCase.execute(command);
 
@@ -70,7 +75,8 @@ class UploadSourceUseCaseTest {
     @Test
     @DisplayName("execute - saves source with correct title and content")
     void execute_validCommand_savesSourceWithCorrectFields() {
-        var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
+        UUID authorId = givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
         when(chunkerExtractor.extract("some content", 200, 50)).thenReturn(List.of());
 
         useCase.execute(command);
@@ -80,12 +86,14 @@ class UploadSourceUseCaseTest {
 
         assertThat(captor.getValue().getTitle()).isEqualTo("Clean Code");
         assertThat(captor.getValue().getContent()).isEqualTo("some content");
+        assertThat(captor.getValue().getAuthorId()).isEqualTo(authorId);
     }
 
     @Test
     @DisplayName("execute - publishes CreatedSourceEvent with matching sourceId")
     void execute_validCommand_publishesEventWithCorrectFields() {
-        var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
+        givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
         when(chunkerExtractor.extract("some content", 200, 50)).thenReturn(List.of());
 
         UUID returnedId = useCase.execute(command);
@@ -100,7 +108,8 @@ class UploadSourceUseCaseTest {
     @Test
     @DisplayName("execute - saves source before publishing event")
     void execute_validCommand_saveHappensBeforePublish() {
-        var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
+        givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
         when(chunkerExtractor.extract("some content", 200, 50)).thenReturn(List.of());
 
         var inOrder = inOrder(sourceRepository, eventPublisher);
@@ -114,7 +123,8 @@ class UploadSourceUseCaseTest {
     @Test
     @DisplayName("execute - chunks content and persists chunks before publishing event")
     void execute_validCommand_persistsChunksBeforePublishingEvent() {
-        var command = new UploadSourceCommand("Clean Code", "alpha beta gamma", UUID.randomUUID());
+        givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "alpha beta gamma");
         when(chunkerExtractor.extract("alpha beta gamma", 200, 50))
                 .thenReturn(List.of("alpha beta", "beta gamma"));
 
@@ -130,7 +140,8 @@ class UploadSourceUseCaseTest {
     @Test
     @DisplayName("execute - persisted chunks keep source, content and sequential indexes")
     void execute_validCommand_persistsChunksWithExpectedFields() {
-        var command = new UploadSourceCommand("Clean Code", "alpha beta gamma", UUID.randomUUID());
+        UUID authorId = givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "alpha beta gamma");
         when(chunkerExtractor.extract("alpha beta gamma", 200, 50))
                 .thenReturn(List.of("alpha beta", "beta gamma"));
 
@@ -148,8 +159,16 @@ class UploadSourceUseCaseTest {
         assertThat(captor.getAllValues())
                 .allSatisfy(chunk -> {
                     assertThat(chunk.getSource().getTitle()).isEqualTo("Clean Code");
+                    assertThat(chunk.getSource().getAuthorId()).isEqualTo(authorId);
                     assertThat(chunk.getEmbedding()).isNull();
                     assertThat(chunk.isProcessed()).isFalse();
                 });
+    }
+
+    private UUID givenAuthenticatedUser() {
+        UUID authorId = UUID.randomUUID();
+        when(requestContextProvider.getRequestContext())
+                .thenReturn(new RequestContext(authorId, "lucas@example.com", List.of()));
+        return authorId;
     }
 }
