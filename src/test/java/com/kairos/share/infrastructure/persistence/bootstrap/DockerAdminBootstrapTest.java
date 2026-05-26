@@ -1,4 +1,4 @@
-package com.kairos.auth.infrastructure.bootstrap;
+package com.kairos.share.infrastructure.persistence.bootstrap;
 
 import com.kairos.user.domain.model.Role;
 import com.kairos.user.infrastructure.persistence.entity.UserEntity;
