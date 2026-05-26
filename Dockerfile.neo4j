@@ -1,0 +1,33 @@
+FROM neo4j:5.26
+
+ARG GDS_VERSION=2.13.2
+
+LABEL org.opencontainers.image.title="Kairos Neo4j"
+LABEL org.opencontainers.image.description="Neo4j 5.26 with a pinned Graph Data Science plugin"
+
+ADD https://github.com/neo4j/graph-data-science/releases/download/${GDS_VERSION}/neo4j-graph-data-science-${GDS_VERSION}.jar /opt/kairos/plugins/neo4j-graph-data-science-${GDS_VERSION}.jar
+
+RUN set -eux; \
+    mkdir -p /opt/kairos/bin; \
+    { \
+      echo '#!/usr/bin/env bash'; \
+      echo 'set -euo pipefail'; \
+      echo 'plugin_source_dir="/opt/kairos/plugins"'; \
+      echo 'plugin_target_dir="/plugins"'; \
+      echo 'gds_jar="$(find "${plugin_source_dir}" -maxdepth 1 -type f -name '"'"'neo4j-graph-data-science-*.jar'"'"' | sort | tail -n 1)"'; \
+      echo 'gds_target="${plugin_target_dir}/$(basename "${gds_jar}")"'; \
+      echo 'mkdir -p "${plugin_target_dir}"'; \
+      echo 'if [[ ! -f "${gds_target}" ]]; then'; \
+      echo '  find "${plugin_target_dir}" -maxdepth 1 -type f -name '"'"'neo4j-graph-data-science-*.jar'"'"' -delete'; \
+      echo '  cp "${gds_jar}" "${gds_target}"'; \
+      echo '  chown neo4j:neo4j "${gds_target}" 2>/dev/null || true'; \
+      echo '  chmod 0644 "${gds_target}"'; \
+      echo 'fi'; \
+      echo 'exec /startup/docker-entrypoint.sh "$@"'; \
+    } > /opt/kairos/bin/neo4j-entrypoint.sh; \
+    chown -R neo4j:neo4j /opt/kairos; \
+    chmod 0644 /opt/kairos/plugins/neo4j-graph-data-science-${GDS_VERSION}.jar; \
+    chmod 0755 /opt/kairos/bin/neo4j-entrypoint.sh
+
+ENTRYPOINT ["tini", "-g", "--", "/opt/kairos/bin/neo4j-entrypoint.sh"]
+CMD ["neo4j"]

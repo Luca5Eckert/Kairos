@@ -24,12 +24,15 @@ services:
       - kairos-net
 
   neo4j:
-    image: neo4j:5.26
+    build:
+      context: .
+      dockerfile: Dockerfile.neo4j
+    image: kairos-neo4j:5.26-gds
     container_name: kairos-neo4j
     restart: unless-stopped
     environment:
       NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:?required}
-      NEO4J_PLUGINS: '["apoc","graph-data-science"]'
+      NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_memory_heap_initial__size: 512m
       NEO4J_dbms_memory_heap_max__size: 2G
