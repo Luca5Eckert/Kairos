@@ -11,6 +11,7 @@ import com.kairos.context_engine.domain.port.extraction.ChunkerExtractor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -41,6 +42,13 @@ public class UploadSourceUseCase {
      */
     @Transactional
     public UUID execute(UploadSourceCommand command) {
+        Optional<Source> existingSource = Optional
+                .ofNullable(sourceRepository.findByTitleAndContent(command.title(), command.content()))
+                .orElse(Optional.empty());
+        if (existingSource.isPresent()) {
+            return existingSource.get().getId();
+        }
+
         var source = Source.create(command.title(), command.content());
         sourceRepository.save(source);
 

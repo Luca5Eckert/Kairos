@@ -18,13 +18,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,6 +50,21 @@ class UploadSourceUseCaseTest {
         UUID result = useCase.execute(command);
 
         assertThat(result).isNotNull();
+    }
+
+    @Test
+    @DisplayName("execute - returns existing source id without duplicating chunks or event")
+    void execute_duplicateSource_returnsExistingIdWithoutSideEffects() {
+        UUID existingId = UUID.randomUUID();
+        var command = new UploadSourceCommand("Clean Code", "some content", UUID.randomUUID());
+        when(sourceRepository.findByTitleAndContent("Clean Code", "some content"))
+                .thenReturn(Optional.of(new Source(existingId, "Clean Code", "some content")));
+
+        UUID result = useCase.execute(command);
+
+        assertThat(result).isEqualTo(existingId);
+        verify(sourceRepository, never()).save(any(Source.class));
+        verifyNoInteractions(chunkerExtractor, chunkRepository, eventPublisher);
     }
 
     @Test

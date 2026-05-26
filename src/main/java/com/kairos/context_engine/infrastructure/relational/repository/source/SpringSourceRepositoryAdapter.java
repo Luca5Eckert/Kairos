@@ -32,6 +32,12 @@ public class SpringSourceRepositoryAdapter implements SourceRepository {
     }
 
     @Override
+    public Optional<Source> findByTitleAndContent(String title, String content) {
+        return jpaSourceRepository.findFirstByTitleAndContent(title, content)
+                .map(SourceEntity::toDomain);
+    }
+
+    @Override
     public List<Source> findAll(int k) {
         var pageable = PageRequest.of(0, k);
 
