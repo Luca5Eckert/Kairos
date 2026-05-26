@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,7 +37,9 @@ class JwtSessionIssuerAdapterTest {
         var clock = Clock.fixed(Instant.parse("2030-04-24T12:00:00Z"), ZoneOffset.UTC);
         var adapter = new JwtSessionIssuerAdapter(jwtEncoder, properties, clock);
 
-        var user = new AuthenticatedUser(1L, "lucas@example.com", List.of(Role.FREE));
+
+        var id = UUID.randomUUID();
+        var user = new AuthenticatedUser(id, "lucas@example.com", List.of(Role.FREE));
 
         var session = adapter.issueFor(user);
 
@@ -48,7 +51,7 @@ class JwtSessionIssuerAdapterTest {
 
         assertThat(jwt.getIssuer().toString()).isEqualTo("https://auth.kairos.test");
         assertThat(jwt.getAudience()).containsExactly("kairos-api");
-        assertThat(jwt.getSubject()).isEqualTo("1");
+        assertThat(jwt.getSubject()).isEqualTo(id.toString());
         assertThat(jwt.getClaimAsString("email")).isEqualTo("lucas@example.com");
         assertThat(jwt.getClaimAsStringList("roles")).containsExactly("FREE");
         assertThat(jwt.getClaimAsString("scope")).isEqualTo("role:free");

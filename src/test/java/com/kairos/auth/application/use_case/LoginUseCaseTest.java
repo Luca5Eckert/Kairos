@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.inOrder;
@@ -32,7 +33,7 @@ class LoginUseCaseTest {
     @DisplayName("execute - authenticates credentials and issues session")
     void execute_validCredentials_issuesSession() {
         var command = new LoginCommand("lucas@example.com", "RawPassword123!");
-        var authenticatedUser = new AuthenticatedUser(1L, "lucas@example.com", List.of(Role.FREE));
+        var authenticatedUser = new AuthenticatedUser(UUID.randomUUID(), "lucas@example.com", List.of(Role.FREE));
         var session = new AuthenticatedSession("access-token", List.of(Role.FREE));
 
         when(authenticator.authenticate(command.identifier(), command.password())).thenReturn(authenticatedUser);

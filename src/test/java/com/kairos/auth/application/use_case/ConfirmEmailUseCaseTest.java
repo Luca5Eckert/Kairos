@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.inOrder;
@@ -32,7 +33,7 @@ class ConfirmEmailUseCaseTest {
     @DisplayName("execute - confirms email and issues session without re-authenticating password")
     void execute_validCode_confirmsEmailAndIssuesSession() {
         var command = new ConfirmEmailCommand("123456", "lucas@example.com");
-        var authenticatedUser = new AuthenticatedUser(1L, "lucas@example.com", List.of(Role.FREE));
+        var authenticatedUser = new AuthenticatedUser(UUID.randomUUID(), "lucas@example.com", List.of(Role.FREE));
         var session = new AuthenticatedSession("access-token", List.of(Role.FREE));
 
         when(users.confirmEmail(command.email(), command.code())).thenReturn(authenticatedUser);

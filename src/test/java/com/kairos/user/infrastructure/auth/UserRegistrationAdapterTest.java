@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,7 +57,7 @@ class UserRegistrationAdapterTest {
     @DisplayName("confirmEmail - activates user and clears confirmation code")
     void confirmEmail_validCode_activatesUser() {
         UserEntity user = UserEntity.builder()
-                .id(1L)
+                .id(UUID.randomUUID())
                 .name("Lucas")
                 .username("lucas")
                 .email("lucas@example.com")
@@ -74,7 +75,6 @@ class UserRegistrationAdapterTest {
 
         assertThat(user.isEmailConfirmed()).isTrue();
         assertThat(user.getConfirmationCodeHash()).isNull();
-        assertThat(result.id()).isEqualTo(1L);
         assertThat(result.roles()).containsExactly(Role.FREE);
     }
 

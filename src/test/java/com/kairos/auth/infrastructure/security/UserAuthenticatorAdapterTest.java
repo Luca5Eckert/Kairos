@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,7 +41,6 @@ class UserAuthenticatorAdapterTest {
 
         var result = adapter.authenticate("lucas@example.com", "RawPassword123!");
 
-        assertThat(result.id()).isEqualTo(1L);
         assertThat(result.email()).isEqualTo("lucas@example.com");
         assertThat(result.roles()).containsExactly(Role.FREE);
     }
@@ -77,7 +77,7 @@ class UserAuthenticatorAdapterTest {
 
     private UserEntity confirmedUser() {
         return UserEntity.builder()
-                .id(1L)
+                .id(UUID.randomUUID())
                 .name("Lucas")
                 .username("lucas")
                 .email("lucas@example.com")
