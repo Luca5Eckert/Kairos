@@ -10,7 +10,7 @@ CREATE TABLE chunks (
     source_id UUID NOT NULL,
     content TEXT NOT NULL,
     chunk_index INTEGER NOT NULL,
-    embedding VECTOR(384) NOT NULL,
+    embedding VECTOR(384),
 
     CONSTRAINT fk_chunks_source
         FOREIGN KEY (source_id)
