@@ -8,8 +8,8 @@
 <a href="https://neo4j.com/"><img src="https://img.shields.io/badge/Neo4j-5.26-blue"></a>
 <a href="https://onnxruntime.ai/"><img src="https://img.shields.io/badge/ONNX%20Runtime-1.20.0-black"></a>
 <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-blue"></a>
-<img src="https://img.shields.io/badge/tests-181%20passing-brightgreen">
-<img src="https://img.shields.io/badge/line%20coverage-68.32%25-yellow">
+<img src="https://img.shields.io/badge/tests-183%20passing-brightgreen">
+<img src="https://img.shields.io/badge/line%20coverage-69.41%25-yellow">
 
 **Standard RAG retrieves similar passages. Kairos retrieves connected knowledge.**
 
@@ -39,7 +39,7 @@ It is built as a retrieval backend for personal knowledge systems: the user feed
 | Graph store | Neo4j 5.26 with Graph Data Science |
 | Embeddings | Local ONNX Runtime inference with `all-MiniLM-L6-v2`, no Python sidecar |
 | LLM boundary | Gemini via Spring AI, limited to triple extraction and recognition-memory seed selection |
-| Quality snapshot | 181 Maven tests passing, 0 failures, 0 errors, 1 skipped, 68.32% line coverage |
+| Quality snapshot | 183 Maven tests passing, 0 failures, 0 errors, 1 skipped, 69.41% line coverage |
 
 ## Why Kairos Exists
 
@@ -72,7 +72,7 @@ Kairos is an operational V1 retrieval backend. The graph-augmented ingestion and
 | Triple extraction | Gemini through Spring AI `ChatClient` with native structured output |
 | Semantic storage | PostgreSQL 16 with pgvector for passage and triple vector search |
 | Graph storage | Neo4j 5.26 with `Passage`, `PhraseNode`, `CONTAINS`, and `TRIPLE` graph projection |
-| Retrieval | Dense passage recall + triple recall + recognition memory + Neo4j GDS Personalized PageRank |
+| Retrieval | User-scoped dense passage recall + triple recall + recognition memory + Neo4j GDS Personalized PageRank |
 | Auth | Registration, email confirmation, login, JWT issuance, roles, request context, and protected source routes |
 | Local infrastructure | Docker Compose services for `postgres`, `neo4j`, and `kairos` |
 
@@ -169,7 +169,7 @@ The split is intentional:
 10. Extract factual triples with Gemini through Spring AI.
 11. Embed each triple key for triple-level recall.
 12. Store extracted triples and embeddings in PostgreSQL.
-13. Merge `Passage` nodes, `PhraseNode` concepts, `CONTAINS` edges, and `TRIPLE` edges into Neo4j.
+13. Merge user-scoped `Passage` nodes, `PhraseNode` concepts, `CONTAINS` edges, and `TRIPLE` edges into Neo4j.
 14. Mark processed chunks as complete.
 
 ```mermaid
@@ -205,16 +205,17 @@ sequenceDiagram
 
 The current search path reflects the newer HippoRAG 2-style flow implemented in [PR #59](https://github.com/Luca5Eckert/Kairos/pull/59):
 
-1. Embed the user query with the same ONNX model used during ingestion.
-2. Retrieve passage candidates from pgvector using cosine similarity.
-3. Retrieve triple candidates from pgvector using triple-key embeddings.
-4. Ask the recognition-memory adapter to select relevant triple subjects or objects as concept seeds.
-5. Combine passage seeds and recognition-derived concept seeds.
-6. Filter seeds using absolute and relative score thresholds.
-7. Run Personalized PageRank over Neo4j GDS from the selected passage and concept seeds.
-8. Rank passage nodes by graph score.
-9. Rehydrate final chunk text from PostgreSQL.
-10. Return ranked chunks and activated triples as explanatory evidence.
+1. Resolve the authenticated user from `RequestContextProvider`.
+2. Embed the user query with the same ONNX model used during ingestion.
+3. Retrieve passage candidates from pgvector using cosine similarity, filtered by `sources.author_id`.
+4. Retrieve triple candidates from pgvector using triple-key embeddings, filtered by `sources.author_id`.
+5. Ask the recognition-memory adapter to select relevant triple subjects or objects as concept seeds.
+6. Combine passage seeds and recognition-derived concept seeds.
+7. Filter seeds using absolute and relative score thresholds.
+8. Project only the authenticated user's Neo4j subgraph and run Personalized PageRank from the selected passage and concept seeds.
+9. Rank passage nodes by graph score.
+10. Rehydrate final chunk text from PostgreSQL, filtered again by `sources.author_id`.
+11. Return ranked chunks and activated triples as explanatory evidence.
 
 ```mermaid
 flowchart LR
@@ -257,10 +258,10 @@ PostgreSQL stores durable application data:
 
 Neo4j stores the retrieval graph projection:
 
-- `Passage`: one node per chunk, keyed by `chunkId`.
+- `Passage`: one node per chunk, keyed by `chunkId`, with `user_id` for retrieval ownership.
 - `PhraseNode`: concepts extracted from triples.
-- `CONTAINS`: passage-to-concept relationship.
-- `TRIPLE`: concept-to-concept relationship with predicate, `chunk_id`, optional `user_id`, and weight.
+- `CONTAINS`: passage-to-concept relationship with `user_id` and weight.
+- `TRIPLE`: concept-to-concept relationship with predicate, `chunk_id`, `user_id`, and weight.
 
 The retrieval result is passage-first. `KnowledgeTriple` values are returned as evidence explaining what the graph activated; they are not the primary ranking unit.
 
@@ -283,9 +284,11 @@ All `/sources/**` endpoints require a valid JWT bearer token.
 | Method | Path | Body | Description |
 | --- | --- | --- | --- |
 | `POST` | `/sources` | `{ "title", "content" }` | Ingests a source for the authenticated user and starts async graph enrichment |
-| `POST` | `/sources/search` | `{ "termQuery" }` | Searches the knowledge base and returns graph-augmented context |
+| `POST` | `/sources/search` | `{ "termQuery" }` | Searches the authenticated user's knowledge base and returns graph-augmented context |
 
 `authorId` is intentionally not part of the upload contract. If a client sends it anyway, the field is ignored; `UploadSourceUseCase` uses the authenticated request context as the only source of author identity.
+
+Search is also scoped by the authenticated request context. Clients do not send a user id in `/sources/search`; `SearchSourceUseCase` resolves `RequestContext.userId()` and applies it to semantic candidate lookup, graph projection, graph expansion, and final chunk hydration.
 
 Search response shape:
 
@@ -440,7 +443,7 @@ Latest verified local run:
 
 | Date | Command | Result | Maven time |
 | --- | --- | --- | --- |
-| 2026-05-26 19:48 BRT | `.\mvnw.cmd test` | 181 tests, 0 failures, 0 errors, 1 skipped | 20.942 s |
+| 2026-05-26 20:29 BRT | `.\mvnw.cmd test` | 183 tests, 0 failures, 0 errors, 1 skipped | 22.526 s |
 
 Additional verification:
 
@@ -449,8 +452,8 @@ Additional verification:
 | `git diff --check` | Passes |
 | Surefire report files | 34 XML reports generated under `target/surefire-reports` |
 | JaCoCo report | Generated under `target/site/jacoco` |
-| JaCoCo line coverage | 68.32% |
-| JaCoCo branch coverage | 64.93% |
+| JaCoCo line coverage | 69.41% |
+| JaCoCo branch coverage | 65.97% |
 
 Static inventory from the current workspace:
 
@@ -471,8 +474,8 @@ Test coverage by behavior includes:
 
 - Auth flows: registration, email confirmation, login, password encoding, JWT issuance, Spring Security configuration, and SMTP adapter behavior.
 - Ingestion flows: source upload, event publishing, async source-event listener, chunking, chunk embedding, triple extraction, and graph persistence orchestration.
-- Retrieval flows: query embedding orchestration, passage candidate retrieval, triple candidate retrieval, recognition-memory seed selection, seed thresholding, graph expansion, ranked chunk hydration, and empty-result behavior.
-- Graph adapters: Neo4j mutation execution, GDS projection, Personalized PageRank query parameter mapping, activated triple mapping, projection cleanup, and missing-GDS fallback paths.
+- Retrieval flows: authenticated user scoping, query embedding orchestration, passage candidate retrieval, triple candidate retrieval, recognition-memory seed selection, seed thresholding, graph expansion, ranked chunk hydration, and empty-result behavior.
+- Graph adapters: user-scoped Neo4j mutation execution, GDS projection, Personalized PageRank query parameter mapping, activated triple mapping, projection cleanup, and missing-GDS fallback paths.
 - Embedding pipeline: ONNX session behavior, tokenizer handling, `token_type_ids` fallback, truncation, mean pooling, normalization, inference failures, and input validation.
 - Source API contract: upload route without client-provided `authorId`, ignored extra author fields, `POST /sources/search`, and removal of `GET /sources` with request body.
 - Relational adapters: source author persistence, chunk hydration, semantic candidate mapping, triple candidate filtering, missing/null vector-score handling, and repository ordering.
@@ -485,14 +488,14 @@ Test coverage by behavior includes:
 | `POST /sources` or `POST /sources/search` returns `401` | Source routes require authentication | Login or confirm email first, then send `Authorization: Bearer $TOKEN` |
 | `POST /sources` fails with a `sources.status` or `sources.author_id` schema error | Existing Postgres volume was initialized with an older schema | For local dev, recreate volumes with `docker compose down -v`; for preserved data, migrate manually by dropping obsolete `status`, adding/backfilling `author_id`, and setting it `NOT NULL` |
 | Source upload returns `201`, but search returns little or nothing | Enrichment runs asynchronously | Wait a few seconds after `POST /sources` before querying |
-| Graph results are empty | Neo4j GDS may be unavailable or the graph has not been enriched yet | Check Neo4j plugin loading and the warning `Neo4j Graph Data Science procedures are unavailable. Returning empty graph expansion.` |
+| Graph results are empty | Neo4j GDS may be unavailable, the graph has not been enriched yet, or the local Neo4j volume was populated before user-scoped graph properties existed | Check Neo4j plugin loading and the warning `Neo4j Graph Data Science procedures are unavailable. Returning empty graph expansion.`; for old local data, reprocess sources or recreate volumes with `docker compose down -v` |
 | Gemini extraction or recognition fails | Missing or invalid Gemini key/model configuration | Check `GEMINI_API_KEY`, `KAIROS_LLM_MODEL`, and Spring AI Google GenAI settings |
 | Logs mention `token_type_ids: not declared` | The ONNX model does not require that input | This is expected for the current model path and is covered by tests |
 
 ## Known Limitations
 
 - Source enrichment is asynchronous. Querying immediately after ingestion can return empty or incomplete graph context.
-- Source upload is user-attributed through `author_id`, but retrieval filtering by authenticated user is not fully enforced across semantic and graph search yet.
+- Neo4j graph data created before user-scoped `user_id` properties on `Passage`, `CONTAINS`, and `TRIPLE` is excluded from new retrievals. Reprocess sources or recreate local volumes to rebuild the graph.
 - Failed chunk reprocessing is not implemented yet. See [issue #52](https://github.com/Luca5Eckert/Kairos/issues/52).
 - If Neo4j GDS procedures are unavailable, graph expansion returns empty results instead of a dense fallback.
 - OpenAPI/Swagger UI is not configured.
@@ -502,6 +505,7 @@ Test coverage by behavior includes:
 Recently completed:
 
 - Authenticated source ingestion now resolves author identity in `UploadSourceUseCase` and persists `sources.author_id`; client-submitted `authorId` is ignored.
+- Authenticated retrieval now scopes semantic candidates, chunk hydration, Neo4j graph projection, and PageRank expansion to `RequestContext.userId()`.
 - [#41](https://github.com/Luca5Eckert/Kairos/issues/41): implemented passage-aware weighted Personalized PageRank with per-seed bias and relationship weights.
 - [#40](https://github.com/Luca5Eckert/Kairos/issues/40): triple recall and recognition memory filtering.
 - [PR #59](https://github.com/Luca5Eckert/Kairos/pull/59): replaced direct concept-candidate retrieval with triple-based recognition-memory seed selection.
