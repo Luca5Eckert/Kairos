@@ -337,6 +337,7 @@ docker compose up --build
 ```
 
 The app binds to `127.0.0.1:8080` by default. PostgreSQL and Neo4j are also bound to localhost only.
+The Docker profile creates a confirmed admin user for local testing unless `KAIROS_ADMIN_BOOTSTRAP_ENABLED=false`.
 
 ### 4. Check health
 
@@ -346,7 +347,15 @@ curl http://localhost:8080/actuator/health
 
 ## Try It Locally
 
-The source API is protected. Obtain a JWT through `POST /auth/login` or `POST /auth/confirm-email`, then export it as `TOKEN` before calling `/sources`.
+The source API is protected. The Docker profile creates a local admin user by default:
+
+```bash
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "identifier": "admin", "password": "Admin123!" }'
+```
+
+Use the returned access token as `TOKEN` before calling `/sources`. Override the default admin credentials through the `KAIROS_ADMIN_*` environment variables in `.env`.
 
 ### Ingest a source
 
@@ -467,6 +476,7 @@ Test coverage by behavior includes:
 | --- | --- | --- |
 | `docker compose config` or `docker compose up` fails with a missing variable | Compose marks some values as required | Fill `POSTGRES_PASSWORD`, `NEO4J_PASSWORD`, `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` in `.env` |
 | `POST /sources` or `POST /sources/search` returns `401` | Source routes require authentication | Login or confirm email first, then send `Authorization: Bearer $TOKEN` |
+| `POST /sources` fails because `sources.status` is null | Existing Postgres volume was initialized with an older schema | Run `ALTER TABLE sources DROP COLUMN IF EXISTS status;` in `kairos-postgres`, or recreate local volumes with `docker compose down -v` |
 | Source upload returns `201`, but search returns little or nothing | Enrichment runs asynchronously | Wait a few seconds after `POST /sources` before querying |
 | Graph results are empty | Neo4j GDS may be unavailable or the graph has not been enriched yet | Check Neo4j plugin loading and the warning `Neo4j Graph Data Science procedures are unavailable. Returning empty graph expansion.` |
 | Gemini extraction or recognition fails | Missing or invalid Gemini key/model configuration | Check `GEMINI_API_KEY`, `KAIROS_LLM_MODEL`, and Spring AI Google GenAI settings |

@@ -31,7 +31,18 @@ MAIL_PORT=587
 MAIL_USERNAME=your-smtp-user
 MAIL_PASSWORD=your-smtp-password
 MAIL_FROM=no-reply@kairos.local
+KAIROS_MAIL_HEALTH_ENABLED=false
+
+KAIROS_ADMIN_BOOTSTRAP_ENABLED=true
+KAIROS_ADMIN_NAME=Kairos Admin
+KAIROS_ADMIN_USERNAME=admin
+KAIROS_ADMIN_EMAIL=admin@kairos.local
+KAIROS_ADMIN_PASSWORD=Admin123!
 ```
+
+The `docker` profile creates a confirmed local admin user when
+`KAIROS_ADMIN_BOOTSTRAP_ENABLED=true`. Override the default password in shared
+or long-lived environments.
 
 ## Spring AI
 
