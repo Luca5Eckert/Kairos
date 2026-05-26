@@ -1,4 +1,4 @@
-package com.kairos.share.security;
+package com.kairos.share.security.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

@@ -1,4 +1,4 @@
-package com.kairos.share.security;
+package com.kairos.share.security.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.core.convert.converter.Converter;

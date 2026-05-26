@@ -2,7 +2,7 @@ package com.kairos.auth.infrastructure.security;
 
 import com.kairos.auth.domain.model.AuthenticatedUser;
 import com.kairos.auth.infrastructure.security.adapter.JwtSessionIssuerAdapter;
-import com.kairos.share.security.AuthProperties;
+import com.kairos.share.security.config.AuthProperties;
 import com.kairos.user.domain.model.Role;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
