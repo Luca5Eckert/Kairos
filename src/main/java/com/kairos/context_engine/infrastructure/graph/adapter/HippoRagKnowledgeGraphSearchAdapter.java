@@ -9,6 +9,8 @@ import com.kairos.context_engine.domain.model.retrieval.seed.ConceptSeedTarget;
 import com.kairos.context_engine.domain.model.retrieval.seed.PassageSeedTarget;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
+import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
 import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
 import lombok.extern.slf4j.Slf4j;
@@ -55,15 +57,7 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
             return GraphSearchResult.empty();
         }
 
-        var passageAnchorIds = new ArrayList<String>();
-        var conceptNames     = new ArrayList<String>();
-
-        for (var seed : request.seeds()) {
-            switch (seed.target()) {
-                case PassageSeedTarget t -> passageAnchorIds.add(t.chunkId().toString());
-                case ConceptSeedTarget  t -> conceptNames.add(t.concept().name());
-            }
-        }
+        WeightedGraphSeeds weightedSeeds = toWeightedSeeds(request);
 
         String graphName = GRAPH_NAME_PREFIX + UUID.randomUUID();
         boolean projected = false;
@@ -73,11 +67,11 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
             projected = true;
 
             List<PassageScoringResult> passageScores = executor.runPPRPassageScores(
-                    graphName, passageAnchorIds, conceptNames,
+                    graphName, weightedSeeds.passages(), weightedSeeds.concepts(),
                     maxIterations, dampingFactor, scoreThreshold, request.limit());
 
             List<GraphExpansionResult> tripleRows = executor.runPPRActivatedTriples(
-                    graphName, passageAnchorIds, conceptNames,
+                    graphName, weightedSeeds.passages(), weightedSeeds.concepts(),
                     maxIterations, dampingFactor, scoreThreshold);
 
             if (passageScores.isEmpty() && tripleRows.isEmpty()) {
@@ -136,9 +130,30 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
     }
 
     /**
-     * Deduplicates by a typed record key — no string concatenation, no delimiter
-     * collision risk regardless of predicate or concept content.
+     * Deduplicates graph seeds by target, keeping the strongest bias when the
+     * same passage or concept appears more than once.
      */
+    private WeightedGraphSeeds toWeightedSeeds(GraphSearchRequest request) {
+        Map<String, Double> passageWeights = new LinkedHashMap<>();
+        Map<String, Double> conceptWeights = new LinkedHashMap<>();
+
+        for (var seed : request.seeds()) {
+            switch (seed.target()) {
+                case PassageSeedTarget t -> passageWeights.merge(t.chunkId().toString(), seed.weight(), Math::max);
+                case ConceptSeedTarget t -> conceptWeights.merge(t.concept().name(), seed.weight(), Math::max);
+            }
+        }
+
+        List<WeightedPassageSeed> passages = passageWeights.entrySet().stream()
+                .map(entry -> new WeightedPassageSeed(entry.getKey(), entry.getValue()))
+                .toList();
+        List<WeightedConceptSeed> concepts = conceptWeights.entrySet().stream()
+                .map(entry -> new WeightedConceptSeed(entry.getKey(), entry.getValue()))
+                .toList();
+
+        return new WeightedGraphSeeds(passages, concepts);
+    }
+
     private List<KnowledgeTriple> toActivatedTriples(List<GraphExpansionResult> rows, List<ScoredPassage> scoredPassages) {
         record TripleKey(String subject, String predicate, String object, String chunkId) {}
 
@@ -179,5 +194,10 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
         return message != null
                 && message.contains("There is no procedure with the name `gds.");
     }
+
+    private record WeightedGraphSeeds(
+            List<WeightedPassageSeed> passages,
+            List<WeightedConceptSeed> concepts
+    ) {}
 
 }
