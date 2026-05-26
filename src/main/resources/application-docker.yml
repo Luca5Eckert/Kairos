@@ -1,0 +1,13 @@
+management:
+  health:
+    mail:
+      enabled: ${KAIROS_MAIL_HEALTH_ENABLED:false}
+
+kairos:
+  admin:
+    bootstrap:
+      enabled: ${KAIROS_ADMIN_BOOTSTRAP_ENABLED:true}
+    name: ${KAIROS_ADMIN_NAME:Kairos Admin}
+    username: ${KAIROS_ADMIN_USERNAME:admin}
+    email: ${KAIROS_ADMIN_EMAIL:admin@kairos.local}
+    password: ${KAIROS_ADMIN_PASSWORD:Admin123!}
