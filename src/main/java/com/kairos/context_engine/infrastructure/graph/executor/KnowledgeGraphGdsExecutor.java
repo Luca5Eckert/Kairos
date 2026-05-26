@@ -18,8 +18,24 @@ public class KnowledgeGraphGdsExecutor {
                 $graphName,
                 ['PhraseNode', 'Passage'],
                 {
-                    TRIPLE:   { orientation: 'NATURAL' },
-                    CONTAINS: { orientation: 'NATURAL' }
+                    TRIPLE: {
+                        orientation: 'NATURAL',
+                        properties: {
+                            weight: {
+                                property: 'weight',
+                                defaultValue: 1.0
+                            }
+                        }
+                    },
+                    CONTAINS: {
+                        orientation: 'NATURAL',
+                        properties: {
+                            weight: {
+                                property: 'weight',
+                                defaultValue: 1.0
+                            }
+                        }
+                    }
                 }
             )
             YIELD graphName AS name
@@ -35,16 +51,27 @@ public class KnowledgeGraphGdsExecutor {
      * the (passages × triples) cartesian product that the combined query produced.
      */
     private static final String RUN_PPR_PASSAGE_SCORES = """
-            MATCH (node)
-            WHERE (node:Passage    AND node.chunkId IN $passageAnchorIds)
-               OR (node:PhraseNode AND node.name    IN $conceptNames)
-            WITH collect(DISTINCT node) AS seedNodes
-            WHERE size(seedNodes) > 0
+            WITH $passageSeeds AS passageSeeds, $conceptSeeds AS conceptSeeds
+            CALL {
+                WITH passageSeeds
+                UNWIND passageSeeds AS seed
+                MATCH (node:Passage {chunkId: seed.chunkId})
+                RETURN collect([node, seed.weight]) AS passageSourceNodes
+            }
+            CALL {
+                WITH conceptSeeds
+                UNWIND conceptSeeds AS seed
+                MATCH (node:PhraseNode {name: seed.name})
+                RETURN collect([node, seed.weight]) AS conceptSourceNodes
+            }
+            WITH passageSourceNodes + conceptSourceNodes AS sourceNodes
+            WHERE size(sourceNodes) > 0
 
             CALL gds.pageRank.stream($graphName, {
                 maxIterations: $maxIterations,
                 dampingFactor: $dampingFactor,
-                sourceNodes:   seedNodes
+                sourceNodes: sourceNodes,
+                relationshipWeightProperty: 'weight'
             })
             YIELD nodeId, score
 
@@ -68,16 +95,27 @@ public class KnowledgeGraphGdsExecutor {
      * how many passages were selected in the scoring query.
      */
     private static final String RUN_PPR_ACTIVATED_TRIPLES = """
-            MATCH (node)
-            WHERE (node:Passage    AND node.chunkId IN $passageAnchorIds)
-               OR (node:PhraseNode AND node.name    IN $conceptNames)
-            WITH collect(DISTINCT node) AS seedNodes
-            WHERE size(seedNodes) > 0
+            WITH $passageSeeds AS passageSeeds, $conceptSeeds AS conceptSeeds
+            CALL {
+                WITH passageSeeds
+                UNWIND passageSeeds AS seed
+                MATCH (node:Passage {chunkId: seed.chunkId})
+                RETURN collect([node, seed.weight]) AS passageSourceNodes
+            }
+            CALL {
+                WITH conceptSeeds
+                UNWIND conceptSeeds AS seed
+                MATCH (node:PhraseNode {name: seed.name})
+                RETURN collect([node, seed.weight]) AS conceptSourceNodes
+            }
+            WITH passageSourceNodes + conceptSourceNodes AS sourceNodes
+            WHERE size(sourceNodes) > 0
 
             CALL gds.pageRank.stream($graphName, {
                 maxIterations: $maxIterations,
                 dampingFactor: $dampingFactor,
-                sourceNodes:   seedNodes
+                sourceNodes: sourceNodes,
+                relationshipWeightProperty: 'weight'
             })
             YIELD nodeId, score
 
@@ -118,8 +156,8 @@ public class KnowledgeGraphGdsExecutor {
 
     public List<PassageScoringResult> runPPRPassageScores(
             String graphName,
-            List<String> passageAnchorIds,
-            List<String> conceptNames,
+            List<WeightedPassageSeed> passageSeeds,
+            List<WeightedConceptSeed> conceptSeeds,
             int maxIterations,
             double dampingFactor,
             double scoreThreshold,
@@ -128,13 +166,13 @@ public class KnowledgeGraphGdsExecutor {
         try (var session = neo4jDriver.session()) {
             return session.executeRead(transaction ->
                     transaction.run(RUN_PPR_PASSAGE_SCORES, Map.of(
-                            "graphName",        graphName,
-                            "passageAnchorIds", passageAnchorIds,
-                            "conceptNames",     conceptNames,
-                            "maxIterations",    (long) maxIterations,
-                            "dampingFactor",    dampingFactor,
-                            "scoreThreshold",   scoreThreshold,
-                            "limit",            (long) limit
+                            "graphName",      graphName,
+                            "passageSeeds",   toPassageSeedParams(passageSeeds),
+                            "conceptSeeds",   toConceptSeedParams(conceptSeeds),
+                            "maxIterations",  (long) maxIterations,
+                            "dampingFactor",  dampingFactor,
+                            "scoreThreshold", scoreThreshold,
+                            "limit",          (long) limit
                     )).list(record -> new PassageScoringResult(
                             nullableString(record.get("chunkId")),
                             record.get("score").isNull() ? 0d : record.get("score").asDouble()
@@ -145,8 +183,8 @@ public class KnowledgeGraphGdsExecutor {
 
     public List<GraphExpansionResult> runPPRActivatedTriples(
             String graphName,
-            List<String> passageAnchorIds,
-            List<String> conceptNames,
+            List<WeightedPassageSeed> passageSeeds,
+            List<WeightedConceptSeed> conceptSeeds,
             int maxIterations,
             double dampingFactor,
             double scoreThreshold
@@ -154,12 +192,12 @@ public class KnowledgeGraphGdsExecutor {
         try (var session = neo4jDriver.session()) {
             return session.executeRead(transaction ->
                     transaction.run(RUN_PPR_ACTIVATED_TRIPLES, Map.of(
-                            "graphName",        graphName,
-                            "passageAnchorIds", passageAnchorIds,
-                            "conceptNames",     conceptNames,
-                            "maxIterations",    (long) maxIterations,
-                            "dampingFactor",    dampingFactor,
-                            "scoreThreshold",   scoreThreshold
+                            "graphName",      graphName,
+                            "passageSeeds",   toPassageSeedParams(passageSeeds),
+                            "conceptSeeds",   toConceptSeedParams(conceptSeeds),
+                            "maxIterations",  (long) maxIterations,
+                            "dampingFactor",  dampingFactor,
+                            "scoreThreshold", scoreThreshold
                     )).list(record -> new DriverGraphExpansionResult(
                             nullableString(record.get("subject")),
                             nullableString(record.get("predicate")),
@@ -198,6 +236,24 @@ public class KnowledgeGraphGdsExecutor {
         return value == null || value.isNull() ? null : value.asString();
     }
 
+    private List<Map<String, Object>> toPassageSeedParams(List<WeightedPassageSeed> seeds) {
+        return seeds.stream()
+                .map(seed -> Map.<String, Object>of(
+                        "chunkId", seed.chunkId(),
+                        "weight", seed.weight()
+                ))
+                .toList();
+    }
+
+    private List<Map<String, Object>> toConceptSeedParams(List<WeightedConceptSeed> seeds) {
+        return seeds.stream()
+                .map(seed -> Map.<String, Object>of(
+                        "name", seed.name(),
+                        "weight", seed.weight()
+                ))
+                .toList();
+    }
+
     private record DriverGraphExpansionResult(
             String subject,
             String predicate,
@@ -206,4 +262,8 @@ public class KnowledgeGraphGdsExecutor {
             double score,
             double weight
     ) implements GraphExpansionResult {}
+
+    public record WeightedPassageSeed(String chunkId, double weight) {}
+
+    public record WeightedConceptSeed(String name, double weight) {}
 }
