@@ -13,6 +13,7 @@ import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.model.SearchResult;
 import com.kairos.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
+import com.kairos.share.security.context.RequestContextProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -47,6 +48,7 @@ public class SearchSourceUseCase {
     private final KnowledgeGraphSearch knowledgeGraphSearch;
     private final SemanticSearch semanticSearch;
     private final RecognitionMemory recognitionMemory;
+    private final RequestContextProvider requestContextProvider;
 
     @Value("${kairos.retrieval.semantic-anchor-limit:10}")
     private int semanticAnchorLimit = 10;
@@ -72,10 +74,11 @@ public class SearchSourceUseCase {
      * @return a SearchResult containing the activated triples from the knowledge graph and a ranked list of relevant chunks based on the search query
      */
     public SearchResult execute(SearchSourceQuery query) {
+        UUID userId = requestContextProvider.getRequestContext().userId();
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, semanticAnchorLimit);
-        List<TripleCandidate> tripleCandidates = semanticSearch.findTripleCandidates(queryVector, tripleCandidateLimit);
+        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, userId, semanticAnchorLimit);
+        List<TripleCandidate> tripleCandidates = semanticSearch.findTripleCandidates(queryVector, userId, tripleCandidateLimit);
         List<GraphSeed> conceptSeeds = tripleCandidates.isEmpty()
                 ? List.of()
                 : recognitionMemory.recognize(query.searchTerm(), tripleCandidates, recognitionSeedLimit);
@@ -86,13 +89,13 @@ public class SearchSourceUseCase {
             return SearchResult.empty();
         }
 
-        var graphSearchRequest = GraphSearchRequest.from(seeds, graphPassageLimit);
+        var graphSearchRequest = GraphSearchRequest.from(userId, seeds, graphPassageLimit);
 
         GraphSearchResult result = knowledgeGraphSearch.expandKnowledge(graphSearchRequest);
 
         List<RankedChunk> rankedChunks = result.scoredPassages().isEmpty()
                 ? List.of()
-                : semanticSearch.hydrateAndRankChunks(result.scoredPassages());
+                : semanticSearch.hydrateAndRankChunks(result.scoredPassages(), userId);
 
         return SearchResult.from(filterActivatedTriples(result.activatedTriples(), rankedChunks), rankedChunks);
     }

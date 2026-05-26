@@ -8,34 +8,44 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class KnowledgeGraphGdsExecutor {
 
     private static final String PROJECT_KNOWLEDGE_GRAPH = """
-            CALL gds.graph.project(
+            CALL gds.graph.project.cypher(
                 $graphName,
-                ['PhraseNode', 'Passage'],
+                '
+                MATCH (p:Passage)
+                WHERE p.user_id = $userId
+                RETURN id(p) AS id
+                UNION
+                MATCH (:Passage {user_id: $userId})-[r:CONTAINS]->(n:PhraseNode)
+                WHERE r.user_id = $userId
+                RETURN id(n) AS id
+                UNION
+                MATCH (s:PhraseNode)-[r:TRIPLE]->(o:PhraseNode)
+                WHERE r.user_id = $userId
+                RETURN id(s) AS id
+                UNION
+                MATCH (s:PhraseNode)-[r:TRIPLE]->(o:PhraseNode)
+                WHERE r.user_id = $userId
+                RETURN id(o) AS id
+                ',
+                '
+                MATCH (p:Passage {user_id: $userId})-[r:CONTAINS]->(n:PhraseNode)
+                WHERE r.user_id = $userId
+                RETURN id(p) AS source, id(n) AS target, coalesce(r.weight, 1.0) AS weight
+                UNION ALL
+                MATCH (s:PhraseNode)-[r:TRIPLE]->(o:PhraseNode)
+                WHERE r.user_id = $userId
+                RETURN id(s) AS source, id(o) AS target, coalesce(r.weight, 1.0) AS weight
+                ',
                 {
-                    TRIPLE: {
-                        orientation: 'NATURAL',
-                        properties: {
-                            weight: {
-                                property: 'weight',
-                                defaultValue: 1.0
-                            }
-                        }
-                    },
-                    CONTAINS: {
-                        orientation: 'NATURAL',
-                        properties: {
-                            weight: {
-                                property: 'weight',
-                                defaultValue: 1.0
-                            }
-                        }
-                    }
+                    parameters: {userId: $userId},
+                    validateRelationships: false
                 }
             )
             YIELD graphName AS name
@@ -55,13 +65,21 @@ public class KnowledgeGraphGdsExecutor {
             CALL {
                 WITH passageSeeds
                 UNWIND passageSeeds AS seed
-                MATCH (node:Passage {chunkId: seed.chunkId})
+                MATCH (node:Passage {chunkId: seed.chunkId, user_id: $userId})
                 RETURN collect({nodeId: id(node), weight: seed.weight}) AS passageSourceNodes
             }
             CALL {
                 WITH conceptSeeds
                 UNWIND conceptSeeds AS seed
                 MATCH (node:PhraseNode {name: seed.name})
+                WHERE EXISTS {
+                    MATCH (:Passage {user_id: $userId})-[contains:CONTAINS]->(node)
+                    WHERE contains.user_id = $userId
+                }
+                   OR EXISTS {
+                    MATCH (node)-[triple:TRIPLE]-(:PhraseNode)
+                    WHERE triple.user_id = $userId
+                }
                 RETURN collect({nodeId: id(node), weight: seed.weight}) AS conceptSourceNodes
             }
             WITH passageSourceNodes + conceptSourceNodes AS sourceSeeds
@@ -80,7 +98,8 @@ public class KnowledgeGraphGdsExecutor {
             WITH gds.util.asNode(nodeId) AS phrase, score
             WHERE score >= $scoreThreshold AND phrase:PhraseNode
 
-            MATCH (passage:Passage)-[:CONTAINS]->(phrase)
+            MATCH (passage:Passage {user_id: $userId})-[contains:CONTAINS]->(phrase)
+            WHERE contains.user_id = $userId
             WITH passage.chunkId AS chunkId, max(score) AS score
             ORDER BY score DESC
             LIMIT $limit
@@ -101,13 +120,21 @@ public class KnowledgeGraphGdsExecutor {
             CALL {
                 WITH passageSeeds
                 UNWIND passageSeeds AS seed
-                MATCH (node:Passage {chunkId: seed.chunkId})
+                MATCH (node:Passage {chunkId: seed.chunkId, user_id: $userId})
                 RETURN collect({nodeId: id(node), weight: seed.weight}) AS passageSourceNodes
             }
             CALL {
                 WITH conceptSeeds
                 UNWIND conceptSeeds AS seed
                 MATCH (node:PhraseNode {name: seed.name})
+                WHERE EXISTS {
+                    MATCH (:Passage {user_id: $userId})-[contains:CONTAINS]->(node)
+                    WHERE contains.user_id = $userId
+                }
+                   OR EXISTS {
+                    MATCH (node)-[triple:TRIPLE]-(:PhraseNode)
+                    WHERE triple.user_id = $userId
+                }
                 RETURN collect({nodeId: id(node), weight: seed.weight}) AS conceptSourceNodes
             }
             WITH passageSourceNodes + conceptSourceNodes AS sourceSeeds
@@ -127,6 +154,7 @@ public class KnowledgeGraphGdsExecutor {
             WHERE score >= $scoreThreshold AND phrase:PhraseNode
 
             MATCH (phrase)-[r:TRIPLE]->(target:PhraseNode)
+            WHERE r.user_id = $userId
 
             RETURN
                 phrase.name             AS subject,
@@ -154,8 +182,11 @@ public class KnowledgeGraphGdsExecutor {
 
     private final Driver neo4jDriver;
 
-    public void projectKnowledgeGraph(String graphName) {
-        runWrite(PROJECT_KNOWLEDGE_GRAPH, Map.of("graphName", graphName));
+    public void projectKnowledgeGraph(String graphName, UUID userId) {
+        runWrite(PROJECT_KNOWLEDGE_GRAPH, Map.of(
+                "graphName", graphName,
+                "userId", userId.toString()
+        ));
     }
 
     public List<PassageScoringResult> runPPRPassageScores(
@@ -165,12 +196,14 @@ public class KnowledgeGraphGdsExecutor {
             int maxIterations,
             double dampingFactor,
             double scoreThreshold,
-            int limit
+            int limit,
+            UUID userId
     ) {
         try (var session = neo4jDriver.session()) {
             return session.executeRead(transaction ->
                     transaction.run(RUN_PPR_PASSAGE_SCORES, Map.of(
                             "graphName",      graphName,
+                            "userId",         userId.toString(),
                             "passageSeeds",   toPassageSeedParams(passageSeeds),
                             "conceptSeeds",   toConceptSeedParams(conceptSeeds),
                             "maxIterations",  (long) maxIterations,
@@ -191,12 +224,14 @@ public class KnowledgeGraphGdsExecutor {
             List<WeightedConceptSeed> conceptSeeds,
             int maxIterations,
             double dampingFactor,
-            double scoreThreshold
+            double scoreThreshold,
+            UUID userId
     ) {
         try (var session = neo4jDriver.session()) {
             return session.executeRead(transaction ->
                     transaction.run(RUN_PPR_ACTIVATED_TRIPLES, Map.of(
                             "graphName",      graphName,
+                            "userId",         userId.toString(),
                             "passageSeeds",   toPassageSeedParams(passageSeeds),
                             "conceptSeeds",   toConceptSeedParams(conceptSeeds),
                             "maxIterations",  (long) maxIterations,

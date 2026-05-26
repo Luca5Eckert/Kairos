@@ -21,6 +21,8 @@ import com.kairos.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.context_engine.domain.port.semantic.SemanticSearch;
+import com.kairos.share.security.context.RequestContext;
+import com.kairos.share.security.context.RequestContextProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,14 +62,21 @@ class SearchSourceUseCaseTest {
     @Mock
     private RecognitionMemory recognitionMemory;
 
+    @Mock
+    private RequestContextProvider requestContextProvider;
+
     @InjectMocks
     private SearchSourceUseCase useCase;
 
     private Source source;
+    private UUID userId;
 
     @BeforeEach
     void setUp() {
-        source = new Source(UUID.randomUUID(), "Philosophy of Mind", "Source content");
+        userId = UUID.randomUUID();
+        source = new Source(UUID.randomUUID(), "Philosophy of Mind", "Source content", userId);
+        when(requestContextProvider.getRequestContext())
+                .thenReturn(new RequestContext(userId, "lucas@example.com", List.of()));
     }
 
     @Test
@@ -85,20 +94,21 @@ class SearchSourceUseCaseTest {
         );
 
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(candidates);
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(candidates);
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
         ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
-        verify(semanticSearch).findPassageCandidate(QUERY_VECTOR, 10);
-        verify(semanticSearch).findTripleCandidates(QUERY_VECTOR, 30);
+        verify(semanticSearch).findPassageCandidate(QUERY_VECTOR, userId, 10);
+        verify(semanticSearch).findTripleCandidates(QUERY_VECTOR, userId, 30);
         verifyNoInteractions(recognitionMemory);
         verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
-        verify(semanticSearch, never()).hydrateAndRankChunks(any());
+        verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
 
         GraphSearchRequest request = requestCaptor.getValue();
+        assertThat(request.userId()).isEqualTo(userId);
         assertThat(request.limit()).isEqualTo(20);
         assertThat(request.seeds()).hasSize(2);
         assertThat(request.seeds())
@@ -123,8 +133,8 @@ class SearchSourceUseCaseTest {
         );
 
         when(embeddingPort.embed("Spring")).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of(tripleCandidate));
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of(tripleCandidate));
         when(recognitionMemory.recognize("Spring", List.of(tripleCandidate), 10))
                 .thenReturn(List.of(GraphSeed.concept("spring", 0.88)));
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
@@ -156,8 +166,8 @@ class SearchSourceUseCaseTest {
         );
 
         when(embeddingPort.embed("Spring")).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of(tripleCandidate));
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of(tripleCandidate));
         when(recognitionMemory.recognize("Spring", List.of(tripleCandidate), 10))
                 .thenReturn(List.of(
                         GraphSeed.concept("spring", 0.88),
@@ -192,9 +202,9 @@ class SearchSourceUseCaseTest {
         );
 
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
                 .thenReturn(List.of(new PassageCandidate(passageId, 0.9)));
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of(tripleCandidate));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of(tripleCandidate));
         when(recognitionMemory.recognize(SEARCH_TERM, List.of(tripleCandidate), 10))
                 .thenReturn(List.of(GraphSeed.concept("consciousness", 0.82)));
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
@@ -214,32 +224,32 @@ class SearchSourceUseCaseTest {
     @DisplayName("returns empty result without graph or hydration when no candidates exist")
     void returnsEmptyWhenNoCandidatesExist() {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of());
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
         assertThat(result).isEqualTo(SearchResult.empty());
         verifyNoInteractions(knowledgeGraphSearch);
         verifyNoInteractions(recognitionMemory);
-        verify(semanticSearch, never()).hydrateAndRankChunks(any());
+        verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
     }
 
     @Test
     @DisplayName("returns empty result without graph or hydration when all candidate scores are non-positive")
     void returnsEmptyWhenNoPositiveCandidateExists() {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10)).thenReturn(List.of(
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of(
                 new PassageCandidate(UUID.randomUUID(), 0.0),
                 new PassageCandidate(UUID.randomUUID(), -0.15)
         ));
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
         assertThat(result).isEqualTo(SearchResult.empty());
         verifyNoInteractions(knowledgeGraphSearch);
-        verify(semanticSearch, never()).hydrateAndRankChunks(any());
+        verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
     }
 
     @Test
@@ -258,15 +268,16 @@ class SearchSourceUseCaseTest {
         );
 
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
                 .thenReturn(List.of(new PassageCandidate(topId, 0.9)));
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenReturn(new GraphSearchResult(scoredPassages, List.of(triple)));
-        when(semanticSearch.hydrateAndRankChunks(scoredPassages)).thenReturn(rankedChunks);
+        when(semanticSearch.hydrateAndRankChunks(scoredPassages, userId)).thenReturn(rankedChunks);
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
+        verify(semanticSearch).hydrateAndRankChunks(scoredPassages, userId);
         assertThat(result.knowledgeTriples()).containsExactly(triple);
         assertThat(result.chunks()).containsExactlyElementsOf(rankedChunks);
         assertThat(result.chunks())
@@ -296,12 +307,12 @@ class SearchSourceUseCaseTest {
         List<RankedChunk> rankedChunks = List.of(rankedChunk(keptId, 1, 0.91));
 
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
                 .thenReturn(List.of(new PassageCandidate(keptId, 0.9)));
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenReturn(new GraphSearchResult(scoredPassages, List.of(keptTriple, duplicateTriple, outsideTriple)));
-        when(semanticSearch.hydrateAndRankChunks(scoredPassages)).thenReturn(rankedChunks);
+        when(semanticSearch.hydrateAndRankChunks(scoredPassages, userId)).thenReturn(rankedChunks);
 
         SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
 
@@ -323,9 +334,9 @@ class SearchSourceUseCaseTest {
     @DisplayName("propagates graph expansion failures")
     void propagatesGraphFailures() {
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
                 .thenReturn(List.of(new PassageCandidate(UUID.randomUUID(), 0.9)));
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenThrow(new RuntimeException("Neo4j connection refused"));
 
@@ -341,12 +352,12 @@ class SearchSourceUseCaseTest {
         List<ScoredPassage> scoredPassages = List.of(new ScoredPassage(chunkId, 0.72));
 
         when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
-        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, 10))
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
                 .thenReturn(List.of(new PassageCandidate(chunkId, 0.9)));
-        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, 30)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
         when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
                 .thenReturn(new GraphSearchResult(scoredPassages, List.of()));
-        when(semanticSearch.hydrateAndRankChunks(scoredPassages))
+        when(semanticSearch.hydrateAndRankChunks(scoredPassages, userId))
                 .thenThrow(new RuntimeException("Hydration timeout"));
 
         assertThatThrownBy(() -> useCase.execute(new SearchSourceQuery(SEARCH_TERM)))

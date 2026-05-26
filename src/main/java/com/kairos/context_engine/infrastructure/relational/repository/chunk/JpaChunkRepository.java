@@ -29,14 +29,19 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
             c.id AS chunkId,
             1 - (c.embedding <=> cast(:queryVector AS vector)) AS denseScore
         FROM chunks c
+        JOIN sources s ON s.id = c.source_id
         WHERE c.embedding IS NOT NULL
+          AND s.author_id = :userId
         ORDER BY c.embedding <=> cast(:queryVector AS vector)
         LIMIT :limit
         """, nativeQuery = true)
     List<PassageCandidateProjection> findCandidates(
             @Param("queryVector") float[] queryVector,
+            @Param("userId") UUID userId,
             @Param("limit") int limit
     );
 
     List<ChunkEntity> findAllBySource_IdAndProcessedFalse(UUID sourceId);
+
+    List<ChunkEntity> findAllByIdInAndSource_AuthorId(List<UUID> ids, UUID authorId);
 }

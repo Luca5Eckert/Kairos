@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -40,24 +41,28 @@ public class GenerateSourceContextUseCase {
         Source source = sourceRepository.findById(command.sourceId())
                 .orElseThrow(() -> new RuntimeException("Source not found for id: " + command.sourceId()));
 
+        UUID userId = source.getAuthorId();
+        if (userId == null) {
+            throw new IllegalStateException("Source author is required for context generation: " + source.getId());
+        }
+
         List<Chunk> chunks = chunkRepository.findAllNotProcessedBySourceId(source.getId());
 
         embedChunks(chunks);
-        generateKnowledgeGraph(source, chunks);
+        generateKnowledgeGraph(chunks, userId);
     }
 
     /**
      * Generates a knowledge graph context for the given source and its associated chunks.
-     * @param source the source for which the knowledge graph context is being generated
      * @param chunks the list of chunks associated with the source, from which to extract triples and of the knowledge graph context
      */
-    private void generateKnowledgeGraph(Source source, List<Chunk> chunks) {
+    private void generateKnowledgeGraph(List<Chunk> chunks, UUID userId) {
         List<Passage> passages = chunks.stream()
                 .map(chunk -> Passage.fromChunkId(chunk.getId()))
                 .toList();
-        knowledgeGraphStore.savePassages(passages);
+        knowledgeGraphStore.savePassages(passages, userId);
 
-        createContextForKnowledgeGraph(chunks, passages);
+        createContextForKnowledgeGraph(chunks, passages, userId);
     }
 
 
@@ -65,7 +70,7 @@ public class GenerateSourceContextUseCase {
      * Extracts triples from the content of each chunk and saves them to the knowledge graph store, associating them with the corresponding chunk ID.
      * @param chunks the list of chunks from which to extract triples and of the knowledge graph context
      */
-    private void createContextForKnowledgeGraph(List<Chunk> chunks, List<Passage> passages) {
+    private void createContextForKnowledgeGraph(List<Chunk> chunks, List<Passage> passages, UUID userId) {
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
             Passage passage = passages.get(i);
@@ -81,7 +86,7 @@ public class GenerateSourceContextUseCase {
                     .toList();
 
             tripleRepository.saveAll(extractedTriples);
-            knowledgeGraphStore.saveAllForChunk(chunk.getId(), knowledgeTriples);
+            knowledgeGraphStore.saveAllForChunk(chunk.getId(), userId, knowledgeTriples);
 
             chunk.markAsProcessed();
             chunkRepository.save(chunk);

@@ -25,6 +25,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 @ExtendWith(MockitoExtension.class)
 class KnowledgeGraphStoreAdapterTest {
 
+    private static final UUID USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+
     @Mock
     private KnowledgeGraphMutationExecutor mutationExecutor;
 
@@ -37,9 +39,9 @@ class KnowledgeGraphStoreAdapterTest {
         UUID chunkId = UUID.randomUUID();
         KnowledgeTriple triple = triple("backpropagation", "USES", "chain rule", chunkId);
 
-        adapter.saveAllForChunk(chunkId, List.of(triple));
+        adapter.saveAllForChunk(chunkId, USER_ID, List.of(triple));
 
-        verify(mutationExecutor).mergeTriple("backpropagation", "chain rule", "USES", chunkId, 1.0);
+        verify(mutationExecutor).mergeTriple("backpropagation", "chain rule", "USES", chunkId, USER_ID, 1.0);
     }
 
     @Test
@@ -48,9 +50,9 @@ class KnowledgeGraphStoreAdapterTest {
         UUID chunkId = UUID.randomUUID();
         KnowledgeTriple triple = triple("a", "REL", "b", chunkId);
 
-        adapter.saveAllForChunk(chunkId, List.of(triple));
+        adapter.saveAllForChunk(chunkId, USER_ID, List.of(triple));
 
-        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId, 1.0);
+        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId, USER_ID, 1.0);
     }
 
     @Test
@@ -59,9 +61,9 @@ class KnowledgeGraphStoreAdapterTest {
         UUID chunkId = UUID.randomUUID();
         KnowledgeTriple triple = triple("a", "REL", "b", chunkId, 0.42);
 
-        adapter.saveAllForChunk(chunkId, List.of(triple));
+        adapter.saveAllForChunk(chunkId, USER_ID, List.of(triple));
 
-        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId, 0.42);
+        verify(mutationExecutor).mergeTriple("a", "b", "REL", chunkId, USER_ID, 0.42);
     }
 
     @Test
@@ -73,9 +75,9 @@ class KnowledgeGraphStoreAdapterTest {
                 triple("loss function", "MEASURES", "error", chunkId)
         );
 
-        adapter.saveAllForChunk(chunkId, triples);
+        adapter.saveAllForChunk(chunkId, USER_ID, triples);
 
-        verify(mutationExecutor, times(2)).mergeTriple(anyString(), anyString(), anyString(), eq(chunkId), anyDouble());
+        verify(mutationExecutor, times(2)).mergeTriple(anyString(), anyString(), anyString(), eq(chunkId), eq(USER_ID), anyDouble());
     }
 
     @Test
@@ -83,7 +85,7 @@ class KnowledgeGraphStoreAdapterTest {
     void saveAllForChunk_shouldDoNothingWhenTripleListIsEmpty() {
         UUID chunkId = UUID.randomUUID();
 
-        adapter.saveAllForChunk(chunkId, List.of());
+        adapter.saveAllForChunk(chunkId, USER_ID, List.of());
 
         verifyNoInteractions(mutationExecutor);
     }
@@ -93,7 +95,7 @@ class KnowledgeGraphStoreAdapterTest {
     void saveAllForChunk_shouldDoNothingWhenTripleListIsNull() {
         UUID chunkId = UUID.randomUUID();
 
-        adapter.saveAllForChunk(chunkId, null);
+        adapter.saveAllForChunk(chunkId, USER_ID, null);
 
         verifyNoInteractions(mutationExecutor);
     }
@@ -101,7 +103,7 @@ class KnowledgeGraphStoreAdapterTest {
     @Test
     @DisplayName("saveAllForChunk should do nothing when chunkId is null")
     void saveAllForChunk_shouldDoNothingWhenChunkIdIsNull() {
-        adapter.saveAllForChunk(null, List.of(triple("a", "REL", "b", UUID.randomUUID())));
+        adapter.saveAllForChunk(null, USER_ID, List.of(triple("a", "REL", "b", UUID.randomUUID())));
 
         verifyNoInteractions(mutationExecutor);
     }
@@ -118,9 +120,9 @@ class KnowledgeGraphStoreAdapterTest {
                 triple("e", "REL", "f", chunkB)
         );
 
-        adapter.save(triples);
+        adapter.save(triples, USER_ID);
 
-        verify(mutationExecutor, times(3)).mergeTriple(anyString(), anyString(), anyString(), any(UUID.class), anyDouble());
+        verify(mutationExecutor, times(3)).mergeTriple(anyString(), anyString(), anyString(), any(UUID.class), eq(USER_ID), anyDouble());
     }
 
     @Test
@@ -134,7 +136,7 @@ class KnowledgeGraphStoreAdapterTest {
                 1.0
         );
 
-        adapter.save(List.of(invalidTriple));
+        adapter.save(List.of(invalidTriple), USER_ID);
 
         verifyNoInteractions(mutationExecutor);
     }
@@ -142,7 +144,7 @@ class KnowledgeGraphStoreAdapterTest {
     @Test
     @DisplayName("save should do nothing when triple list is empty")
     void save_shouldDoNothingWhenTripleListIsEmpty() {
-        adapter.save(List.of());
+        adapter.save(List.of(), USER_ID);
 
         verifyNoInteractions(mutationExecutor);
     }
@@ -150,9 +152,19 @@ class KnowledgeGraphStoreAdapterTest {
     @Test
     @DisplayName("save should do nothing when triple list is null")
     void save_shouldDoNothingWhenTripleListIsNull() {
-        adapter.save(null);
+        adapter.save(null, USER_ID);
 
         verifyNoInteractions(mutationExecutor);
+    }
+
+    @Test
+    @DisplayName("savePassages should merge passages with user scope")
+    void savePassages_shouldMergePassagesWithUserScope() {
+        UUID chunkId = UUID.randomUUID();
+
+        adapter.savePassages(List.of(Passage.fromChunkId(chunkId)), USER_ID);
+
+        verify(mutationExecutor).mergePassage(chunkId, USER_ID);
     }
 
     private KnowledgeTriple triple(String subject, String predicate, String object, UUID chunkId) {

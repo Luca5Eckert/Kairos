@@ -11,11 +11,11 @@ import java.util.UUID;
 
 public interface SemanticSearch {
 
-    List<PassageCandidate> findPassageCandidate(float[] queryVector, int k);
+    List<PassageCandidate> findPassageCandidate(float[] queryVector, UUID userId, int k);
 
-    List<Chunk> findChunks(List<UUID> triples);
+    List<Chunk> findChunks(List<UUID> chunkIds, UUID userId);
 
-    List<RankedChunk> hydrateAndRankChunks(List<ScoredPassage> scoredPassages);
+    List<RankedChunk> hydrateAndRankChunks(List<ScoredPassage> scoredPassages, UUID userId);
 
-    List<TripleCandidate> findTripleCandidates(float[] queryVector, int limit);
+    List<TripleCandidate> findTripleCandidates(float[] queryVector, UUID userId, int limit);
 }

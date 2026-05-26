@@ -34,7 +34,7 @@ class SpringTripleRepositoryAdapterTest {
     @Test
     @DisplayName("saveAll - maps extracted triples to relational entities")
     void saveAll_mapsExtractedTriplesToRelationalEntities() {
-        Source source = new Source(UUID.randomUUID(), "Title", "Source content");
+        Source source = new Source(UUID.randomUUID(), "Title", "Source content", UUID.randomUUID());
         Chunk chunk = Chunk.create(UUID.randomUUID(), source, "chunk content", 0, true, new float[]{0.1f});
         TripleExtracted triple = TripleExtracted.create("spring", "USES", "jpa", chunk);
         triple.addEmbedding(new float[]{0.2f, 0.3f});
@@ -46,7 +46,7 @@ class SpringTripleRepositoryAdapterTest {
 
         assertThat(captor.getValue()).hasSize(1);
         TripleEntity entity = captor.getValue().getFirst();
-        assertThat(entity.getKey()).isEqualTo("spring-USES-jpa");
+        assertThat(entity.getKey()).isEqualTo(chunk.getId() + ":spring-USES-jpa");
         assertThat(entity.getSubject()).isEqualTo("spring");
         assertThat(entity.getPredicate()).isEqualTo("USES");
         assertThat(entity.getObject()).isEqualTo("jpa");

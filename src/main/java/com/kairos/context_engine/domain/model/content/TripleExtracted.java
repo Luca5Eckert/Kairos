@@ -21,7 +21,7 @@ public class TripleExtracted {
     }
 
     public static TripleExtracted create(String suject, String predicate, String object, Chunk chunk) {
-        String key = suject + "-" + predicate + "-" + object;
+        String key = chunk.getId() + ":" + suject + "-" + predicate + "-" + object;
         return new TripleExtracted(key, suject, predicate, object, chunk);
     }
 

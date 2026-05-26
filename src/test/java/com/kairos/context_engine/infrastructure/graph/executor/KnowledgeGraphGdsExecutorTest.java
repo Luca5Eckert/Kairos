@@ -21,6 +21,7 @@ import org.neo4j.driver.Values;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +35,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("KnowledgeGraphGdsExecutor")
 class KnowledgeGraphGdsExecutorTest {
+
+    private static final UUID USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
 
     @Mock
     private Driver neo4jDriver;
@@ -64,18 +67,20 @@ class KnowledgeGraphGdsExecutorTest {
         executeWriteCallback();
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.projectKnowledgeGraph("hipporag-123");
+        executor.projectKnowledgeGraph("hipporag-123", USER_ID);
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
-        assertThat(queryCaptor.getValue()).contains("CALL gds.graph.project(");
-        assertThat(queryCaptor.getValue()).contains("['PhraseNode', 'Passage']");
-        assertThat(queryCaptor.getValue()).contains("properties:");
-        assertThat(queryCaptor.getValue()).contains("weight:");
-        assertThat(queryCaptor.getValue()).contains("defaultValue: 1.0");
-        assertThat(paramsCaptor.getValue()).containsEntry("graphName", "hipporag-123");
+        assertThat(queryCaptor.getValue()).contains("CALL gds.graph.project.cypher(");
+        assertThat(queryCaptor.getValue()).contains("p.user_id = $userId");
+        assertThat(queryCaptor.getValue()).contains("r.user_id = $userId");
+        assertThat(queryCaptor.getValue()).contains("validateRelationships: false");
+        assertThat(queryCaptor.getValue()).contains("AS weight");
+        assertThat(paramsCaptor.getValue())
+                .containsEntry("graphName", "hipporag-123")
+                .containsEntry("userId", USER_ID.toString());
     }
 
     @Test
@@ -94,14 +99,17 @@ class KnowledgeGraphGdsExecutorTest {
                 20,
                 0.85,
                 0.001,
-                10
+                10,
+                USER_ID
         );
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
-        assertThat(queryCaptor.getValue()).contains("MATCH (passage:Passage)-[:CONTAINS]->(phrase)");
+        assertThat(queryCaptor.getValue()).contains("MATCH (node:Passage {chunkId: seed.chunkId, user_id: $userId})");
+        assertThat(queryCaptor.getValue()).contains("MATCH (passage:Passage {user_id: $userId})-[contains:CONTAINS]->(phrase)");
+        assertThat(queryCaptor.getValue()).contains("contains.user_id = $userId");
         assertThat(queryCaptor.getValue()).contains("collect({nodeId: id(node), weight: seed.weight})");
         assertThat(queryCaptor.getValue()).contains("UNWIND sourceSeeds AS sourceSeed");
         assertThat(queryCaptor.getValue()).contains("sourceNodes: [sourceSeed.nodeId]");
@@ -110,6 +118,7 @@ class KnowledgeGraphGdsExecutorTest {
         assertThat(queryCaptor.getValue()).contains("LIMIT $limit");
         assertThat(paramsCaptor.getValue())
                 .containsEntry("graphName", "hipporag-123")
+                .containsEntry("userId", USER_ID.toString())
                 .containsEntry("passageSeeds", List.of(Map.of("chunkId", "passage-1", "weight", 0.91)))
                 .containsEntry("conceptSeeds", List.of(Map.of("name", "Concept", "weight", 0.8)))
                 .containsEntry("maxIterations", 20L)
@@ -143,7 +152,8 @@ class KnowledgeGraphGdsExecutorTest {
                 List.of(new WeightedConceptSeed("Concept", 0.8)),
                 15,
                 0.9,
-                0.01
+                0.01,
+                USER_ID
         );
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
@@ -151,6 +161,8 @@ class KnowledgeGraphGdsExecutorTest {
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
         assertThat(queryCaptor.getValue()).contains("MATCH (phrase)-[r:TRIPLE]->(target:PhraseNode)");
+        assertThat(queryCaptor.getValue()).contains("MATCH (node:Passage {chunkId: seed.chunkId, user_id: $userId})");
+        assertThat(queryCaptor.getValue()).contains("r.user_id = $userId");
         assertThat(queryCaptor.getValue()).contains("collect({nodeId: id(node), weight: seed.weight})");
         assertThat(queryCaptor.getValue()).contains("UNWIND sourceSeeds AS sourceSeed");
         assertThat(queryCaptor.getValue()).contains("sourceNodes: [sourceSeed.nodeId]");
@@ -160,6 +172,7 @@ class KnowledgeGraphGdsExecutorTest {
         assertThat(queryCaptor.getValue()).doesNotContain("LIMIT $limit");
         assertThat(paramsCaptor.getValue())
                 .containsEntry("graphName", "hipporag-123")
+                .containsEntry("userId", USER_ID.toString())
                 .containsEntry("passageSeeds", List.of(Map.of("chunkId", "passage-1", "weight", 0.91)))
                 .containsEntry("conceptSeeds", List.of(Map.of("name", "Concept", "weight", 0.8)))
                 .containsEntry("maxIterations", 15L)

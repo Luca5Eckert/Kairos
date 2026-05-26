@@ -63,16 +63,17 @@ public class HippoRagKnowledgeGraphSearchAdapter implements KnowledgeGraphSearch
         boolean projected = false;
 
         try {
-            executor.projectKnowledgeGraph(graphName);
+            UUID userId = request.userId();
+            executor.projectKnowledgeGraph(graphName, userId);
             projected = true;
 
             List<PassageScoringResult> passageScores = executor.runPPRPassageScores(
                     graphName, weightedSeeds.passages(), weightedSeeds.concepts(),
-                    maxIterations, dampingFactor, scoreThreshold, request.limit());
+                    maxIterations, dampingFactor, scoreThreshold, request.limit(), userId);
 
             List<GraphExpansionResult> tripleRows = executor.runPPRActivatedTriples(
                     graphName, weightedSeeds.passages(), weightedSeeds.concepts(),
-                    maxIterations, dampingFactor, scoreThreshold);
+                    maxIterations, dampingFactor, scoreThreshold, userId);
 
             if (passageScores.isEmpty() && tripleRows.isEmpty()) {
                 return GraphSearchResult.empty();

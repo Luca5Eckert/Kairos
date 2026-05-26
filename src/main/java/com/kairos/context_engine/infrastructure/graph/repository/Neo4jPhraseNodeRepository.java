@@ -13,12 +13,12 @@ public interface Neo4jPhraseNodeRepository extends Neo4jRepository<PhraseNode, S
 
     /**
      * Idempotently merges subject and object nodes along with a directed TRIPLE relationship.
-     * Uses chunk_id and predicate as the uniqueness key for the relationship.
+     * Uses user_id, chunk_id and predicate as the uniqueness key for the relationship.
      */
     @Query("""
             MERGE (s:PhraseNode {name: $subjectName})
             MERGE (o:PhraseNode {name: $objectName})
-            MERGE (s)-[r:TRIPLE {predicate: $predicate, chunk_id: $chunkId}]->(o)
+            MERGE (s)-[r:TRIPLE {predicate: $predicate, chunk_id: $chunkId, user_id: $userId}]->(o)
             SET r.weight = $weight
             """)
     void mergeTriple(
@@ -26,6 +26,7 @@ public interface Neo4jPhraseNodeRepository extends Neo4jRepository<PhraseNode, S
             @Param("objectName")  String objectName,
             @Param("predicate")   String predicate,
             @Param("chunkId")     UUID chunkId,
+            @Param("userId")      UUID userId,
             @Param("weight")      double weight
     );
 }

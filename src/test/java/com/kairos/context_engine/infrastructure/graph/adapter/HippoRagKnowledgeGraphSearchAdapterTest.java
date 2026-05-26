@@ -38,6 +38,8 @@ import static org.mockito.Mockito.when;
 @DisplayName("HippoRagKnowledgeGraphSearchAdapter")
 class HippoRagKnowledgeGraphSearchAdapterTest {
 
+    private static final UUID USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+
     @Mock
     private KnowledgeGraphGdsExecutor executor;
 
@@ -51,7 +53,7 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
     @Test
     @DisplayName("returns empty result without touching GDS when request has no seeds")
     void emptySeedsReturnEmptyWithoutExecutorInteraction() {
-        GraphSearchResult result = adapter.expandKnowledge(GraphSearchRequest.from(List.of(), 20));
+        GraphSearchResult result = adapter.expandKnowledge(GraphSearchRequest.from(USER_ID, List.of(), 20));
 
         assertThat(result).isEqualTo(GraphSearchResult.empty());
         verifyNoInteractions(executor);
@@ -62,12 +64,12 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
     void preservesAndDeduplicatesWeightedSeeds() {
         UUID passageId = UUID.randomUUID();
         UUID resultId = UUID.randomUUID();
-        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt()))
+        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt(), eq(USER_ID)))
                 .thenReturn(List.of(new PassageScoringResult(resultId.toString(), 0.73)));
-        when(executor.runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble()))
+        when(executor.runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), eq(USER_ID)))
                 .thenReturn(List.of(row("Mind", "relates_to", "Brain", resultId.toString(), 0.73, 0.4)));
 
-        adapter.expandKnowledge(GraphSearchRequest.from(List.of(
+        adapter.expandKnowledge(GraphSearchRequest.from(USER_ID, List.of(
                 GraphSeed.passage(passageId, 0.91),
                 GraphSeed.passage(passageId, 0.52),
                 GraphSeed.concept("Mind", 0.8),
@@ -84,7 +86,8 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
                 eq(7),
                 eq(0.9),
                 eq(0.12),
-                eq(20)
+                eq(20),
+                eq(USER_ID)
         );
         verify(executor).runPPRActivatedTriples(
                 anyString(),
@@ -92,8 +95,10 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
                 eq(conceptSeeds.getValue()),
                 eq(7),
                 eq(0.9),
-                eq(0.12)
+                eq(0.12),
+                eq(USER_ID)
         );
+        verify(executor).projectKnowledgeGraph(anyString(), eq(USER_ID));
 
         assertThat(passageSeeds.getValue())
                 .containsExactly(new WeightedPassageSeed(passageId.toString(), 0.91));
@@ -107,12 +112,12 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
         UUID firstId = UUID.randomUUID();
         UUID secondId = UUID.randomUUID();
         UUID outsideId = UUID.randomUUID();
-        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt()))
+        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt(), eq(USER_ID)))
                 .thenReturn(List.of(
                         new PassageScoringResult(firstId.toString(), 0.91),
                         new PassageScoringResult(secondId.toString(), 0.72)
                 ));
-        when(executor.runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble()))
+        when(executor.runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), eq(USER_ID)))
                 .thenReturn(List.of(
                         row("Second", "relates_to", "Node", secondId.toString(), 0.72, 0.4),
                         row("First", "relates_to", "Node", firstId.toString(), 0.91, 0.8),
@@ -121,7 +126,7 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
                 ));
 
         GraphSearchResult result = adapter.expandKnowledge(
-                GraphSearchRequest.from(List.of(GraphSeed.passage(firstId, 0.9)), 20));
+                GraphSearchRequest.from(USER_ID, List.of(GraphSeed.passage(firstId, 0.9)), 20));
 
         assertThat(result.scoredPassages())
                 .extracting(scoredPassage -> scoredPassage.chunkId())
@@ -139,12 +144,12 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
     void dropFailureDoesNotMaskPprFailure() {
         RuntimeException pprFailure = new RuntimeException("PPR failed");
         RuntimeException dropFailure = new RuntimeException("drop failed");
-        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt()))
+        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt(), eq(USER_ID)))
                 .thenThrow(pprFailure);
         doThrow(dropFailure).when(executor).dropProjectedGraph(anyString());
 
         assertThatThrownBy(() -> adapter.expandKnowledge(
-                GraphSearchRequest.from(List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20)))
+                GraphSearchRequest.from(USER_ID, List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20)))
                 .isSameAs(pprFailure);
 
         verify(executor).dropProjectedGraph(anyString());
@@ -154,14 +159,14 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
     @DisplayName("does not fail a successful search when graph cleanup fails")
     void dropFailureDoesNotBreakSuccessfulSearch() {
         UUID chunkId = UUID.randomUUID();
-        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt()))
+        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt(), eq(USER_ID)))
                 .thenReturn(List.of(new PassageScoringResult(chunkId.toString(), 0.7)));
-        when(executor.runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble()))
+        when(executor.runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), eq(USER_ID)))
                 .thenReturn(List.of(row("A", "rel", "B", chunkId.toString(), 0.7, 1.0)));
         doThrow(new RuntimeException("drop failed")).when(executor).dropProjectedGraph(anyString());
 
         assertThatCode(() -> adapter.expandKnowledge(
-                GraphSearchRequest.from(List.of(GraphSeed.passage(chunkId, 0.9)), 20)))
+                GraphSearchRequest.from(USER_ID, List.of(GraphSeed.passage(chunkId, 0.9)), 20)))
                 .doesNotThrowAnyException();
     }
 
@@ -171,10 +176,10 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
         doThrow(new ClientException(
                 "Neo.ClientError.Procedure.ProcedureNotFound",
                 "There is no procedure with the name `gds.graph.project` registered for this database instance."
-        )).when(executor).projectKnowledgeGraph(anyString());
+        )).when(executor).projectKnowledgeGraph(anyString(), eq(USER_ID));
 
         GraphSearchResult result = adapter.expandKnowledge(
-                GraphSearchRequest.from(List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20));
+                GraphSearchRequest.from(USER_ID, List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20));
 
         assertThat(result).isEqualTo(GraphSearchResult.empty());
         verify(executor, never()).dropProjectedGraph(anyString());
@@ -195,15 +200,15 @@ class HippoRagKnowledgeGraphSearchAdapterTest {
     @Test
     @DisplayName("does not run activated triples query when passage score query fails")
     void pprScoreFailureStopsActivatedTriplesQuery() {
-        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt()))
+        when(executor.runPPRPassageScores(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), anyInt(), eq(USER_ID)))
                 .thenThrow(new RuntimeException("score query failed"));
 
         assertThatThrownBy(() -> adapter.expandKnowledge(
-                GraphSearchRequest.from(List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20)))
+                GraphSearchRequest.from(USER_ID, List.of(GraphSeed.passage(UUID.randomUUID(), 0.9)), 20)))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("score query failed");
 
-        verify(executor, never()).runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble());
+        verify(executor, never()).runPPRActivatedTriples(anyString(), anyList(), anyList(), anyInt(), anyDouble(), anyDouble(), eq(USER_ID));
     }
 
     private GraphExpansionResult row(

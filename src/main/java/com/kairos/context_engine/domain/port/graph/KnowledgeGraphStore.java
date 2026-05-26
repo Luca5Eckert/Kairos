@@ -8,9 +8,9 @@ import java.util.UUID;
 
 public interface KnowledgeGraphStore {
 
-    void save(List<KnowledgeTriple> domainTriples);
+    void save(List<KnowledgeTriple> domainTriples, UUID userId);
 
-    void saveAllForChunk(UUID chunkId, List<KnowledgeTriple> knowledgeTriples);
+    void saveAllForChunk(UUID chunkId, UUID userId, List<KnowledgeTriple> knowledgeTriples);
 
-    void savePassages(List<Passage> passages);
+    void savePassages(List<Passage> passages, UUID userId);
 }

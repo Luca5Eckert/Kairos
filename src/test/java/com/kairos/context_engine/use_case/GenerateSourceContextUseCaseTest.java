@@ -90,11 +90,13 @@ class GenerateSourceContextUseCaseTest {
 
     private Source source;
     private UUID sourceId;
+    private UUID authorId;
 
     @BeforeEach
     void setUp() {
         sourceId = UUID.randomUUID();
-        source = new Source(sourceId, "Clean Code", "some content");
+        authorId = UUID.randomUUID();
+        source = new Source(sourceId, "Clean Code", "some content", authorId);
     }
 
     private Chunk chunk(String content, int index) {
@@ -163,8 +165,21 @@ class GenerateSourceContextUseCaseTest {
             verifyNoInteractions(embeddingProvider, tripleExtractor, tripleRepository);
             verify(chunkRepository, never()).save(any(Chunk.class));
             // knowledgeGraphStore.savePassages() is still called with empty list
-            verify(knowledgeGraphStore).savePassages(List.of());
-            verify(knowledgeGraphStore, never()).saveAllForChunk(any(UUID.class), anyList());
+            verify(knowledgeGraphStore).savePassages(List.of(), authorId);
+            verify(knowledgeGraphStore, never()).saveAllForChunk(any(UUID.class), any(UUID.class), anyList());
+        }
+
+        @Test
+        @DisplayName("throws IllegalStateException when source has no author")
+        void throwsExceptionWhenSourceHasNoAuthor() {
+            Source authorlessSource = new Source(sourceId, "Legacy", "content");
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(authorlessSource));
+
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Source author is required");
+
+            verifyNoInteractions(chunkRepository, embeddingProvider, knowledgeGraphStore, tripleExtractor, tripleRepository);
         }
     }
 
@@ -250,7 +265,7 @@ class GenerateSourceContextUseCaseTest {
 
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-            verify(knowledgeGraphStore).savePassages(passageCaptor.capture());
+            verify(knowledgeGraphStore).savePassages(passageCaptor.capture(), eq(authorId));
             List<Passage> savedPassages = passageCaptor.getValue();
             assertThat(savedPassages).hasSize(1);
             assertThat(savedPassages.getFirst().chunkId()).isEqualTo(chunk.getId());
@@ -281,12 +296,13 @@ class GenerateSourceContextUseCaseTest {
             when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
             when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
             when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
-            when(embeddingProvider.embed("spring-USES-jpa")).thenReturn(new float[]{0.7f, 0.8f});
+            String tripleKey = chunk.getId() + ":spring-USES-jpa";
+            when(embeddingProvider.embed(tripleKey)).thenReturn(new float[]{0.7f, 0.8f});
             when(tripleExtractor.extract("content")).thenReturn(List.of(triple));
 
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-            verify(embeddingProvider).embed("spring-USES-jpa");
+            verify(embeddingProvider).embed(tripleKey);
         }
 
         @Test
@@ -299,7 +315,8 @@ class GenerateSourceContextUseCaseTest {
             when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
             when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
             when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
-            when(embeddingProvider.embed("spring-USES-jpa")).thenReturn(tripleEmbedding);
+            String tripleKey = chunk.getId() + ":spring-USES-jpa";
+            when(embeddingProvider.embed(tripleKey)).thenReturn(tripleEmbedding);
             when(tripleExtractor.extract("content")).thenReturn(List.of(triple));
 
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
@@ -309,7 +326,7 @@ class GenerateSourceContextUseCaseTest {
 
             assertThat(saved).hasSize(1);
             TripleExtracted extracted = saved.getFirst();
-            assertThat(extracted.getKey()).isEqualTo("spring-USES-jpa");
+            assertThat(extracted.getKey()).isEqualTo(tripleKey);
             assertThat(extracted.getSuject()).isEqualTo("spring");
             assertThat(extracted.getPredicate()).isEqualTo("USES");
             assertThat(extracted.getObject()).isEqualTo("jpa");
@@ -329,7 +346,7 @@ class GenerateSourceContextUseCaseTest {
 
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), knowledgeTripleCaptor.capture());
+            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), eq(authorId), knowledgeTripleCaptor.capture());
             List<KnowledgeTriple> saved = knowledgeTripleCaptor.getValue();
 
             assertThat(saved).hasSize(1);
@@ -350,7 +367,7 @@ class GenerateSourceContextUseCaseTest {
             verify(tripleRepository).saveAll(tripleExtractedCaptor.capture());
             assertThat(tripleExtractedCaptor.getValue()).isEmpty();
 
-            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), knowledgeTripleCaptor.capture());
+            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), eq(authorId), knowledgeTripleCaptor.capture());
             assertThat(knowledgeTripleCaptor.getValue()).isEmpty();
         }
 
@@ -401,10 +418,10 @@ class GenerateSourceContextUseCaseTest {
             // 2. First save after embedding
             inOrder.verify(chunkRepository).save(chunk);
             // 3. Graph operations (passages saved)
-            inOrder.verify(knowledgeGraphStore).savePassages(anyList());
+            inOrder.verify(knowledgeGraphStore).savePassages(anyList(), eq(authorId));
             // 4. Graph operations (triples saved)
             inOrder.verify(tripleRepository).saveAll(anyList());
-            inOrder.verify(knowledgeGraphStore).saveAllForChunk(any(UUID.class), anyList());
+            inOrder.verify(knowledgeGraphStore).saveAllForChunk(any(UUID.class), eq(authorId), anyList());
             // 5. Second save after marking processed
             inOrder.verify(chunkRepository).save(chunk);
         }
@@ -426,7 +443,7 @@ class GenerateSourceContextUseCaseTest {
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
             // Verify both chunks processed
-            verify(knowledgeGraphStore, times(2)).saveAllForChunk(any(UUID.class), anyList());
+            verify(knowledgeGraphStore, times(2)).saveAllForChunk(any(UUID.class), eq(authorId), anyList());
             verify(chunkRepository, times(4)).save(any(Chunk.class)); // 2x per chunk
         }
 
@@ -444,7 +461,7 @@ class GenerateSourceContextUseCaseTest {
 
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
 
-            verify(knowledgeGraphStore, times(1)).savePassages(passageCaptor.capture());
+            verify(knowledgeGraphStore, times(1)).savePassages(passageCaptor.capture(), eq(authorId));
             assertThat(passageCaptor.getValue()).hasSize(2);
         }
     }
@@ -510,9 +527,9 @@ class GenerateSourceContextUseCaseTest {
             when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
             when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
             when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
-            when(embeddingProvider.embed("A-R1-B")).thenReturn(new float[]{0.5f});
-            when(embeddingProvider.embed("B-R2-C")).thenReturn(new float[]{0.6f});
-            when(embeddingProvider.embed("C-R3-D")).thenReturn(new float[]{0.7f});
+            when(embeddingProvider.embed(chunk.getId() + ":A-R1-B")).thenReturn(new float[]{0.5f});
+            when(embeddingProvider.embed(chunk.getId() + ":B-R2-C")).thenReturn(new float[]{0.6f});
+            when(embeddingProvider.embed(chunk.getId() + ":C-R3-D")).thenReturn(new float[]{0.7f});
             when(tripleExtractor.extract("content")).thenReturn(triples);
 
             useCase.execute(GenerateSourceContextCommand.of(sourceId));
@@ -520,7 +537,7 @@ class GenerateSourceContextUseCaseTest {
             verify(tripleRepository).saveAll(tripleExtractedCaptor.capture());
             assertThat(tripleExtractedCaptor.getValue()).hasSize(3);
 
-            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), knowledgeTripleCaptor.capture());
+            verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), eq(authorId), knowledgeTripleCaptor.capture());
             assertThat(knowledgeTripleCaptor.getValue()).hasSize(3);
         }
     }

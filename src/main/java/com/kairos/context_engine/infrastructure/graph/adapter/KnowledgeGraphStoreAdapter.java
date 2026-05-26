@@ -22,7 +22,12 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     @Override
     @Transactional
-    public void save(List<KnowledgeTriple> triples) {
+    public void save(List<KnowledgeTriple> triples, UUID userId) {
+        if (userId == null) {
+            log.error("Attempted to save graph triples with null userId. This indicates a bug in the calling flow.");
+            return;
+        }
+
         if (triples == null || triples.isEmpty()) {
             log.debug("No triples to save.");
             return;
@@ -40,7 +45,7 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
             ensuredChunks.add(chunkId);
 
-            mergeTriple(triple, chunkId);
+            mergeTriple(triple, chunkId, userId);
         }
 
         log.info("Successfully processed {} triples across {} different passages.", triples.size(), ensuredChunks.size());
@@ -48,9 +53,14 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
 
     @Override
     @Transactional
-    public void saveAllForChunk(UUID chunkId, List<KnowledgeTriple> triples) {
+    public void saveAllForChunk(UUID chunkId, UUID userId, List<KnowledgeTriple> triples) {
         if (chunkId == null) {
             log.error("Attempted to save triples with null chunkId. This indicates a bug in the calling flow.");
+            return;
+        }
+
+        if (userId == null) {
+            log.error("Attempted to save triples for chunk {} with null userId. This indicates a bug in the calling flow.", chunkId);
             return;
         }
 
@@ -59,32 +69,44 @@ public class KnowledgeGraphStoreAdapter implements KnowledgeGraphStore {
             return;
         }
 
-        triples.forEach(triple -> mergeTriple(triple, chunkId));
+        triples.forEach(triple -> mergeTriple(triple, chunkId, userId));
 
         log.info("Successfully processed {} triples for chunk {}.", triples.size(), chunkId);
     }
 
     @Override
     @Transactional
-    public void savePassages(List<Passage> passages) {
-            if (passages == null || passages.isEmpty()) {
-                log.warn("No passages provided for context creation.");
-                return;
+    public void savePassages(List<Passage> passages, UUID userId) {
+        if (userId == null) {
+            log.error("Attempted to save passages with null userId. This indicates a bug in the calling flow.");
+            return;
+        }
+
+        if (passages == null || passages.isEmpty()) {
+            log.warn("No passages provided for context creation.");
+            return;
+        }
+
+        for (Passage passage : passages) {
+            if (passage.chunkId() == null) {
+                log.error("Passage has null ID. Skipping context creation for this passage.");
+                continue;
             }
 
-            for (Passage passage : passages) {
-                if (passage.chunkId() == null) {
-                    log.error("Passage has null ID. Skipping context creation for this passage.");
-                    continue;
-                }
+            mutationExecutor.mergePassage(passage.chunkId(), userId);
+        }
 
-                mutationExecutor.mergePassage(passage.chunkId());
-            }
-
-            log.info("Successfully created context for {} passages.", passages.size());
+        log.info("Successfully created context for {} passages.", passages.size());
     }
 
-    private void mergeTriple(KnowledgeTriple triple, UUID chunkId) {
-        mutationExecutor.mergeTriple(triple.subject().name(), triple.object().name(), triple.predicate(), chunkId, triple.weight());
+    private void mergeTriple(KnowledgeTriple triple, UUID chunkId, UUID userId) {
+        mutationExecutor.mergeTriple(
+                triple.subject().name(),
+                triple.object().name(),
+                triple.predicate(),
+                chunkId,
+                userId,
+                triple.weight()
+        );
     }
 }

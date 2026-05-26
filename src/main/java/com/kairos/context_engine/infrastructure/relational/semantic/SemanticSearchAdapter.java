@@ -46,8 +46,8 @@ public class SemanticSearchAdapter implements SemanticSearch {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<PassageCandidate> findPassageCandidate(float[] queryVector, int k) {
-        return jpaChunkRepository.findCandidates(queryVector, k)
+    public List<PassageCandidate> findPassageCandidate(float[] queryVector, UUID userId, int k) {
+        return jpaChunkRepository.findCandidates(queryVector, userId, k)
                 .stream()
                 .filter(candidate -> candidate.getChunkId() != null && candidate.getDenseScore() != null)
                 .map(candidate -> new PassageCandidate(
@@ -65,12 +65,12 @@ public class SemanticSearchAdapter implements SemanticSearch {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<Chunk> findChunks(List<UUID> chunkIds) {
+    public List<Chunk> findChunks(List<UUID> chunkIds, UUID userId) {
         if (chunkIds == null || chunkIds.isEmpty()) {
             return List.of();
         }
 
-        List<ChunkEntity> chunks = jpaChunkRepository.findAllById(chunkIds);
+        List<ChunkEntity> chunks = jpaChunkRepository.findAllByIdInAndSource_AuthorId(chunkIds, userId);
         return chunks.stream()
                 .map(ChunkEntity::toDomain)
                 .toList();
@@ -78,7 +78,7 @@ public class SemanticSearchAdapter implements SemanticSearch {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RankedChunk> hydrateAndRankChunks(List<ScoredPassage> scoredPassages) {
+    public List<RankedChunk> hydrateAndRankChunks(List<ScoredPassage> scoredPassages, UUID userId) {
         if (scoredPassages == null || scoredPassages.isEmpty()) {
             return List.of();
         }
@@ -88,7 +88,7 @@ public class SemanticSearchAdapter implements SemanticSearch {
                 .distinct()
                 .toList();
 
-        Map<UUID, Chunk> chunksById = findChunks(chunkIds).stream()
+        Map<UUID, Chunk> chunksById = findChunks(chunkIds, userId).stream()
                 .collect(Collectors.toMap(Chunk::getId, Function.identity(), (existing, duplicate) -> existing));
 
         Set<String> seenContent = new LinkedHashSet<>();
@@ -108,8 +108,8 @@ public class SemanticSearchAdapter implements SemanticSearch {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TripleCandidate> findTripleCandidates(float[] queryVector, int limit) {
-        return jpaTripleRepository.findTripleCandidates(queryVector, limit)
+    public List<TripleCandidate> findTripleCandidates(float[] queryVector, UUID userId, int limit) {
+        return jpaTripleRepository.findTripleCandidates(queryVector, userId, limit)
                 .stream()
                 .filter(candidate -> hasText(candidate.getKey())
                         && hasText(candidate.getSubject())

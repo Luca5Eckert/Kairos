@@ -23,6 +23,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class KnowledgeGraphMutationExecutorTest {
 
+    private static final UUID USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+
     @Mock
     private Driver neo4jDriver;
 
@@ -58,12 +60,15 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergePassage(chunkId);
+        executor.mergePassage(chunkId, USER_ID);
 
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
         assertThat(queryCaptor.getValue()).contains("MERGE (p:Passage {chunkId: $chunkId})");
-        assertThat(paramsCaptor.getValue()).containsEntry("chunkId", chunkId.toString());
+        assertThat(queryCaptor.getValue()).contains("SET p.user_id = $userId");
+        assertThat(paramsCaptor.getValue())
+                .containsEntry("chunkId", chunkId.toString())
+                .containsEntry("userId", USER_ID.toString());
     }
 
     @Test
@@ -78,7 +83,7 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, 0.75);
+        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, USER_ID, 0.75);
 
         verify(neo4jDriver).session();
         verify(session).executeWrite(any(TransactionCallback.class));
@@ -100,7 +105,7 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, 0.75);
+        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, USER_ID, 0.75);
 
         verify(transactionContext).run(queryCaptor.capture(), paramsCaptor.capture());
 
@@ -108,14 +113,16 @@ class KnowledgeGraphMutationExecutorTest {
         assertThat(capturedQuery).contains("MERGE (p:Passage {chunkId: $chunkId})");
         assertThat(capturedQuery).contains("MERGE (s:PhraseNode {name: $subjectName})");
         assertThat(capturedQuery).contains("MERGE (o:PhraseNode {name: $objectName})");
-        assertThat(capturedQuery).contains("MERGE (s)-[r:TRIPLE {predicate: $predicate, chunk_id: $chunkId}]->(o)");
+        assertThat(capturedQuery).contains("SET p.user_id = $userId");
+        assertThat(capturedQuery).contains("MERGE (s)-[r:TRIPLE {predicate: $predicate, chunk_id: $chunkId, user_id: $userId}]->(o)");
         assertThat(capturedQuery).contains("SET r.weight = $weight");
-        assertThat(capturedQuery).contains("MERGE (p)-[:CONTAINS]->(s)");
-        assertThat(capturedQuery).contains("MERGE (p)-[:CONTAINS]->(o)");
+        assertThat(capturedQuery).contains("MERGE (p)-[containsSubject:CONTAINS {user_id: $userId}]->(s)");
+        assertThat(capturedQuery).contains("MERGE (p)-[containsObject:CONTAINS {user_id: $userId}]->(o)");
 
         Map<String, Object> capturedParams = paramsCaptor.getValue();
         assertThat(capturedParams)
                 .containsEntry("chunkId", chunkId.toString())
+                .containsEntry("userId", USER_ID.toString())
                 .containsEntry("subjectName", "Subject")
                 .containsEntry("objectName", "Object")
                 .containsEntry("predicate", "RELATES_TO")
@@ -134,7 +141,7 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, 0.75);
+        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, USER_ID, 0.75);
 
         verify(result).consume();
     }
@@ -153,12 +160,13 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, 0.75);
+        executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, USER_ID, 0.75);
 
         verify(transactionContext).run(anyString(), paramsCaptor.capture());
 
         assertThat(paramsCaptor.getValue())
-                .containsEntry("chunkId", "550e8400-e29b-41d4-a716-446655440000");
+                .containsEntry("chunkId", "550e8400-e29b-41d4-a716-446655440000")
+                .containsEntry("userId", USER_ID.toString());
     }
 
     @Test
@@ -167,7 +175,7 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(session.executeWrite(any())).thenThrow(new RuntimeException("Neo4j connection failure"));
 
-        assertThatThrownBy(() -> executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, 0.75))
+        assertThatThrownBy(() -> executor.mergeTriple("Subject", "Object", "RELATES_TO", chunkId, USER_ID, 0.75))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Neo4j connection failure");
 
@@ -188,7 +196,7 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergeTriple("Company", "Product", "PRODUCES", chunkId, 0.75);
+        executor.mergeTriple("Company", "Product", "PRODUCES", chunkId, USER_ID, 0.75);
 
         verify(transactionContext).run(anyString(), paramsCaptor.capture());
 
@@ -209,7 +217,7 @@ class KnowledgeGraphMutationExecutorTest {
 
         when(transactionContext.run(anyString(), anyMap())).thenReturn(result);
 
-        executor.mergeTriple("Entity", "Entity", "SELF_REFERENCES", chunkId, 0.75);
+        executor.mergeTriple("Entity", "Entity", "SELF_REFERENCES", chunkId, USER_ID, 0.75);
 
         verify(transactionContext).run(anyString(), paramsCaptor.capture());
 
