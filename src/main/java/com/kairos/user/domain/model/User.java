@@ -1,8 +1,10 @@
 package com.kairos.user.domain.model;
 
+import java.util.UUID;
+
 public class User {
 
-    private final Long id;
+    private final UUID id;
 
     private String name;
 
@@ -18,7 +20,7 @@ public class User {
 
     private String confirmationCodeHash;
 
-    protected User(Long id, String name, String username, String email, String hashPassword, Role role, boolean emailConfirmed, String confirmationCodeHash) {
+    protected User(UUID id, String name, String username, String email, String hashPassword, Role role, boolean emailConfirmed, String confirmationCodeHash) {
         this.id = id;
         this.name = name;
         this.username = username;
@@ -40,7 +42,7 @@ public class User {
         this.confirmationCodeHash = builder.confirmationCodeHash;
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
@@ -73,7 +75,7 @@ public class User {
     }
 
     public static class Builder {
-        private Long id;
+        private UUID id;
         private String name;
         private String username;
         private String email;
@@ -82,7 +84,7 @@ public class User {
         private boolean emailConfirmed;
         private String confirmationCodeHash;
 
-        public Builder id(Long id) {
+        public Builder id(UUID id) {
             this.id = id;
             return this;
         }

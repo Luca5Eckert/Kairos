@@ -7,6 +7,7 @@ import com.kairos.user.infrastructure.persistence.mapper.UserEntityMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public class UserEntityRepository implements UserRepository {
@@ -28,7 +29,7 @@ public class UserEntityRepository implements UserRepository {
         return mapper.toDomain(entity);
     }
 
-    public Optional<User> findById(Long id) {
+    public Optional<User> findById(UUID id) {
         var entity = jpaRepository.findById(id);
         return entity.map(mapper::toDomain);
     }
