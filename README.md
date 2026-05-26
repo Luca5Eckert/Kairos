@@ -8,8 +8,8 @@
 <a href="https://neo4j.com/"><img src="https://img.shields.io/badge/Neo4j-5.26-blue"></a>
 <a href="https://onnxruntime.ai/"><img src="https://img.shields.io/badge/ONNX%20Runtime-1.20.0-black"></a>
 <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-blue"></a>
-<img src="https://img.shields.io/badge/tests-170%20passing-brightgreen">
-<img src="https://img.shields.io/badge/line%20coverage-65.43%25-yellow">
+<img src="https://img.shields.io/badge/tests-181%20passing-brightgreen">
+<img src="https://img.shields.io/badge/line%20coverage-68.32%25-yellow">
 
 **Standard RAG retrieves similar passages. Kairos retrieves connected knowledge.**
 
@@ -39,7 +39,7 @@ It is built as a retrieval backend for personal knowledge systems: the user feed
 | Graph store | Neo4j 5.26 with Graph Data Science |
 | Embeddings | Local ONNX Runtime inference with `all-MiniLM-L6-v2`, no Python sidecar |
 | LLM boundary | Gemini via Spring AI, limited to triple extraction and recognition-memory seed selection |
-| Quality snapshot | 170 Maven tests passing, 0 failures, 0 errors, 1 skipped, 65.43% line coverage |
+| Quality snapshot | 181 Maven tests passing, 0 failures, 0 errors, 1 skipped, 68.32% line coverage |
 
 ## Why Kairos Exists
 
@@ -67,13 +67,13 @@ Kairos is an operational V1 retrieval backend. The graph-augmented ingestion and
 
 | Area | Current implementation |
 | --- | --- |
-| Ingestion | `POST /sources` stores a source, chunks content, persists chunks, and publishes `CreatedSourceEvent` for async enrichment |
+| Ingestion | `POST /sources` accepts source content, resolves the authenticated author in the use case, stores the source, chunks content, persists chunks, and publishes `CreatedSourceEvent` for async enrichment |
 | Embeddings | In-process ONNX Runtime with `all-MiniLM-L6-v2`, producing `vector(384)` embeddings |
 | Triple extraction | Gemini through Spring AI `ChatClient` with native structured output |
 | Semantic storage | PostgreSQL 16 with pgvector for passage and triple vector search |
 | Graph storage | Neo4j 5.26 with `Passage`, `PhraseNode`, `CONTAINS`, and `TRIPLE` graph projection |
 | Retrieval | Dense passage recall + triple recall + recognition memory + Neo4j GDS Personalized PageRank |
-| Auth | Registration, email confirmation, login, JWT issuance, roles, statuses, and protected source routes |
+| Auth | Registration, email confirmation, login, JWT issuance, roles, request context, and protected source routes |
 | Local infrastructure | Docker Compose services for `postgres`, `neo4j`, and `kairos` |
 
 ## Architecture
@@ -151,22 +151,26 @@ The split is intentional:
 - Neo4j GDS runs graph propagation.
 - Gemini is constrained to extraction and recognition decisions, behind domain ports.
 - The embedding model runs locally on the JVM, with no Python sidecar.
+- Authenticated request identity is exposed through `com.kairos.share.security.context`; source ownership is resolved in the application use case, not from client-submitted ids.
 
 ## Ingestion Flow
 
 `POST /sources` starts the knowledge-building pipeline.
 
-1. Create and persist a `Source` in PostgreSQL.
-2. Split source content into overlapping chunks.
-3. Persist chunks immediately for durability.
-4. Publish `CreatedSourceEvent`.
-5. Enrich unprocessed chunks asynchronously.
-6. Embed each chunk with ONNX Runtime.
-7. Extract factual triples with Gemini through Spring AI.
-8. Embed each triple key for triple-level recall.
-9. Store extracted triples and embeddings in PostgreSQL.
-10. Merge `Passage` nodes, `PhraseNode` concepts, `CONTAINS` edges, and `TRIPLE` edges into Neo4j.
-11. Mark processed chunks as complete.
+1. Accept only source `title` and `content` from the request body.
+2. Resolve the authenticated author inside `UploadSourceUseCase` through `RequestContextProvider`.
+3. Return an existing source when the same authenticated author, title, and content were already ingested.
+4. Create and persist a `Source` with `author_id` in PostgreSQL.
+5. Split source content into overlapping chunks.
+6. Persist chunks immediately for durability.
+7. Publish `CreatedSourceEvent`.
+8. Enrich unprocessed chunks asynchronously.
+9. Embed each chunk with ONNX Runtime.
+10. Extract factual triples with Gemini through Spring AI.
+11. Embed each triple key for triple-level recall.
+12. Store extracted triples and embeddings in PostgreSQL.
+13. Merge `Passage` nodes, `PhraseNode` concepts, `CONTAINS` edges, and `TRIPLE` edges into Neo4j.
+14. Mark processed chunks as complete.
 
 ```mermaid
 sequenceDiagram
@@ -180,9 +184,11 @@ sequenceDiagram
     participant LLM as Gemini via Spring AI
     participant NEO as Neo4j
 
-    C->>API: POST /sources
-    API->>U: UploadSourceCommand
-    U->>PG: save source and chunks
+    C->>API: POST /sources {title, content}
+    API->>U: UploadSourceCommand(title, content)
+    U->>U: resolve RequestContext.userId()
+    U->>PG: find source by author, title, and content
+    U->>PG: save source(author_id) and chunks
     U->>E: publish source id
     API-->>C: 201 Created
     E->>G: async enrichment
@@ -244,7 +250,7 @@ Retrieval defaults:
 
 PostgreSQL stores durable application data:
 
-- `sources`: source title and content.
+- `sources`: source title, content, and authenticated author id (`author_id`).
 - `chunks`: source chunks, chunk order, processed flag, and `vector(384)` embeddings.
 - `triples`: extracted subject-predicate-object facts, triple key, source chunk, and `vector(384)` embeddings.
 - user/auth tables: registration, email confirmation, roles, password hash, and session identity.
@@ -279,7 +285,9 @@ All `/sources/**` endpoints require a valid JWT bearer token.
 | `POST` | `/sources` | `{ "title", "content" }` | Ingests a source for the authenticated user and starts async graph enrichment |
 | `POST` | `/sources/search` | `{ "termQuery" }` | Searches the knowledge base and returns graph-augmented context |
 
-Current response shape:
+`authorId` is intentionally not part of the upload contract. If a client sends it anyway, the field is ignored; `UploadSourceUseCase` uses the authenticated request context as the only source of author identity.
+
+Search response shape:
 
 ```json
 {
@@ -432,32 +440,32 @@ Latest verified local run:
 
 | Date | Command | Result | Maven time |
 | --- | --- | --- | --- |
-| 2026-05-25 17:59 BRT | `.\mvnw.cmd test` | 170 tests, 0 failures, 0 errors, 1 skipped | 18.157 s |
+| 2026-05-26 19:48 BRT | `.\mvnw.cmd test` | 181 tests, 0 failures, 0 errors, 1 skipped | 20.942 s |
 
 Additional verification:
 
 | Check | Result |
 | --- | --- |
 | `git diff --check` | Passes |
-| Surefire report files | 31 XML reports generated under `target/surefire-reports` |
+| Surefire report files | 34 XML reports generated under `target/surefire-reports` |
 | JaCoCo report | Generated under `target/site/jacoco` |
-| JaCoCo line coverage | 65.43% |
-| JaCoCo branch coverage | 63.76% |
+| JaCoCo line coverage | 68.32% |
+| JaCoCo branch coverage | 64.93% |
 
 Static inventory from the current workspace:
 
 | Metric | Count |
 | --- | ---: |
-| Main Java files | 131 |
-| Test Java files | 31 |
+| Main Java files | 135 |
+| Test Java files | 33 |
 | REST controllers | 2 |
 | Public API endpoints documented | 5 |
 | Application use cases | 6 |
 | Domain ports | 17 |
 | Infrastructure adapters | 15 |
-| Repository interfaces/adapters | 8 |
+| Repository interfaces/adapters | 14 |
 | Persistence/graph entity classes | 7 |
-| Configuration/properties classes | 5 |
+| Configuration/properties classes | 4 |
 
 Test coverage by behavior includes:
 
@@ -466,8 +474,8 @@ Test coverage by behavior includes:
 - Retrieval flows: query embedding orchestration, passage candidate retrieval, triple candidate retrieval, recognition-memory seed selection, seed thresholding, graph expansion, ranked chunk hydration, and empty-result behavior.
 - Graph adapters: Neo4j mutation execution, GDS projection, Personalized PageRank query parameter mapping, activated triple mapping, projection cleanup, and missing-GDS fallback paths.
 - Embedding pipeline: ONNX session behavior, tokenizer handling, `token_type_ids` fallback, truncation, mean pooling, normalization, inference failures, and input validation.
-- Source API contract: upload route, `POST /sources/search`, and removal of `GET /sources` with request body.
-- Relational adapters: chunk hydration, semantic candidate mapping, triple candidate filtering, missing/null vector-score handling, and repository ordering.
+- Source API contract: upload route without client-provided `authorId`, ignored extra author fields, `POST /sources/search`, and removal of `GET /sources` with request body.
+- Relational adapters: source author persistence, chunk hydration, semantic candidate mapping, triple candidate filtering, missing/null vector-score handling, and repository ordering.
 
 ## Troubleshooting
 
@@ -475,7 +483,7 @@ Test coverage by behavior includes:
 | --- | --- | --- |
 | `docker compose config` or `docker compose up` fails with a missing variable | Compose marks some values as required | Fill `POSTGRES_PASSWORD`, `NEO4J_PASSWORD`, `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` in `.env` |
 | `POST /sources` or `POST /sources/search` returns `401` | Source routes require authentication | Login or confirm email first, then send `Authorization: Bearer $TOKEN` |
-| `POST /sources` fails because `sources.status` is null | Existing Postgres volume was initialized with an older schema | Run `ALTER TABLE sources DROP COLUMN IF EXISTS status;` in `kairos-postgres`, or recreate local volumes with `docker compose down -v` |
+| `POST /sources` fails with a `sources.status` or `sources.author_id` schema error | Existing Postgres volume was initialized with an older schema | For local dev, recreate volumes with `docker compose down -v`; for preserved data, migrate manually by dropping obsolete `status`, adding/backfilling `author_id`, and setting it `NOT NULL` |
 | Source upload returns `201`, but search returns little or nothing | Enrichment runs asynchronously | Wait a few seconds after `POST /sources` before querying |
 | Graph results are empty | Neo4j GDS may be unavailable or the graph has not been enriched yet | Check Neo4j plugin loading and the warning `Neo4j Graph Data Science procedures are unavailable. Returning empty graph expansion.` |
 | Gemini extraction or recognition fails | Missing or invalid Gemini key/model configuration | Check `GEMINI_API_KEY`, `KAIROS_LLM_MODEL`, and Spring AI Google GenAI settings |
@@ -484,6 +492,7 @@ Test coverage by behavior includes:
 ## Known Limitations
 
 - Source enrichment is asynchronous. Querying immediately after ingestion can return empty or incomplete graph context.
+- Source upload is user-attributed through `author_id`, but retrieval filtering by authenticated user is not fully enforced across semantic and graph search yet.
 - Failed chunk reprocessing is not implemented yet. See [issue #52](https://github.com/Luca5Eckert/Kairos/issues/52).
 - If Neo4j GDS procedures are unavailable, graph expansion returns empty results instead of a dense fallback.
 - OpenAPI/Swagger UI is not configured.
@@ -492,6 +501,7 @@ Test coverage by behavior includes:
 
 Recently completed:
 
+- Authenticated source ingestion now resolves author identity in `UploadSourceUseCase` and persists `sources.author_id`; client-submitted `authorId` is ignored.
 - [#41](https://github.com/Luca5Eckert/Kairos/issues/41): implemented passage-aware weighted Personalized PageRank with per-seed bias and relationship weights.
 - [#40](https://github.com/Luca5Eckert/Kairos/issues/40): triple recall and recognition memory filtering.
 - [PR #59](https://github.com/Luca5Eckert/Kairos/pull/59): replaced direct concept-candidate retrieval with triple-based recognition-memory seed selection.
