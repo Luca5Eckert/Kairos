@@ -121,6 +121,58 @@ class SearchSourceUseCaseTest {
     }
 
     @Test
+    @DisplayName("discards passage candidates below the absolute seed threshold")
+    void discardsPassageCandidatesBelowAbsoluteThreshold() {
+        UUID strongId = UUID.randomUUID();
+        UUID belowAbsoluteThresholdId = UUID.randomUUID();
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of(
+                new PassageCandidate(strongId, 0.50),
+                new PassageCandidate(belowAbsoluteThresholdId, 0.44)
+        ));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
+
+        useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
+
+        assertThat(requestCaptor.getValue().seeds()).singleElement()
+                .satisfies(seed -> {
+                    assertThat(((PassageSeedTarget) seed.target()).chunkId()).isEqualTo(strongId);
+                    assertThat(seed.weight()).isEqualTo(0.50);
+                });
+    }
+
+    @Test
+    @DisplayName("discards passage candidates below the relative seed threshold")
+    void discardsPassageCandidatesBelowRelativeThreshold() {
+        UUID bestId = UUID.randomUUID();
+        UUID keptId = UUID.randomUUID();
+        UUID belowRelativeThresholdId = UUID.randomUUID();
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of(
+                new PassageCandidate(bestId, 0.90),
+                new PassageCandidate(keptId, 0.77),
+                new PassageCandidate(belowRelativeThresholdId, 0.764)
+        ));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
+
+        useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
+
+        assertThat(requestCaptor.getValue().seeds())
+                .extracting(seed -> ((PassageSeedTarget) seed.target()).chunkId())
+                .containsExactly(bestId, keptId);
+    }
+
+    @Test
     @DisplayName("uses recognition memory to transform triple candidates into concept seeds")
     void usesRecognitionMemoryToBuildConceptSeeds() {
         TripleCandidate tripleCandidate = new TripleCandidate(
@@ -189,6 +241,40 @@ class SearchSourceUseCaseTest {
     }
 
     @Test
+    @DisplayName("discards concept seeds below absolute and relative thresholds")
+    void discardsConceptSeedsBelowAbsoluteAndRelativeThresholds() {
+        TripleCandidate tripleCandidate = new TripleCandidate(
+                "spring-IMPLEMENTS-repository pattern",
+                "spring",
+                "IMPLEMENTS",
+                "repository pattern",
+                UUID.randomUUID(),
+                0.91
+        );
+
+        when(embeddingPort.embed("Spring")).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of(tripleCandidate));
+        when(recognitionMemory.recognize("Spring", List.of(tripleCandidate), 10))
+                .thenReturn(List.of(
+                        GraphSeed.concept("spring", 0.90),
+                        GraphSeed.concept("repository pattern", 0.77),
+                        GraphSeed.concept("jpa", 0.764),
+                        GraphSeed.concept("transaction", 0.44)
+                ));
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class))).thenReturn(GraphSearchResult.empty());
+
+        useCase.execute(new SearchSourceQuery("Spring"));
+
+        ArgumentCaptor<GraphSearchRequest> requestCaptor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(knowledgeGraphSearch).expandKnowledge(requestCaptor.capture());
+
+        assertThat(requestCaptor.getValue().seeds())
+                .extracting(seed -> ((ConceptSeedTarget) seed.target()).concept().name())
+                .containsExactly("spring", "repository pattern");
+    }
+
+    @Test
     @DisplayName("keeps passage seeds and appends concept seeds recognized from triples")
     void keepsPassageSeedsAndAppendsRecognizedConceptSeeds() {
         UUID passageId = UUID.randomUUID();
@@ -232,6 +318,54 @@ class SearchSourceUseCaseTest {
         assertThat(result).isEqualTo(SearchResult.empty());
         verifyNoInteractions(knowledgeGraphSearch);
         verifyNoInteractions(recognitionMemory);
+        verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
+    }
+
+    @Test
+    @DisplayName("returns empty result when recognition memory returns no concept seeds")
+    void returnsEmptyWhenRecognitionMemoryReturnsNoConceptSeeds() {
+        TripleCandidate tripleCandidate = new TripleCandidate(
+                "mind-RELATES_TO-consciousness",
+                "mind",
+                "RELATES_TO",
+                "consciousness",
+                UUID.randomUUID(),
+                0.91
+        );
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of(tripleCandidate));
+        when(recognitionMemory.recognize(SEARCH_TERM, List.of(tripleCandidate), 10)).thenReturn(List.of());
+
+        SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        assertThat(result).isEqualTo(SearchResult.empty());
+        verifyNoInteractions(knowledgeGraphSearch);
+        verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
+    }
+
+    @Test
+    @DisplayName("returns empty result when recognition memory returns null")
+    void returnsEmptyWhenRecognitionMemoryReturnsNull() {
+        TripleCandidate tripleCandidate = new TripleCandidate(
+                "mind-RELATES_TO-consciousness",
+                "mind",
+                "RELATES_TO",
+                "consciousness",
+                UUID.randomUUID(),
+                0.91
+        );
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10)).thenReturn(List.of());
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of(tripleCandidate));
+        when(recognitionMemory.recognize(SEARCH_TERM, List.of(tripleCandidate), 10)).thenReturn(null);
+
+        SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        assertThat(result).isEqualTo(SearchResult.empty());
+        verifyNoInteractions(knowledgeGraphSearch);
         verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
     }
 
@@ -286,6 +420,46 @@ class SearchSourceUseCaseTest {
     }
 
     @Test
+    @DisplayName("skips hydration and activated triples when graph expansion has no scored passages")
+    void skipsHydrationWhenGraphExpansionHasNoScoredPassages() {
+        UUID seedId = UUID.randomUUID();
+        KnowledgeTriple activatedTriple = triple(seedId);
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
+                .thenReturn(List.of(new PassageCandidate(seedId, 0.9)));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
+                .thenReturn(new GraphSearchResult(List.of(), List.of(activatedTriple)));
+
+        SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        assertThat(result).isEqualTo(SearchResult.empty());
+        verify(semanticSearch, never()).hydrateAndRankChunks(any(), any(UUID.class));
+    }
+
+    @Test
+    @DisplayName("returns no activated triples when hydration returns no ranked chunks")
+    void returnsNoActivatedTriplesWhenHydrationReturnsNoRankedChunks() {
+        UUID chunkId = UUID.randomUUID();
+        List<ScoredPassage> scoredPassages = List.of(new ScoredPassage(chunkId, 0.82));
+        KnowledgeTriple activatedTriple = triple(chunkId);
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
+                .thenReturn(List.of(new PassageCandidate(chunkId, 0.9)));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
+                .thenReturn(new GraphSearchResult(scoredPassages, List.of(activatedTriple)));
+        when(semanticSearch.hydrateAndRankChunks(scoredPassages, userId)).thenReturn(List.of());
+
+        SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        assertThat(result.chunks()).isEmpty();
+        assertThat(result.knowledgeTriples()).isEmpty();
+    }
+
+    @Test
     @DisplayName("filters activated triples to deduplicated ranked chunks")
     void filtersActivatedTriplesToRankedChunks() {
         UUID keptId = UUID.randomUUID();
@@ -318,6 +492,42 @@ class SearchSourceUseCaseTest {
 
         assertThat(result.chunks()).containsExactlyElementsOf(rankedChunks);
         assertThat(result.knowledgeTriples()).containsExactly(keptTriple);
+    }
+
+    @Test
+    @DisplayName("deduplicates activated triples by subject predicate and object while preserving the first")
+    void deduplicatesActivatedTriplesAndKeepsFirstOccurrence() {
+        UUID firstChunkId = UUID.randomUUID();
+        UUID secondChunkId = UUID.randomUUID();
+        List<ScoredPassage> scoredPassages = List.of(
+                new ScoredPassage(firstChunkId, 0.91),
+                new ScoredPassage(secondChunkId, 0.88)
+        );
+        KnowledgeTriple firstTriple = triple(firstChunkId);
+        KnowledgeTriple duplicateTriple = KnowledgeTriple.create(
+                firstTriple.subject().name(),
+                firstTriple.predicate(),
+                firstTriple.object().name(),
+                Passage.fromChunkId(secondChunkId),
+                0.5
+        );
+        List<RankedChunk> rankedChunks = List.of(
+                rankedChunk(firstChunkId, 1, 0.91),
+                rankedChunk(secondChunkId, 2, 0.88)
+        );
+
+        when(embeddingPort.embed(SEARCH_TERM)).thenReturn(QUERY_VECTOR);
+        when(semanticSearch.findPassageCandidate(QUERY_VECTOR, userId, 10))
+                .thenReturn(List.of(new PassageCandidate(firstChunkId, 0.9)));
+        when(semanticSearch.findTripleCandidates(QUERY_VECTOR, userId, 30)).thenReturn(List.of());
+        when(knowledgeGraphSearch.expandKnowledge(any(GraphSearchRequest.class)))
+                .thenReturn(new GraphSearchResult(scoredPassages, List.of(firstTriple, duplicateTriple)));
+        when(semanticSearch.hydrateAndRankChunks(scoredPassages, userId)).thenReturn(rankedChunks);
+
+        SearchResult result = useCase.execute(new SearchSourceQuery(SEARCH_TERM));
+
+        assertThat(result.chunks()).containsExactlyElementsOf(rankedChunks);
+        assertThat(result.knowledgeTriples()).containsExactly(firstTriple);
     }
 
     @Test
