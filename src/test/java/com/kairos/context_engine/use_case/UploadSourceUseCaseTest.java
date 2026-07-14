@@ -23,8 +23,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -70,6 +72,41 @@ class UploadSourceUseCaseTest {
         assertThat(result).isEqualTo(existingId);
         verify(sourceRepository, never()).save(any(Source.class));
         verifyNoInteractions(chunkerExtractor, chunkRepository, eventPublisher);
+    }
+
+    @Test
+    @DisplayName("execute - creates source when duplicate lookup returns Optional.empty")
+    void execute_emptyDuplicateLookup_createsSourceAndPublishesEvent() {
+        UUID authorId = givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
+        when(sourceRepository.findByAuthorIdAndTitleAndContent(authorId, "Clean Code", "some content"))
+                .thenReturn(Optional.empty());
+        when(chunkerExtractor.extract("some content", 200, 50)).thenReturn(List.of("some content"));
+
+        UUID result = useCase.execute(command);
+
+        assertThat(result).isNotNull();
+        verify(sourceRepository).findByAuthorIdAndTitleAndContent(authorId, "Clean Code", "some content");
+        verify(sourceRepository).save(any(Source.class));
+        verify(chunkRepository).save(any(Chunk.class));
+        verify(eventPublisher).send(any(CreatedSourceEvent.class));
+    }
+
+    @Test
+    @DisplayName("execute - treats null duplicate lookup result as absent source")
+    void execute_nullDuplicateLookup_createsSourceAndPublishesEvent() {
+        UUID authorId = givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
+        when(sourceRepository.findByAuthorIdAndTitleAndContent(authorId, "Clean Code", "some content"))
+                .thenReturn(null);
+        when(chunkerExtractor.extract("some content", 200, 50)).thenReturn(List.of("some content"));
+
+        UUID result = useCase.execute(command);
+
+        assertThat(result).isNotNull();
+        verify(sourceRepository).save(any(Source.class));
+        verify(chunkRepository).save(any(Chunk.class));
+        verify(eventPublisher).send(any(CreatedSourceEvent.class));
     }
 
     @Test
@@ -163,6 +200,42 @@ class UploadSourceUseCaseTest {
                     assertThat(chunk.getEmbedding()).isNull();
                     assertThat(chunk.isProcessed()).isFalse();
                 });
+    }
+
+    @Test
+    @DisplayName("execute - propagates chunker failures without publishing event")
+    void execute_chunkerFailure_doesNotPersistChunksOrPublishEvent() {
+        givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "some content");
+        when(chunkerExtractor.extract("some content", 200, 50))
+                .thenThrow(new RuntimeException("Chunker unavailable"));
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Chunker unavailable");
+
+        verify(sourceRepository).save(any(Source.class));
+        verifyNoInteractions(chunkRepository, eventPublisher);
+    }
+
+    @Test
+    @DisplayName("execute - propagates publisher failures after source and chunks are saved")
+    void execute_publisherFailure_happensAfterPersistence() {
+        givenAuthenticatedUser();
+        var command = new UploadSourceCommand("Clean Code", "alpha beta gamma");
+        when(chunkerExtractor.extract("alpha beta gamma", 200, 50))
+                .thenReturn(List.of("alpha beta", "beta gamma"));
+        doThrow(new RuntimeException("Event bus unavailable"))
+                .when(eventPublisher).send(any(CreatedSourceEvent.class));
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Event bus unavailable");
+
+        var inOrder = inOrder(sourceRepository, chunkRepository, eventPublisher);
+        inOrder.verify(sourceRepository).save(any(Source.class));
+        inOrder.verify(chunkRepository, times(2)).save(any(Chunk.class));
+        inOrder.verify(eventPublisher).send(any(CreatedSourceEvent.class));
     }
 
     private UUID givenAuthenticatedUser() {
