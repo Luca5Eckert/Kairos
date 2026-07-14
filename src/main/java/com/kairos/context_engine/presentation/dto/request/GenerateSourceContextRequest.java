@@ -1,6 +1,8 @@
 package com.kairos.context_engine.presentation.dto.request;
 
+import jakarta.validation.constraints.NotBlank;
+
 public record GenerateSourceContextRequest(
-        String termQuery
+        @NotBlank String termQuery
 ) {
 }
