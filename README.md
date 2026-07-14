@@ -39,7 +39,7 @@ It is built as a retrieval backend for personal knowledge systems: the user feed
 | Graph store | Neo4j 5.26 with Graph Data Science |
 | Embeddings | Local ONNX Runtime inference with `all-MiniLM-L6-v2`, no Python sidecar |
 | LLM boundary | Gemini via Spring AI, limited to triple extraction and recognition-memory seed selection |
-| Quality snapshot | 183 Maven tests passing, 0 failures, 0 errors, 1 skipped, 69.41% line coverage |
+| Quality snapshot | 204 tests passing, 84,26% line coverage |
 
 ## Why Kairos Exists
 
