@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -244,6 +245,32 @@ class GenerateSourceContextUseCaseTest {
             // Called twice: once for "first" chunk, once for "second" chunk (in embedChunks phase)
             verify(embeddingProvider, times(2)).embed(anyString());
         }
+
+        @Test
+        @DisplayName("stops before graph generation when a later chunk embedding fails")
+        void stopsBeforeGraphGenerationWhenChunkEmbeddingFails() {
+            Chunk first = chunk("first", 0);
+            Chunk second = chunk("second", 1);
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId))
+                    .thenReturn(List.of(first, second));
+            when(embeddingProvider.embed("first")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed("second"))
+                    .thenThrow(new RuntimeException("Second embedding failed"));
+
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Second embedding failed");
+
+            assertThat(first.getEmbedding()).containsExactly(0.1f);
+            assertThat(first.isProcessed()).isFalse();
+            assertThat(second.getEmbedding()).isNull();
+            assertThat(second.isProcessed()).isFalse();
+            verify(chunkRepository).save(first);
+            verify(chunkRepository, never()).save(second);
+            verifyNoInteractions(knowledgeGraphStore, tripleExtractor, tripleRepository);
+        }
     }
 
     // =========================================================================
@@ -384,6 +411,35 @@ class GenerateSourceContextUseCaseTest {
 
             assertThat(chunk.isProcessed()).isTrue();
         }
+
+        @Test
+        @DisplayName("marks chunk as processed only after triples and graph relationships are saved")
+        void marksChunkAsProcessedOnlyAfterTripleAndGraphPersistence() {
+            Chunk chunk = chunk("content", 0);
+            Triple triple = triple("spring", "USES", "jpa");
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId)).thenReturn(List.of(chunk));
+            when(embeddingProvider.embed("content")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed(chunk.getId() + ":spring-USES-jpa")).thenReturn(new float[]{0.2f});
+            when(tripleExtractor.extract("content")).thenReturn(List.of(triple));
+            doAnswer(invocation -> {
+                assertThat(chunk.isProcessed()).isFalse();
+                return null;
+            }).when(tripleRepository).saveAll(anyList());
+            doAnswer(invocation -> {
+                assertThat(chunk.isProcessed()).isFalse();
+                return null;
+            }).when(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), eq(authorId), anyList());
+
+            useCase.execute(GenerateSourceContextCommand.of(sourceId));
+
+            assertThat(chunk.isProcessed()).isTrue();
+            var inOrder = inOrder(tripleRepository, knowledgeGraphStore, chunkRepository);
+            inOrder.verify(tripleRepository).saveAll(anyList());
+            inOrder.verify(knowledgeGraphStore).saveAllForChunk(eq(chunk.getId()), eq(authorId), anyList());
+            inOrder.verify(chunkRepository).save(chunk);
+        }
     }
 
     // =========================================================================
@@ -486,6 +542,39 @@ class GenerateSourceContextUseCaseTest {
             assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Embedding service unavailable");
+        }
+
+        @Test
+        @DisplayName("propagates triple embedding exceptions without saving triples or marking chunks")
+        void propagatesTripleEmbeddingExceptionWithoutPersistingTriplesOrMarkingChunks() {
+            Chunk first = chunk("first", 0);
+            Chunk second = chunk("second", 1);
+            Triple triple = triple("A", "RELATES_TO", "B");
+
+            when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+            when(chunkRepository.findAllNotProcessedBySourceId(sourceId))
+                    .thenReturn(List.of(first, second));
+            when(embeddingProvider.embed("first")).thenReturn(new float[]{0.1f});
+            when(embeddingProvider.embed("second")).thenReturn(new float[]{0.2f});
+            when(tripleExtractor.extract("first")).thenReturn(List.of(triple));
+            when(embeddingProvider.embed(first.getId() + ":A-RELATES_TO-B"))
+                    .thenThrow(new RuntimeException("Triple embedding failed"));
+
+            assertThatThrownBy(() -> useCase.execute(GenerateSourceContextCommand.of(sourceId)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Triple embedding failed");
+
+            assertThat(first.isProcessed()).isFalse();
+            assertThat(second.isProcessed()).isFalse();
+            verify(knowledgeGraphStore).savePassages(passageCaptor.capture(), eq(authorId));
+            assertThat(passageCaptor.getValue())
+                    .extracting(Passage::chunkId)
+                    .containsExactly(first.getId(), second.getId());
+            verify(tripleRepository, never()).saveAll(anyList());
+            verify(knowledgeGraphStore, never()).saveAllForChunk(any(UUID.class), any(UUID.class), anyList());
+            verify(tripleExtractor, never()).extract("second");
+            verify(chunkRepository, times(1)).save(first);
+            verify(chunkRepository, times(1)).save(second);
         }
 
         @Test
