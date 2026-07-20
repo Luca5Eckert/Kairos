@@ -106,4 +106,20 @@ class RegisterUseCaseTest {
         org.mockito.Mockito.verify(users, org.mockito.Mockito.never())
                 .savePending(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
     }
+
+    @Test
+    @DisplayName("execute - propagates confirmation delivery failures after saving the pending user")
+    void execute_confirmationDeliveryFails_keepsPersistenceFlowVisible() {
+        var command = new RegisterCommand("Lucas", "lucas", "lucas@example.com", "RawPassword123!");
+        when(passwordEncoder.hash(command.password())).thenReturn("hashed-password");
+        when(codeConfirmation.generateCode()).thenReturn("123456");
+        doThrow(new IllegalStateException("SMTP unavailable"))
+                .when(emailSender).send("123456", "lucas@example.com");
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SMTP unavailable");
+
+        verify(users).savePending(org.mockito.ArgumentMatchers.any(PendingUser.class), org.mockito.ArgumentMatchers.eq("123456"));
+    }
 }
