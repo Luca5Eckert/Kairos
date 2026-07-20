@@ -8,8 +8,8 @@
 <a href="https://neo4j.com/"><img src="https://img.shields.io/badge/Neo4j-5.26-blue"></a>
 <a href="https://onnxruntime.ai/"><img src="https://img.shields.io/badge/ONNX%20Runtime-1.20.0-black"></a>
 <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Ready-blue"></a>
-<img src="https://img.shields.io/badge/tests-183%20passing-brightgreen">
-<img src="https://img.shields.io/badge/line%20coverage-69.41%25-yellow">
+<img src="https://img.shields.io/badge/tests-237%20passing-brightgreen">
+<img src="https://img.shields.io/badge/line%20coverage-86.77%25-brightgreen">
 
 **Standard RAG retrieves similar passages. Kairos retrieves connected knowledge.**
 
@@ -39,7 +39,7 @@ It is built as a retrieval backend for personal knowledge systems: the user feed
 | Graph store | Neo4j 5.26 with Graph Data Science |
 | Embeddings | Local ONNX Runtime inference with `all-MiniLM-L6-v2`, no Python sidecar |
 | LLM boundary | Gemini via Spring AI, limited to triple extraction and recognition-memory seed selection |
-| Quality snapshot | 204 tests passing, 84,26% line coverage |
+| Quality snapshot | 237 tests passing, 7 skipped, 86,77% line coverage |
 
 ## Why Kairos Exists
 
@@ -443,7 +443,7 @@ Latest verified local run:
 
 | Date | Command | Result | Maven time |
 | --- | --- | --- | --- |
-| 2026-05-26 20:29 BRT | `.\mvnw.cmd test` | 183 tests, 0 failures, 0 errors, 1 skipped | 22.526 s |
+| 2026-07-20 16:22 BRT | `.\mvnw.cmd test` | 244 tests, 0 failures, 0 errors, 7 skipped | 25.823 s |
 
 Additional verification:
 
@@ -452,8 +452,8 @@ Additional verification:
 | `git diff --check` | Passes |
 | Surefire report files | 34 XML reports generated under `target/surefire-reports` |
 | JaCoCo report | Generated under `target/site/jacoco` |
-| JaCoCo line coverage | 69.41% |
-| JaCoCo branch coverage | 65.97% |
+| JaCoCo line coverage | 86.77% |
+| JaCoCo branch coverage | 74.54% |
 
 Static inventory from the current workspace:
 
