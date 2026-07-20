@@ -32,6 +32,26 @@ class UserRegistrationAdapterTest {
     private UserRegistrationAdapter adapter;
 
     @Test
+    @DisplayName("ensureEmailIsAvailable - rejects an email that is already registered")
+    void ensureEmailIsAvailable_registeredEmail_rejects() {
+        when(users.existsByEmailIgnoreCase("lucas@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> adapter.ensureEmailIsAvailable("lucas@example.com"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Email is already in use");
+    }
+
+    @Test
+    @DisplayName("ensureUsernameIsAvailable - rejects a username that is already registered")
+    void ensureUsernameIsAvailable_registeredUsername_rejects() {
+        when(users.existsByUsernameIgnoreCase("lucas")).thenReturn(true);
+
+        assertThatThrownBy(() -> adapter.ensureUsernameIsAvailable("lucas"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Username is already in use");
+    }
+
+    @Test
     @DisplayName("savePending - persists unconfirmed free user with confirmation code")
     void savePending_persistsUnconfirmedUser() {
         var pendingUser = PendingUser.create("Lucas", "lucas", "lucas@example.com", "hashed-password");
