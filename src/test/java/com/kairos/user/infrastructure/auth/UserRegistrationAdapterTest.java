@@ -114,4 +114,29 @@ class UserRegistrationAdapterTest {
                 .isInstanceOf(AuthenticationDomainException.class)
                 .hasMessage("Confirmation code is invalid");
     }
+
+    @Test
+    @DisplayName("confirmEmail - rejects confirmation for an unknown email")
+    void confirmEmail_unknownEmail_rejects() {
+        when(users.findByEmailIgnoreCase("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adapter.confirmEmail("unknown@example.com", "123456"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Confirmation code is invalid");
+    }
+
+    @Test
+    @DisplayName("confirmEmail - rejects a user that has already confirmed their email")
+    void confirmEmail_alreadyConfirmed_rejects() {
+        UserEntity user = UserEntity.builder()
+                .email("lucas@example.com")
+                .emailConfirmed(true)
+                .build();
+
+        when(users.findByEmailIgnoreCase("lucas@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> adapter.confirmEmail("lucas@example.com", "123456"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Email is already confirmed");
+    }
 }
