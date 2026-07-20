@@ -32,6 +32,26 @@ class UserRegistrationAdapterTest {
     private UserRegistrationAdapter adapter;
 
     @Test
+    @DisplayName("ensureEmailIsAvailable - rejects an email that is already registered")
+    void ensureEmailIsAvailable_registeredEmail_rejects() {
+        when(users.existsByEmailIgnoreCase("lucas@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> adapter.ensureEmailIsAvailable("lucas@example.com"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Email is already in use");
+    }
+
+    @Test
+    @DisplayName("ensureUsernameIsAvailable - rejects a username that is already registered")
+    void ensureUsernameIsAvailable_registeredUsername_rejects() {
+        when(users.existsByUsernameIgnoreCase("lucas")).thenReturn(true);
+
+        assertThatThrownBy(() -> adapter.ensureUsernameIsAvailable("lucas"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Username is already in use");
+    }
+
+    @Test
     @DisplayName("savePending - persists unconfirmed free user with confirmation code")
     void savePending_persistsUnconfirmedUser() {
         var pendingUser = PendingUser.create("Lucas", "lucas", "lucas@example.com", "hashed-password");
@@ -93,5 +113,30 @@ class UserRegistrationAdapterTest {
         assertThatThrownBy(() -> adapter.confirmEmail("lucas@example.com", "999999"))
                 .isInstanceOf(AuthenticationDomainException.class)
                 .hasMessage("Confirmation code is invalid");
+    }
+
+    @Test
+    @DisplayName("confirmEmail - rejects confirmation for an unknown email")
+    void confirmEmail_unknownEmail_rejects() {
+        when(users.findByEmailIgnoreCase("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adapter.confirmEmail("unknown@example.com", "123456"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Confirmation code is invalid");
+    }
+
+    @Test
+    @DisplayName("confirmEmail - rejects a user that has already confirmed their email")
+    void confirmEmail_alreadyConfirmed_rejects() {
+        UserEntity user = UserEntity.builder()
+                .email("lucas@example.com")
+                .emailConfirmed(true)
+                .build();
+
+        when(users.findByEmailIgnoreCase("lucas@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> adapter.confirmEmail("lucas@example.com", "123456"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Email is already confirmed");
     }
 }

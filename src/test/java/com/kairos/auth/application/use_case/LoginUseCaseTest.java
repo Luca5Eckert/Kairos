@@ -17,7 +17,10 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,5 +49,19 @@ class LoginUseCaseTest {
         var inOrder = inOrder(authenticator, sessionIssuer);
         inOrder.verify(authenticator).authenticate("lucas@example.com", "RawPassword123!");
         inOrder.verify(sessionIssuer).issueFor(authenticatedUser);
+    }
+
+    @Test
+    @DisplayName("execute - does not issue a session when authentication fails")
+    void execute_invalidCredentials_doesNotIssueSession() {
+        var command = new LoginCommand("lucas@example.com", "wrong-password");
+        doThrow(new IllegalStateException("Invalid credentials"))
+                .when(authenticator).authenticate(command.identifier(), command.password());
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Invalid credentials");
+
+        verifyNoInteractions(sessionIssuer);
     }
 }

@@ -17,7 +17,10 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,5 +49,19 @@ class ConfirmEmailUseCaseTest {
         var inOrder = inOrder(users, sessionIssuer);
         inOrder.verify(users).confirmEmail("lucas@example.com", "123456");
         inOrder.verify(sessionIssuer).issueFor(authenticatedUser);
+    }
+
+    @Test
+    @DisplayName("execute - does not issue a session when confirmation code is invalid")
+    void execute_invalidCode_doesNotIssueSession() {
+        var command = new ConfirmEmailCommand("999999", "lucas@example.com");
+        doThrow(new IllegalStateException("Confirmation code is invalid"))
+                .when(users).confirmEmail(command.email(), command.code());
+
+        assertThatThrownBy(() -> useCase.execute(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Confirmation code is invalid");
+
+        verifyNoInteractions(sessionIssuer);
     }
 }
