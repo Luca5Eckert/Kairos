@@ -75,6 +75,19 @@ class UserAuthenticatorAdapterTest {
                 .hasMessage("Invalid credentials");
     }
 
+    @Test
+    @DisplayName("authenticate - rejects an identifier that does not belong to a user")
+    void authenticate_unknownUser_rejectsWithoutCheckingPassword() {
+        when(users.findByEmailIgnoreCaseOrUsernameIgnoreCase("unknown", "unknown"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> adapter.authenticate("unknown", "RawPassword123!"))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .hasMessage("Invalid credentials");
+
+        verifyNoInteractions(passwordEncoder);
+    }
+
     private UserEntity confirmedUser() {
         return UserEntity.builder()
                 .id(UUID.randomUUID())

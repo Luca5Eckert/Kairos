@@ -39,12 +39,12 @@ class JwtSessionIssuerAdapterTest {
 
 
         var id = UUID.randomUUID();
-        var user = new AuthenticatedUser(id, "lucas@example.com", List.of(Role.FREE));
+        var user = new AuthenticatedUser(id, "lucas@example.com", List.of(Role.PREMIUM));
 
         var session = adapter.issueFor(user);
 
         assertThat(session.accessToken()).contains(".");
-        assertThat(session.roles()).containsExactly(Role.FREE);
+        assertThat(session.roles()).containsExactly(Role.PREMIUM);
 
         var decoder = NimbusJwtDecoder.withSecretKey(key).build();
         var jwt = decoder.decode(session.accessToken());
@@ -53,7 +53,7 @@ class JwtSessionIssuerAdapterTest {
         assertThat(jwt.getAudience()).containsExactly("kairos-api");
         assertThat(jwt.getSubject()).isEqualTo(id.toString());
         assertThat(jwt.getClaimAsString("email")).isEqualTo("lucas@example.com");
-        assertThat(jwt.getClaimAsStringList("roles")).containsExactly("FREE");
-        assertThat(jwt.getClaimAsString("scope")).isEqualTo("role:free");
+        assertThat(jwt.getClaimAsStringList("roles")).containsExactly("PREMIUM");
+        assertThat(jwt.getClaimAsString("scope")).isEqualTo("role:premium");
     }
 }
