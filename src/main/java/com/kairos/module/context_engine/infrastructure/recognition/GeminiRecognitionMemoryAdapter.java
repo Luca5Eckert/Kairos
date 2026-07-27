@@ -66,7 +66,7 @@ public class GeminiRecognitionMemoryAdapter implements RecognitionMemory {
         return toSeeds(result, candidates, maxSeeds);
     }
 
-    List<GraphSeed> toSeeds(RecognitionMemoryResult result, List<TripleCandidate> candidates, int maxSeeds) {
+    public List<GraphSeed> toSeeds(RecognitionMemoryResult result, List<TripleCandidate> candidates, int maxSeeds) {
         if (result == null || result.concepts() == null || candidates == null || candidates.isEmpty() || maxSeeds <= 0) {
             return List.of();
         }
