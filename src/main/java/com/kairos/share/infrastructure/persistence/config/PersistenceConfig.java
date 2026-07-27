@@ -1,15 +1,15 @@
 package com.kairos.share.infrastructure.persistence.config;
 
-import com.kairos.context_engine.infrastructure.graph.repository.Neo4jPassageNodeRepository;
-import com.kairos.context_engine.infrastructure.graph.repository.Neo4jPhraseNodeRepository;
-import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
-import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
-import com.kairos.context_engine.infrastructure.relational.entity.TripleEntity;
-import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
-import com.kairos.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
-import com.kairos.context_engine.infrastructure.relational.repository.triple.JpaTripleRepository;
-import com.kairos.user.infrastructure.persistence.entity.UserEntity;
-import com.kairos.user.infrastructure.persistence.repository.UserEntityJpaRepository;
+import com.kairos.module.context_engine.infrastructure.graph.repository.Neo4jPassageNodeRepository;
+import com.kairos.module.context_engine.infrastructure.graph.repository.Neo4jPhraseNodeRepository;
+import com.kairos.module.context_engine.infrastructure.relational.entity.ChunkEntity;
+import com.kairos.module.context_engine.infrastructure.relational.entity.SourceEntity;
+import com.kairos.module.context_engine.infrastructure.relational.entity.TripleEntity;
+import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.module.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
+import com.kairos.module.context_engine.infrastructure.relational.repository.triple.JpaTripleRepository;
+import com.kairos.module.user.infrastructure.persistence.entity.UserEntity;
+import com.kairos.module.user.infrastructure.persistence.repository.UserEntityJpaRepository;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;

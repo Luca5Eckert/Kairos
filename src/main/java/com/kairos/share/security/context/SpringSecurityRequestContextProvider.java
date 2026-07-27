@@ -1,6 +1,6 @@
 package com.kairos.share.security.context;
 
-import com.kairos.user.domain.model.Role;
+import com.kairos.module.user.domain.model.Role;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;

@@ -1,8 +1,8 @@
 package com.kairos.share.infrastructure.persistence.bootstrap;
 
-import com.kairos.user.domain.model.Role;
-import com.kairos.user.infrastructure.persistence.entity.UserEntity;
-import com.kairos.user.infrastructure.persistence.repository.UserEntityJpaRepository;
+import com.kairos.module.user.domain.model.Role;
+import com.kairos.module.user.infrastructure.persistence.entity.UserEntity;
+import com.kairos.module.user.infrastructure.persistence.repository.UserEntityJpaRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;

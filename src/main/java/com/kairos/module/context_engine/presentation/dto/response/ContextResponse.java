@@ -1,0 +1,29 @@
+package com.kairos.module.context_engine.presentation.dto.response;
+
+import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.RankedChunk;
+
+import java.util.List;
+
+public record ContextResponse(
+    List<KnowledgeTripleResponse> knowledgeGraph,
+    List<ChunkContextResponse> chunkContexts
+) {
+
+    public static ContextResponse of(
+            List<KnowledgeTriple> knowledgeTriples,
+            List<RankedChunk> chunks
+    ) {
+        List<KnowledgeTripleResponse> knowledgeTripleResponses = knowledgeTriples.stream()
+                .map(KnowledgeTripleResponse::of)
+                .toList();
+
+        List<ChunkContextResponse> chunkContextResponses = chunks.stream()
+                .map(ChunkContextResponse::of)
+                .toList();
+
+        return new ContextResponse(knowledgeTripleResponses, chunkContextResponses);
+    }
+
+
+}

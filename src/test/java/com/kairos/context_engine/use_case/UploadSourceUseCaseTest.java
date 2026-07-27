@@ -1,14 +1,14 @@
 package com.kairos.context_engine.use_case;
 
-import com.kairos.context_engine.application.command.UploadSourceCommand;
-import com.kairos.context_engine.application.use_case.UploadSourceUseCase;
-import com.kairos.context_engine.domain.event.CreatedSourceEvent;
-import com.kairos.context_engine.domain.port.event.SourceEventPublisher;
-import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.content.Source;
-import com.kairos.context_engine.domain.port.repository.ChunkRepository;
-import com.kairos.context_engine.domain.port.repository.SourceRepository;
-import com.kairos.context_engine.domain.port.extraction.ChunkerExtractor;
+import com.kairos.module.context_engine.application.command.UploadSourceCommand;
+import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
+import com.kairos.module.context_engine.domain.event.CreatedSourceEvent;
+import com.kairos.module.context_engine.domain.port.event.SourceEventPublisher;
+import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.port.repository.ChunkRepository;
+import com.kairos.module.context_engine.domain.port.repository.SourceRepository;
+import com.kairos.module.context_engine.domain.port.extraction.ChunkerExtractor;
 import com.kairos.share.security.context.RequestContext;
 import com.kairos.share.security.context.RequestContextProvider;
 import org.junit.jupiter.api.DisplayName;

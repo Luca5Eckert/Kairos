@@ -1,6 +1,6 @@
 package com.kairos.share.security.context;
 
-import com.kairos.user.domain.model.Role;
+import com.kairos.module.user.domain.model.Role;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

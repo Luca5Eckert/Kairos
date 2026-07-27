@@ -1,10 +1,11 @@
 package com.kairos.context_engine.presentation.controller;
 
-import com.kairos.context_engine.application.use_case.SearchSourceUseCase;
-import com.kairos.context_engine.application.use_case.UploadSourceUseCase;
-import com.kairos.context_engine.domain.model.SearchResult;
-import com.kairos.context_engine.presentation.dto.response.ContextResponse;
-import com.kairos.context_engine.presentation.mapper.SourceMapper;
+import com.kairos.module.context_engine.application.use_case.SearchSourceUseCase;
+import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
+import com.kairos.module.context_engine.domain.model.SearchResult;
+import com.kairos.module.context_engine.presentation.controller.SourceController;
+import com.kairos.module.context_engine.presentation.dto.response.ContextResponse;
+import com.kairos.module.context_engine.presentation.mapper.SourceMapper;
 import com.kairos.share.exception.GlobalHandlerException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

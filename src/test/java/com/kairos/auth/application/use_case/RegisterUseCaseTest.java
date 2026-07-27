@@ -1,12 +1,13 @@
 package com.kairos.auth.application.use_case;
 
-import com.kairos.auth.application.command.RegisterCommand;
-import com.kairos.auth.domain.model.PendingUser;
-import com.kairos.auth.domain.policy.PasswordPolicy;
-import com.kairos.auth.domain.port.CodeConfirmationPort;
-import com.kairos.auth.domain.port.EmailConfirmationSenderPort;
-import com.kairos.auth.domain.port.PasswordEncoderPort;
-import com.kairos.auth.domain.port.UserRegistrationPort;
+import com.kairos.module.auth.application.command.RegisterCommand;
+import com.kairos.module.auth.application.use_case.RegisterUseCase;
+import com.kairos.module.auth.domain.model.PendingUser;
+import com.kairos.module.auth.domain.policy.PasswordPolicy;
+import com.kairos.module.auth.domain.port.CodeConfirmationPort;
+import com.kairos.module.auth.domain.port.EmailConfirmationSenderPort;
+import com.kairos.module.auth.domain.port.PasswordEncoderPort;
+import com.kairos.module.auth.domain.port.UserRegistrationPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

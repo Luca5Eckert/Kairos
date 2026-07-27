@@ -1,5 +1,6 @@
 package com.kairos.user.infrastructure.persistence.entity;
 
+import com.kairos.module.user.infrastructure.persistence.entity.UserEntity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import org.junit.jupiter.api.DisplayName;

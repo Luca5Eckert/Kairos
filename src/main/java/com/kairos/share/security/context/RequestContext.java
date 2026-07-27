@@ -1,6 +1,6 @@
 package com.kairos.share.security.context;
 
-import com.kairos.user.domain.model.Role;
+import com.kairos.module.user.domain.model.Role;
 
 import java.util.List;
 import java.util.UUID;

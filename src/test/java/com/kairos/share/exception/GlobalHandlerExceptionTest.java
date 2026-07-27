@@ -1,6 +1,6 @@
 package com.kairos.share.exception;
 
-import com.kairos.auth.infrastructure.email.EmailConfirmationDeliveryException;
+import com.kairos.module.auth.infrastructure.email.EmailConfirmationDeliveryException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

@@ -1,13 +1,14 @@
 package com.kairos.context_engine.integration;
 
-import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
-import com.kairos.context_engine.domain.model.knowledge.Passage;
-import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
-import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
-import com.kairos.context_engine.infrastructure.graph.adapter.HippoRagKnowledgeGraphSearchAdapter;
-import com.kairos.context_engine.infrastructure.graph.adapter.KnowledgeGraphStoreAdapter;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
+import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.module.context_engine.domain.model.knowledge.Passage;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
+import com.kairos.module.context_engine.infrastructure.graph.adapter.HippoRagKnowledgeGraphSearchAdapter;
+import com.kairos.module.context_engine.infrastructure.graph.adapter.KnowledgeGraphStoreAdapter;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchResult;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.neo4j.driver.AuthTokens;
@@ -83,7 +84,7 @@ class Neo4jGraphIntegrationTest {
         HippoRagKnowledgeGraphSearchAdapter search = new HippoRagKnowledgeGraphSearchAdapter(executor, 5, 0.85, 0.001);
 
         assertThat(search.expandKnowledge(GraphSearchRequest.from(userId, List.of(GraphSeed.passage(chunkId, 1.0)), 10)))
-                .isEqualTo(com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult.empty());
+                .isEqualTo(GraphSearchResult.empty());
         assertThatCode(search::cleanupOrphanProjections).doesNotThrowAnyException();
     }
 

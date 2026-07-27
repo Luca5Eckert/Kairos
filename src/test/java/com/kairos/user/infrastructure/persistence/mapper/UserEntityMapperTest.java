@@ -1,8 +1,9 @@
 package com.kairos.user.infrastructure.persistence.mapper;
 
-import com.kairos.user.domain.model.Role;
-import com.kairos.user.domain.model.User;
-import com.kairos.user.infrastructure.persistence.entity.UserEntity;
+import com.kairos.module.user.domain.model.Role;
+import com.kairos.module.user.domain.model.User;
+import com.kairos.module.user.infrastructure.persistence.entity.UserEntity;
+import com.kairos.module.user.infrastructure.persistence.mapper.UserEntityMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;

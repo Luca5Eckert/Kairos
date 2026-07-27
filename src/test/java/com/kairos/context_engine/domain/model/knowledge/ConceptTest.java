@@ -1,5 +1,6 @@
 package com.kairos.context_engine.domain.model.knowledge;
 
+import com.kairos.module.context_engine.domain.model.knowledge.Concept;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

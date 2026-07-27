@@ -1,9 +1,11 @@
 package com.kairos.context_engine.infrastructure.relational.repository.chunk;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.content.Source;
-import com.kairos.context_engine.infrastructure.relational.entity.ChunkEntity;
-import com.kairos.context_engine.infrastructure.relational.entity.SourceEntity;
+import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.infrastructure.relational.entity.ChunkEntity;
+import com.kairos.module.context_engine.infrastructure.relational.entity.SourceEntity;
+import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.SpringChunkRepositoryAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,11 +1,12 @@
 package com.kairos.auth.presentation.controller;
 
-import com.kairos.auth.application.use_case.ConfirmEmailUseCase;
-import com.kairos.auth.application.use_case.LoginUseCase;
-import com.kairos.auth.application.use_case.RegisterUseCase;
-import com.kairos.auth.domain.model.AuthenticatedSession;
+import com.kairos.module.auth.application.use_case.ConfirmEmailUseCase;
+import com.kairos.module.auth.application.use_case.LoginUseCase;
+import com.kairos.module.auth.application.use_case.RegisterUseCase;
+import com.kairos.module.auth.domain.model.AuthenticatedSession;
+import com.kairos.module.auth.presentation.controller.AuthController;
 import com.kairos.share.exception.GlobalHandlerException;
-import com.kairos.user.domain.model.Role;
+import com.kairos.module.user.domain.model.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

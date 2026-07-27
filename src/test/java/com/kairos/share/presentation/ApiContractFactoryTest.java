@@ -1,12 +1,12 @@
 package com.kairos.share.presentation;
 
-import com.kairos.auth.application.command.ConfirmEmailCommand;
-import com.kairos.auth.application.command.LoginCommand;
-import com.kairos.auth.application.command.RegisterCommand;
-import com.kairos.auth.presentation.dto.login.LoginResponse;
-import com.kairos.context_engine.application.command.UploadSourceCommand;
-import com.kairos.context_engine.application.query.SearchSourceQuery;
-import com.kairos.user.domain.model.Role;
+import com.kairos.module.auth.application.command.ConfirmEmailCommand;
+import com.kairos.module.auth.application.command.LoginCommand;
+import com.kairos.module.auth.application.command.RegisterCommand;
+import com.kairos.module.auth.presentation.dto.login.LoginResponse;
+import com.kairos.module.context_engine.application.command.UploadSourceCommand;
+import com.kairos.module.context_engine.application.query.SearchSourceQuery;
+import com.kairos.module.user.domain.model.Role;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -1,8 +1,8 @@
 package com.kairos.share.infrastructure.persistence.bootstrap;
 
-import com.kairos.user.domain.model.Role;
-import com.kairos.user.infrastructure.persistence.entity.UserEntity;
-import com.kairos.user.infrastructure.persistence.repository.UserEntityJpaRepository;
+import com.kairos.module.user.domain.model.Role;
+import com.kairos.module.user.infrastructure.persistence.entity.UserEntity;
+import com.kairos.module.user.infrastructure.persistence.repository.UserEntityJpaRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,9 +1,9 @@
 package com.kairos.context_engine.infrastructure.event.consumer;
 
-import com.kairos.context_engine.application.command.GenerateSourceContextCommand;
-import com.kairos.context_engine.application.use_case.GenerateSourceContextUseCase;
-import com.kairos.context_engine.domain.event.CreatedSourceEvent;
-import com.kairos.context_engine.infrastructure.event.consumer.CreatedSourceListener;
+import com.kairos.module.context_engine.application.command.GenerateSourceContextCommand;
+import com.kairos.module.context_engine.application.use_case.GenerateSourceContextUseCase;
+import com.kairos.module.context_engine.domain.event.CreatedSourceEvent;
+import com.kairos.module.context_engine.infrastructure.event.consumer.CreatedSourceListener;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

@@ -1,13 +1,14 @@
 package com.kairos.context_engine.infrastructure.graph.adapter;
 
-import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
-import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
-import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
-import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
-import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchResult;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
+import com.kairos.module.context_engine.infrastructure.graph.adapter.HippoRagKnowledgeGraphSearchAdapter;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
+import com.kairos.module.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
+import com.kairos.module.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
 import org.neo4j.driver.exceptions.ClientException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

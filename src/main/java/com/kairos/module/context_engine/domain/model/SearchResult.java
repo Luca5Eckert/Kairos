@@ -1,0 +1,19 @@
+package com.kairos.module.context_engine.domain.model;
+
+import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.RankedChunk;
+
+import java.util.List;
+
+public record SearchResult(
+        List<RankedChunk> chunks,
+        List<KnowledgeTriple> knowledgeTriples
+) {
+    public static SearchResult from(List<KnowledgeTriple> triples, List<RankedChunk> expandedContext) {
+        return new SearchResult(expandedContext, triples);
+    }
+
+    public static SearchResult empty() {
+        return new SearchResult(List.of(), List.of());
+    }
+}

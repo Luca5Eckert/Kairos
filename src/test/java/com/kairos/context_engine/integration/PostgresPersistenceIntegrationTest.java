@@ -1,14 +1,14 @@
 package com.kairos.context_engine.integration;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.content.Source;
-import com.kairos.context_engine.domain.model.content.TripleExtracted;
-import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
-import com.kairos.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
-import com.kairos.context_engine.infrastructure.relational.repository.chunk.SpringChunkRepositoryAdapter;
-import com.kairos.context_engine.infrastructure.relational.repository.source.SpringSourceRepositoryAdapter;
-import com.kairos.context_engine.infrastructure.relational.repository.triple.SpringTripleRepositoryAdapter;
-import com.kairos.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
+import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.content.TripleExtracted;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.ScoredPassage;
+import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.SpringChunkRepositoryAdapter;
+import com.kairos.module.context_engine.infrastructure.relational.repository.source.SpringSourceRepositoryAdapter;
+import com.kairos.module.context_engine.infrastructure.relational.repository.triple.SpringTripleRepositoryAdapter;
+import com.kairos.module.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

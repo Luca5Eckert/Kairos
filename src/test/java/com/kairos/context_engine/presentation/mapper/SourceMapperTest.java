@@ -1,13 +1,14 @@
 package com.kairos.context_engine.presentation.mapper;
 
-import com.kairos.context_engine.domain.model.SearchResult;
-import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.content.Source;
-import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
-import com.kairos.context_engine.domain.model.knowledge.Passage;
-import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
-import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
-import com.kairos.context_engine.presentation.dto.response.ContextResponse;
+import com.kairos.module.context_engine.domain.model.SearchResult;
+import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.module.context_engine.domain.model.knowledge.Passage;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.RankedChunk;
+import com.kairos.module.context_engine.domain.model.retrieval.source.RetrievalSource;
+import com.kairos.module.context_engine.presentation.dto.response.ContextResponse;
+import com.kairos.module.context_engine.presentation.mapper.SourceMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -1,0 +1,18 @@
+package com.kairos.module.auth.presentation.dto.login;
+
+import com.kairos.module.user.domain.model.Role;
+
+import java.util.List;
+
+public record LoginResponse(
+        String accessToken,
+        List<String> roles
+) {
+    public static LoginResponse of(String accessToken, List<Role> roles) {
+        var roleNames = roles.stream()
+                .map(Role::name)
+                .toList();
+
+        return new LoginResponse(accessToken, roleNames);
+    }
+}

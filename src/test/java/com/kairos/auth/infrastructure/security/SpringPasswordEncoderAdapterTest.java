@@ -1,6 +1,6 @@
 package com.kairos.auth.infrastructure.security;
 
-import com.kairos.auth.infrastructure.security.adapter.SpringPasswordEncoderAdapter;
+import com.kairos.module.auth.infrastructure.security.adapter.SpringPasswordEncoderAdapter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;

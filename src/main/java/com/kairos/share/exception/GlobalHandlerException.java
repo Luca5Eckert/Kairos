@@ -1,7 +1,7 @@
 package com.kairos.share.exception;
 
-import com.kairos.auth.infrastructure.email.EmailConfirmationDeliveryException;
-import com.kairos.context_engine.domain.exception.EmbeddingException;
+import com.kairos.module.auth.infrastructure.email.EmailConfirmationDeliveryException;
+import com.kairos.module.context_engine.domain.exception.EmbeddingException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

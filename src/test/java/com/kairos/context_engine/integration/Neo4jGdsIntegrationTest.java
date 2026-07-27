@@ -1,13 +1,13 @@
 package com.kairos.context_engine.integration;
 
-import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
-import com.kairos.context_engine.domain.model.knowledge.Passage;
-import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
-import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
-import com.kairos.context_engine.infrastructure.graph.adapter.HippoRagKnowledgeGraphSearchAdapter;
-import com.kairos.context_engine.infrastructure.graph.adapter.KnowledgeGraphStoreAdapter;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
+import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.module.context_engine.domain.model.knowledge.Passage;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
+import com.kairos.module.context_engine.infrastructure.graph.adapter.HippoRagKnowledgeGraphSearchAdapter;
+import com.kairos.module.context_engine.infrastructure.graph.adapter.KnowledgeGraphStoreAdapter;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphMutationExecutor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.neo4j.driver.AuthTokens;

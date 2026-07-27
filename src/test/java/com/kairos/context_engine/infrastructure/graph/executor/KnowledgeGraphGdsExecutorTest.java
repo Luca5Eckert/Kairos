@@ -1,9 +1,10 @@
 package com.kairos.context_engine.infrastructure.graph.executor;
 
-import com.kairos.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
-import com.kairos.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
-import com.kairos.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor;
+import com.kairos.module.context_engine.infrastructure.graph.repository.projection.GraphExpansionResult;
+import com.kairos.module.context_engine.infrastructure.graph.repository.projection.PassageScoringResult;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedConceptSeed;
+import com.kairos.module.context_engine.infrastructure.graph.executor.KnowledgeGraphGdsExecutor.WeightedPassageSeed;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

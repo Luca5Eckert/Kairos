@@ -1,6 +1,9 @@
 package com.kairos.context_engine.domain.model.retrieval.candidate;
 
-import com.kairos.context_engine.domain.model.knowledge.Concept;
+import com.kairos.module.context_engine.domain.model.knowledge.Concept;
+import com.kairos.module.context_engine.domain.model.retrieval.candidate.ConceptCandidate;
+import com.kairos.module.context_engine.domain.model.retrieval.candidate.PassageCandidate;
+import com.kairos.module.context_engine.domain.model.retrieval.candidate.TripleCandidate;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;

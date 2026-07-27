@@ -1,10 +1,11 @@
 package com.kairos.context_engine.infrastructure.recognition;
 
-import com.kairos.context_engine.domain.model.retrieval.candidate.TripleCandidate;
-import com.kairos.context_engine.domain.model.retrieval.seed.ConceptSeedTarget;
-import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
-import com.kairos.context_engine.infrastructure.recognition.dto.RecognizedConcept;
-import com.kairos.context_engine.infrastructure.recognition.dto.RecognitionMemoryResult;
+import com.kairos.module.context_engine.domain.model.retrieval.candidate.TripleCandidate;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.ConceptSeedTarget;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
+import com.kairos.module.context_engine.infrastructure.recognition.GeminiRecognitionMemoryAdapter;
+import com.kairos.module.context_engine.infrastructure.recognition.dto.RecognizedConcept;
+import com.kairos.module.context_engine.infrastructure.recognition.dto.RecognitionMemoryResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.prompt.PromptTemplate;

@@ -1,18 +1,18 @@
 package com.kairos.context_engine.domain.model.retrieval;
 
-import com.kairos.context_engine.domain.model.content.Chunk;
-import com.kairos.context_engine.domain.model.content.Source;
-import com.kairos.context_engine.domain.model.knowledge.KnowledgeTriple;
-import com.kairos.context_engine.domain.model.knowledge.Passage;
-import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
-import com.kairos.context_engine.domain.model.retrieval.graph.GraphSearchResult;
-import com.kairos.context_engine.domain.model.retrieval.ranking.RankedChunk;
-import com.kairos.context_engine.domain.model.retrieval.ranking.ScoredPassage;
-import com.kairos.context_engine.domain.model.retrieval.seed.ConceptSeedTarget;
-import com.kairos.context_engine.domain.model.retrieval.seed.GraphSeed;
-import com.kairos.context_engine.domain.model.retrieval.seed.PassageSeedTarget;
-import com.kairos.context_engine.domain.model.retrieval.seed.SeedType;
-import com.kairos.context_engine.domain.model.retrieval.source.RetrievalSource;
+import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
+import com.kairos.module.context_engine.domain.model.knowledge.Passage;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
+import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchResult;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.RankedChunk;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.ScoredPassage;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.ConceptSeedTarget;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.PassageSeedTarget;
+import com.kairos.module.context_engine.domain.model.retrieval.seed.SeedType;
+import com.kairos.module.context_engine.domain.model.retrieval.source.RetrievalSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

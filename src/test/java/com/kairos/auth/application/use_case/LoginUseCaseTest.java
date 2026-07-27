@@ -1,11 +1,12 @@
 package com.kairos.auth.application.use_case;
 
-import com.kairos.auth.application.command.LoginCommand;
-import com.kairos.auth.domain.model.AuthenticatedSession;
-import com.kairos.auth.domain.model.AuthenticatedUser;
-import com.kairos.auth.domain.port.AuthenticatorPort;
-import com.kairos.auth.domain.port.SessionIssuerPort;
-import com.kairos.user.domain.model.Role;
+import com.kairos.module.auth.application.command.LoginCommand;
+import com.kairos.module.auth.application.use_case.LoginUseCase;
+import com.kairos.module.auth.domain.model.AuthenticatedSession;
+import com.kairos.module.auth.domain.model.AuthenticatedUser;
+import com.kairos.module.auth.domain.port.AuthenticatorPort;
+import com.kairos.module.auth.domain.port.SessionIssuerPort;
+import com.kairos.module.user.domain.model.Role;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
