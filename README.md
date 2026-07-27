@@ -269,6 +269,8 @@ The retrieval result is passage-first. `KnowledgeTriple` values are returned as 
 
 OpenAPI/Swagger UI is not configured in the current build.
 
+Uma coleção importável do Postman, com testes de contrato, autenticação, validação e segurança, está disponível em [docs/postman/Kairos.postman_collection.json](docs/postman/Kairos.postman_collection.json). Para Docker Compose, importe também [docs/postman/Kairos.local.postman_environment.json](docs/postman/Kairos.local.postman_environment.json) e selecione o ambiente; ajuste apenas `baseUrl` caso a porta publicada seja diferente de `8081`.
+
 ### Auth
 
 | Method | Path | Description |
