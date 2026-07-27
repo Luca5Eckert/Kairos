@@ -1,0 +1,136 @@
+{
+  "info": {
+    "_postman_id": "9bd406a2-0848-4e63-9d11-84217bd6712b",
+    "name": "Kairos API",
+    "description": "Coleção de integração para todos os endpoints HTTP atualmente expostos pelo Kairos.\n\nFluxo recomendado: **Health → Login → Sources / Upload → Sources / Search**. O enriquecimento de fontes é assíncrono; aguarde alguns segundos após o upload antes de buscar.\n\nAs requisições de validação e segurança são negativas intencionalmente e não devem ser usadas como pré-requisito do fluxo principal. `Register` exige SMTP configurado e `Confirm email` requer o código recebido por e-mail.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "identifier", "value": "admin", "type": "string" },
+    { "key": "password", "value": "Admin123!", "type": "string" },
+    { "key": "name", "value": "Postman Test User", "type": "string" },
+    { "key": "username", "value": "postman-user", "type": "string" },
+    { "key": "email", "value": "", "type": "string" },
+    { "key": "confirmationCode", "value": "", "type": "string" },
+    { "key": "sourceTitle", "value": "RAG e grafos de conhecimento", "type": "string" },
+    { "key": "sourceContent", "value": "Retrieval augmented generation combina um recuperador com um modelo de linguagem. Grafos de conhecimento representam entidades e relacionamentos explicitamente. Personalized PageRank propaga relevância através de conceitos conectados.", "type": "string" },
+    { "key": "searchQuery", "value": "Como um grafo de conhecimento melhora retrieval augmented generation?", "type": "string" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('testRunId')) {",
+          "  pm.collectionVariables.set('testRunId', `${Date.now()}-${Math.floor(Math.random() * 10000)}`);",
+          "}",
+          "if (!pm.collectionVariables.get('email')) {",
+          "  pm.collectionVariables.set('email', `postman-${pm.collectionVariables.get('testRunId')}@example.test`);",
+          "}",
+          "if (!pm.collectionVariables.get('username') || pm.collectionVariables.get('username') === 'postman-user') {",
+          "  pm.collectionVariables.set('username', `postman-${pm.collectionVariables.get('testRunId')}`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/actuator/health", "description": "Endpoint público de saúde da aplicação." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "pm.test('Status é UP', () => pm.expect(pm.response.json().status).to.eql('UP'));", "pm.test('Resposta é JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));" ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login (captura token)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{identifier}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/login",
+            "description": "Autentica por username ou e-mail. Configure `identifier` e `password` para o ambiente. Em Docker, os valores padrão correspondem ao bootstrap local."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.test('Retorna access token JWT e papéis', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.accessToken.split('.')).to.have.length(3); pm.expect(body.roles).to.be.an('array'); });", "pm.collectionVariables.set('accessToken', body.accessToken);" ] } }]
+        },
+        {
+          "name": "Register new user (SMTP required)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{name}}\",\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/register",
+            "description": "Cria um usuário pendente. A coleção gera e conserva username/e-mail únicos durante a execução; requer envio de e-mail SMTP funcional."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 201 sem corpo', () => { pm.response.to.have.status(201); pm.expect(pm.response.text()).to.be.empty; });" ] } }]
+        },
+        {
+          "name": "Confirm email (captura token)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{confirmationCode}}\",\n  \"email\": \"{{email}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/confirm-email",
+            "description": "Preencha `confirmationCode` com o código enviado no registro. Ao sucesso, substitui `accessToken` pelo token do novo usuário."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.test('Retorna token e papéis', () => { pm.expect(body.accessToken).to.be.a('string').and.not.empty; pm.expect(body.roles).to.be.an('array'); });", "pm.collectionVariables.set('accessToken', body.accessToken);" ] } }]
+        },
+        {
+          "name": "Login validation error",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"\",\n  \"password\": \"\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/auth/login", "description": "Cenário negativo: valida os campos obrigatórios do login." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna erro de validação 400', () => pm.response.to.have.status(400));", "const body = pm.response.json();", "pm.test('Contrato de erro é preservado', () => { pm.expect(body).to.include({ code: 400, message: 'Validation error', path: '/auth/login' }); pm.expect(body.fieldErrors).to.be.an('array').with.length(2); });" ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Sources (authenticated)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Upload source",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"{{sourceTitle}}\",\n  \"content\": \"{{sourceContent}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources", "description": "Inicia a ingestão para o usuário autenticado. O processamento de chunks e grafo é assíncrono." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 201 sem corpo', () => { pm.response.to.have.status(201); pm.expect(pm.response.text()).to.be.empty; });" ] } }]
+        },
+        {
+          "name": "Search source context",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"termQuery\": \"{{searchQuery}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources/search", "description": "Busca contexto no conhecimento do usuário autenticado. Execute após o enriquecimento assíncrono terminar." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.test('Contrato de contexto é preservado', () => { pm.expect(body.knowledgeGraph).to.be.an('array'); pm.expect(body.chunkContexts).to.be.an('array'); });", "pm.test('Itens retornados respeitam o esquema', () => { body.knowledgeGraph.forEach(item => pm.expect(item).to.have.all.keys('subject', 'predicate', 'object', 'chunkId')); body.chunkContexts.forEach(item => pm.expect(item).to.have.all.keys('chunkId', 'content', 'rank', 'score', 'source')); });" ] } }]
+        },
+        {
+          "name": "Upload validation error",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"\",\n  \"content\": \"\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources", "description": "Cenário negativo autenticado: valida os campos obrigatórios da fonte." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna erro de validação 400', () => pm.response.to.have.status(400));", "const body = pm.response.json();", "pm.test('Contrato de erro é preservado', () => { pm.expect(body).to.include({ code: 400, message: 'Validation error', path: '/sources' }); pm.expect(body.fieldErrors).to.be.an('array').with.length(2); });" ] } }]
+        },
+        {
+          "name": "Search validation error",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"termQuery\": \"\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources/search", "description": "Cenário negativo autenticado: valida a consulta obrigatória." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna erro de validação 400', () => pm.response.to.have.status(400));", "const body = pm.response.json();", "pm.test('Contrato de erro é preservado', () => { pm.expect(body).to.include({ code: 400, message: 'Validation error', path: '/sources/search' }); pm.expect(body.fieldErrors).to.be.an('array').with.length(1); });" ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Security (negative)",
+      "item": [
+        {
+          "name": "Upload source without token",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Fonte sem autenticação\",\n  \"content\": \"Esta requisição deve ser recusada.\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources", "description": "Cenário negativo: `/sources` não pode aceitar chamadas anônimas." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 401', () => pm.response.to.have.status(401));" ] } }]
+        },
+        {
+          "name": "Search source without token",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"termQuery\": \"consulta sem autenticação\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources/search", "description": "Cenário negativo: a busca deve exigir JWT bearer." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 401', () => pm.response.to.have.status(401));" ] } }]
+        }
+      ]
+    }
+  ]
+}
