@@ -1,6 +1,5 @@
 package com.kairos.module.context_engine.domain.model.knowledge;
 
-import com.kairos.module.context_engine.domain.model.knowledge.Passage;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;

@@ -1,7 +1,6 @@
 package com.kairos.module.auth.application.use_case;
 
 import com.kairos.module.auth.application.command.RegisterCommand;
-import com.kairos.module.auth.application.use_case.RegisterUseCase;
 import com.kairos.module.auth.domain.model.PendingUser;
 import com.kairos.module.auth.domain.policy.PasswordPolicy;
 import com.kairos.module.auth.domain.port.CodeConfirmationPort;
@@ -18,11 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RegisterUseCaseTest {

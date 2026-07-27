@@ -1,7 +1,6 @@
 package com.kairos.module.context_engine.infrastructure.event.publisher;
 
 import com.kairos.module.context_engine.domain.event.CreatedSourceEvent;
-import com.kairos.module.context_engine.infrastructure.event.publisher.SpringSourceEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -9,7 +8,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.*;
 
 class SpringSourceEventPublisherTest {

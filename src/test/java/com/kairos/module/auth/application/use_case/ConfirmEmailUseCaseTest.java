@@ -1,7 +1,6 @@
 package com.kairos.module.auth.application.use_case;
 
 import com.kairos.module.auth.application.command.ConfirmEmailCommand;
-import com.kairos.module.auth.application.use_case.ConfirmEmailUseCase;
 import com.kairos.module.auth.domain.model.AuthenticatedSession;
 import com.kairos.module.auth.domain.model.AuthenticatedUser;
 import com.kairos.module.auth.domain.port.SessionIssuerPort;
@@ -19,10 +18,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ConfirmEmailUseCaseTest {

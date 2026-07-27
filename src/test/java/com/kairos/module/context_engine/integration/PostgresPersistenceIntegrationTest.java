@@ -10,6 +10,7 @@ import com.kairos.module.context_engine.infrastructure.relational.repository.sou
 import com.kairos.module.context_engine.infrastructure.relational.repository.triple.SpringTripleRepositoryAdapter;
 import com.kairos.module.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import jakarta.persistence.EntityManager;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(
         classes = PostgresPersistenceIntegrationTest.IntegrationApplication.class,
-        properties = "spring.jpa.hibernate.ddl-auto=create-drop"
+        properties = "spring.jpa.hibernate.ddl-auto=validate"
 )
 @Import({
         SemanticSearchAdapter.class,
@@ -47,8 +48,10 @@ class PostgresPersistenceIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16")
             .withDatabaseName("kairos")
             .withUsername("kairos")
-            .withPassword("kairos")
-            .withInitScript("postgres-init.sql");
+            .withPassword("kairos");
+
+    @Autowired
+    private Flyway flyway;
 
     @Autowired
     private SpringSourceRepositoryAdapter sourceRepository;
@@ -78,6 +81,11 @@ class PostgresPersistenceIntegrationTest {
     @AfterEach
     void clearPersistenceContext() {
         entityManager.clear();
+    }
+
+    @Test
+    void appliesInitialMigrationBeforeJpaValidation() {
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
     }
 
     @Test
@@ -185,11 +193,11 @@ class PostgresPersistenceIntegrationTest {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @EntityScan(basePackages = "com.kairos.context_engine.infrastructure.relational.entity")
+    @EntityScan(basePackages = "com.kairos.module.context_engine.infrastructure.relational.entity")
     @EnableJpaRepositories(basePackages = {
-            "com.kairos.context_engine.infrastructure.relational.repository.chunk",
-            "com.kairos.context_engine.infrastructure.relational.repository.source",
-            "com.kairos.context_engine.infrastructure.relational.repository.triple"
+            "com.kairos.module.context_engine.infrastructure.relational.repository.chunk",
+            "com.kairos.module.context_engine.infrastructure.relational.repository.source",
+            "com.kairos.module.context_engine.infrastructure.relational.repository.triple"
     })
     static class IntegrationApplication {
     }

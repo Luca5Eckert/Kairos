@@ -1,9 +1,6 @@
 package com.kairos.module.context_engine.domain.model.knowledge;
 
 import com.kairos.module.context_engine.domain.model.Triple;
-import com.kairos.module.context_engine.domain.model.knowledge.Concept;
-import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
-import com.kairos.module.context_engine.domain.model.knowledge.Passage;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;

@@ -1,6 +1,5 @@
 package com.kairos.module.context_engine.infrastructure.extraction;
 
-import com.kairos.module.context_engine.infrastructure.extraction.GeminiTripleExtractorAdapter;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 

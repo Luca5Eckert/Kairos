@@ -1,7 +1,5 @@
 package com.kairos.module.auth.infrastructure.email;
 
-import com.kairos.module.auth.infrastructure.email.EmailConfirmationDeliveryException;
-import com.kairos.module.auth.infrastructure.email.SmtpEmailConfirmationSenderAdapter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
