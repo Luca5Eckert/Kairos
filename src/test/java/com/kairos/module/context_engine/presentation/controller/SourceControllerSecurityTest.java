@@ -1,6 +1,7 @@
 package com.kairos.module.context_engine.presentation.controller;
 
 import com.kairos.module.context_engine.application.use_case.SearchSourceUseCase;
+import com.kairos.module.context_engine.application.use_case.GetAllSourceProgressUploadUseCase;
 import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
 import com.kairos.module.context_engine.presentation.controller.SourceController;
 import com.kairos.module.context_engine.presentation.mapper.SourceMapper;
@@ -30,6 +31,9 @@ class SourceControllerSecurityTest {
 
     @MockitoBean
     private SearchSourceUseCase searchSourceUseCase;
+
+    @MockitoBean
+    private GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase;
 
     @MockitoBean
     private SourceMapper mapper;
