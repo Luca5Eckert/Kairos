@@ -1,8 +1,11 @@
 package com.kairos.module.context_engine.presentation.controller;
 
 import com.kairos.module.context_engine.application.use_case.SearchSourceUseCase;
+import com.kairos.module.context_engine.application.use_case.GetAllSourceProgressUploadUseCase;
 import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
 import com.kairos.module.context_engine.domain.model.SearchResult;
+import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.progress.SourceProgressUpload;
 import com.kairos.module.context_engine.presentation.controller.SourceController;
 import com.kairos.module.context_engine.presentation.dto.response.ContextResponse;
 import com.kairos.module.context_engine.presentation.mapper.SourceMapper;
@@ -37,13 +40,21 @@ class SourceControllerTest {
     private SearchSourceUseCase searchSourceUseCase;
 
     @Mock
+    private GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase;
+
+    @Mock
     private SourceMapper mapper;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = standaloneSetup(new SourceController(uploadSourceUseCase, searchSourceUseCase, mapper))
+        mockMvc = standaloneSetup(new SourceController(
+                uploadSourceUseCase,
+                searchSourceUseCase,
+                getAllSourceProgressUploadUseCase,
+                mapper
+        ))
                 .setControllerAdvice(new GlobalHandlerException())
                 .build();
     }
@@ -182,5 +193,25 @@ class SourceControllerTest {
                 .andExpect(jsonPath("$.path").value("/sources"));
 
         verifyNoInteractions(searchSourceUseCase, mapper);
+    }
+
+    @Test
+    void getAllSourceProgressUpload_returnsMappedProgressForAuthenticatedUser() throws Exception {
+        Source source = new Source(UUID.fromString("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"), "RAG notes", "content");
+        List<SourceProgressUpload> progress = List.of(new SourceProgressUpload(source, 5, 3));
+        var response = com.kairos.module.context_engine.presentation.dto.response.ProgressUploadResponse.of(progress);
+        when(getAllSourceProgressUploadUseCase.execute()).thenReturn(progress);
+        when(mapper.toProgressUploadResponse(progress)).thenReturn(response);
+
+        mockMvc.perform(get("/sources/progress"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sourceProgressUploads.length()").value(1))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].sourceId").value(source.getId().toString()))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].sourceTitle").value("RAG notes"))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].totalChunks").value(5))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].processedChunks").value(3));
+
+        verify(getAllSourceProgressUploadUseCase).execute();
+        verify(mapper).toProgressUploadResponse(progress);
     }
 }
