@@ -2,11 +2,13 @@ package com.kairos.module.context_engine.presentation.controller;
 
 import com.kairos.module.context_engine.application.command.UploadSourceCommand;
 import com.kairos.module.context_engine.application.query.SearchSourceQuery;
+import com.kairos.module.context_engine.application.use_case.GetAllSourceProgressUploadUseCase;
 import com.kairos.module.context_engine.application.use_case.SearchSourceUseCase;
 import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
 import com.kairos.module.context_engine.presentation.dto.request.GenerateSourceContextRequest;
 import com.kairos.module.context_engine.presentation.dto.request.UploadSourceRequest;
 import com.kairos.module.context_engine.presentation.dto.response.ContextResponse;
+import com.kairos.module.context_engine.presentation.dto.response.ProgressUploadResponse;
 import com.kairos.module.context_engine.presentation.mapper.SourceMapper;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,12 +21,14 @@ public class SourceController {
 
     private final UploadSourceUseCase uploadSourceUseCase;
     private final SearchSourceUseCase searchSourceUseCase;
+    private final GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase;
 
     private final SourceMapper mapper;
 
-    public SourceController(UploadSourceUseCase uploadSourceUseCase, SearchSourceUseCase searchSourceUseCase, SourceMapper mapper) {
+    public SourceController(UploadSourceUseCase uploadSourceUseCase, SearchSourceUseCase searchSourceUseCase, GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase, SourceMapper mapper) {
         this.uploadSourceUseCase = uploadSourceUseCase;
         this.searchSourceUseCase = searchSourceUseCase;
+        this.getAllSourceProgressUploadUseCase = getAllSourceProgressUploadUseCase;
         this.mapper = mapper;
     }
 
@@ -53,5 +57,11 @@ public class SourceController {
         return ResponseEntity.ok(mapper.toContextResponse(result));
     }
 
+    @GetMapping("/progress")
+    public ResponseEntity<ProgressUploadResponse> getAllSourceProgressUpload() {
+        var result = getAllSourceProgressUploadUseCase.execute();
+
+        return ResponseEntity.ok(mapper.toProgressUploadResponse(result));
+    }
 
 }

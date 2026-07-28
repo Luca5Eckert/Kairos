@@ -25,9 +25,10 @@ import java.util.UUID;
 public class GenerateSourceContextUseCase {
 
     private final TripleExtractor tripleExtractor;
+    private final KnowledgeGraphStore knowledgeGraphStore;
+
     private final EmbeddingProvider embeddingProvider;
 
-    private final KnowledgeGraphStore knowledgeGraphStore;
     private final ChunkRepository chunkRepository;
     private final SourceRepository sourceRepository;
     private final TripleRepository tripleRepository;
