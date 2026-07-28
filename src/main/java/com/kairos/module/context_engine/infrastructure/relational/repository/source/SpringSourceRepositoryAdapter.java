@@ -1,6 +1,7 @@
 package com.kairos.module.context_engine.infrastructure.relational.repository.source;
 
 import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.progress.SourceProgressUpload;
 import com.kairos.module.context_engine.domain.port.repository.SourceRepository;
 import com.kairos.module.context_engine.infrastructure.relational.entity.SourceEntity;
 import org.springframework.data.domain.PageRequest;
@@ -48,4 +49,16 @@ public class SpringSourceRepositoryAdapter implements SourceRepository {
                 .toList();
     }
 
+    @Override
+    public List<SourceProgressUpload> findAllSourcesProgressByAuthorId(UUID authorId) {
+        var sourceProgressEntities = jpaSourceRepository.findAllSourcesProgressByAuthorId(authorId);
+
+        return sourceProgressEntities.stream()
+                .map(projection -> new SourceProgressUpload(
+                        new Source(projection.getTitle(), projection.getContent()),
+                        projection.getTotalChunks(),
+                        projection.getProcessedChunks()
+                ))
+                .toList();
+    }
 }

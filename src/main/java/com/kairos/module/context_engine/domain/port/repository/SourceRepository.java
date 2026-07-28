@@ -1,6 +1,7 @@
 package com.kairos.module.context_engine.domain.port.repository;
 
 import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.progress.SourceProgressUpload;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,4 +31,10 @@ public interface SourceRepository {
      */
     List<Source> findAll(int k);
 
+    /**
+     * Retrieve a list of source progress for a specific author.
+     * @param authorId The unique identifier of the author.
+     * @return A list of source progress for the specified author.
+     */
+    List<SourceProgressUpload> findAllSourcesProgressByAuthorId(UUID authorId);
 }
