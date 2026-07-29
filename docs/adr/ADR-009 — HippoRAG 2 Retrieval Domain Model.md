@@ -1,18 +1,3 @@
----
-type: adr
-project:
-  - kairos
-tags:
-  - kairos
-  - adr
-  - retrieval
-  - hipporag
-  - domain-model
-status: accepted
-created: 2026-04-27
-updated: 2026-04-27
----
-
 # ADR-009 — HippoRAG 2 Retrieval Domain Model
 
 - **Status:** Accepted

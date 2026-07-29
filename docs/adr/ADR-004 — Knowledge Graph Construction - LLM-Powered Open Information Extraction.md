@@ -1,3 +1,5 @@
+# ADR-004 — Knowledge Graph Construction - LLM-Powered Open Information Extraction
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine

@@ -1,3 +1,4 @@
+# ADR-003 — Retrieval Framework - HippoRAG 2
 
 - **Status:** Accepted
 - **Date:** 2026-04-05

@@ -1,3 +1,5 @@
+# ADR-005 — ONNX Embedding Pipeline - all-MiniLM-L6-v2 on the JVM
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine

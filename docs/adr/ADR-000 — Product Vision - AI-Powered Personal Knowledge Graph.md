@@ -1,3 +1,5 @@
+# ADR-000 — Product Vision - AI-Powered Personal Knowledge Graph
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine

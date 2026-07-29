@@ -1,3 +1,5 @@
+# ADR-006 — Chunking Strategy - Sliding Window with Overlap
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine

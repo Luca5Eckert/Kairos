@@ -1,3 +1,5 @@
+# ADR-007 — Ingestion Pipeline - Async Dual-Path Processing
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine

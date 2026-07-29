@@ -1,3 +1,4 @@
+# ADR-002 — Dual-Store Architecture pgvector + Neo4j
 
 - **Status:** Accepted
 - **Date:** 2026-04-05

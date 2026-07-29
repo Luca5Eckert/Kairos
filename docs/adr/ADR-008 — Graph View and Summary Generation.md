@@ -1,3 +1,5 @@
+# ADR-008 — Graph View and Summary Generation
+
 - **Status:** Accepted
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine
