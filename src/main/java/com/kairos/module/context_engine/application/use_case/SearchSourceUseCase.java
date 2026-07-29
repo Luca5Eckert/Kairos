@@ -17,9 +17,9 @@ import com.kairos.module.context_engine.domain.port.graph.KnowledgeGraphSearch;
 import com.kairos.module.context_engine.domain.port.repository.HistoryRepository;
 import com.kairos.module.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.module.context_engine.domain.port.semantic.SemanticSearch;
+import com.kairos.module.context_engine.infrastructure.config.RetrievalProperties;
 import com.kairos.share.security.context.RequestContextProvider;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -40,24 +40,7 @@ public class SearchSourceUseCase {
     private final RecognitionMemory recognitionMemory;
     private final RequestContextProvider requestContextProvider;
     private final HistoryRepository historyRepository;
-
-    @Value("${kairos.retrieval.semantic-anchor-limit:10}")
-    private int semanticAnchorLimit = 10;
-
-    @Value("${kairos.retrieval.graph-passage-limit:20}")
-    private int graphPassageLimit = 20;
-
-    @Value("${kairos.retrieval.triple-candidate-limit:30}")
-    private int tripleCandidateLimit = 30;
-
-    @Value("${kairos.retrieval.recognition-seed-limit:10}")
-    private int recognitionSeedLimit = 10;
-
-    @Value("${kairos.retrieval.seed-min-score:0.45}")
-    private double seedMinScore = 0.45d;
-
-    @Value("${kairos.retrieval.seed-relative-threshold:0.85}")
-    private double seedRelativeThreshold = 0.85d;
+    private final RetrievalProperties retrievalProperties;
 
     public SearchResult execute(SearchSourceQuery query) {
         UUID userId = requestContextProvider.getRequestContext().userId();
@@ -66,13 +49,16 @@ public class SearchSourceUseCase {
 
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
-        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, userId, semanticAnchorLimit);
-        List<TripleCandidate> tripleCandidates = semanticSearch.findTripleCandidates(queryVector, userId, tripleCandidateLimit);
+        List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(
+                queryVector, userId, retrievalProperties.semanticAnchorLimit());
+        List<TripleCandidate> tripleCandidates = semanticSearch.findTripleCandidates(
+                queryVector, userId, retrievalProperties.tripleCandidateLimit());
 
         List<GraphSeed> conceptSeeds = tripleCandidates.isEmpty()
                 ? List.of()
                 : List.copyOf(Optional.ofNullable(
-                        recognitionMemory.recognize(query.searchTerm(), tripleCandidates, recognitionSeedLimit)).orElse(List.of()));
+                        recognitionMemory.recognize(query.searchTerm(), tripleCandidates,
+                                retrievalProperties.recognitionSeedLimit())).orElse(List.of()));
 
         List<GraphSeed> seeds = instanceSeedsFromCandidates(passageCandidates, conceptSeeds);
         SearchResult result = retrieve(userId, seeds);
@@ -88,7 +74,7 @@ public class SearchSourceUseCase {
         }
 
         GraphSearchResult graphResult = knowledgeGraphSearch.expandKnowledge(
-                GraphSearchRequest.from(userId, seeds, graphPassageLimit)
+                GraphSearchRequest.from(userId, seeds, retrievalProperties.graphPassageLimit())
         );
         List<RankedChunk> chunks = graphResult.scoredPassages().isEmpty()
                 ? List.of()
@@ -108,8 +94,14 @@ public class SearchSourceUseCase {
     }
 
     private AnswerSnapshot.RetrievalParameters parameters() {
-        return new AnswerSnapshot.RetrievalParameters(semanticAnchorLimit, tripleCandidateLimit, recognitionSeedLimit,
-                graphPassageLimit, seedMinScore, seedRelativeThreshold);
+        return new AnswerSnapshot.RetrievalParameters(
+                retrievalProperties.semanticAnchorLimit(),
+                retrievalProperties.tripleCandidateLimit(),
+                retrievalProperties.recognitionSeedLimit(),
+                retrievalProperties.graphPassageLimit(),
+                retrievalProperties.seedMinScore(),
+                retrievalProperties.seedRelativeThreshold()
+        );
     }
 
     private Question questionFor(SearchSourceQuery query, UUID userId) {
@@ -144,7 +136,8 @@ public class SearchSourceUseCase {
             return Double.POSITIVE_INFINITY;
         }
 
-        return Math.max(seedMinScore, bestScore * seedRelativeThreshold);
+        return Math.max(retrievalProperties.seedMinScore(),
+                bestScore * retrievalProperties.seedRelativeThreshold());
     }
 
     private List<KnowledgeTriple> filterActivatedTriples(List<KnowledgeTriple> triples, List<RankedChunk> rankedChunks) {
