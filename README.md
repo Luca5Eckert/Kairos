@@ -6,7 +6,7 @@
 
 <p>
   <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21">
-  <img src="https://img.shields.io/badge/Spring%20Boot-4.0.5-green" alt="Spring Boot 4.0.5">
+  <img src="https://img.shields.io/badge/Spring%20Boot-4.0.7-green" alt="Spring Boot 4.0.7">
   <img src="https://img.shields.io/badge/Spring%20AI-2.0.0--M6-green" alt="Spring AI 2.0.0-M6">
   <img src="https://img.shields.io/badge/PostgreSQL-16-blue" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/Neo4j-5.26-blue" alt="Neo4j 5.26">
@@ -27,6 +27,7 @@ The project is intentionally built as a retrieval backend rather than a chat int
 - [Current capabilities](#current-capabilities)
 - [Why graph-augmented retrieval](#why-graph-augmented-retrieval)
 - [Architecture](#architecture)
+- [Data model](#data-model)
 - [Ingestion flow](#ingestion-flow)
 - [Retrieval and history flow](#retrieval-and-history-flow)
 - [API](#api)
@@ -148,9 +149,24 @@ flowchart TB
 The stores have deliberately different responsibilities:
 
 - **PostgreSQL** is the source of truth for users, sources, chunks, vectors, triples, progress, questions, and answers.
-- **pgvector** performs dense passage and triple candidate retrieval using HNSW indexes.
-- **Neo4j** contains a user-scoped projection of passages, concepts, and relationships used for graph expansion.
+- **pgvector** is the PostgreSQL extension used for HNSW-backed dense passage and triple recall; it does not own the source data.
+- **Neo4j with Graph Data Science** contains a user-scoped, derived projection of passages, concepts, and relationships, then runs weighted Personalized PageRank for graph propagation.
+- **Gemini** is limited to structured triple extraction and constrained recognition-memory seed selection; it is not the primary ranking engine.
 - **Answer snapshots** are self-contained historical records. Reading one does not require loading the current chunks, triples, or Neo4j graph.
+
+## Data model
+
+The persistent model separates durable knowledge from its graph projection:
+
+| Record | Purpose | Storage |
+| --- | --- | --- |
+| Source | User-owned submitted document | PostgreSQL |
+| Chunk | Overlapping, processable source segment with embedding and processing state | PostgreSQL + pgvector |
+| Knowledge triple | Subject-predicate-object fact extracted from a chunk | PostgreSQL; projected to Neo4j |
+| Passage and concept nodes | Derived graph representation connecting chunks through concepts | Neo4j |
+| Question and `AnswerSnapshot` | Immutable, versioned record of a retrieval execution and its returned context | PostgreSQL JSONB |
+
+Neo4j can therefore be rebuilt from durable PostgreSQL data, while a historical answer remains readable without depending on the current graph or chunks.
 
 ## Ingestion flow
 
@@ -206,7 +222,20 @@ flowchart LR
     question --> snapshot
 ```
 
-Retrieval tuning defaults and all Spring configuration options are documented in [docs/configuration.md](docs/configuration.md). The history model is implemented internally, but there is not yet a public endpoint for listing or reading historical questions and answers.
+### Retrieval defaults
+
+These defaults are bound from `kairos.retrieval` and can be overridden through the corresponding `KAIROS_*` environment variables.
+
+| Setting | Default | Role |
+| --- | ---: | --- |
+| `semantic-anchor-limit` | 10 | Dense passage candidates used as direct graph anchors |
+| `graph-passage-limit` | 20 | Maximum passages returned after graph ranking |
+| `triple-candidate-limit` | 30 | Dense triple candidates presented to recognition memory |
+| `recognition-seed-limit` | 10 | Maximum concept seeds selected from triple candidates |
+| `seed-min-score` | 0.45 | Minimum score required for a graph seed |
+| `seed-relative-threshold` | 0.85 | Relative score threshold applied to seed selection |
+
+All Spring configuration options are documented in [docs/configuration.md](docs/configuration.md). The history model is implemented internally, but there is not yet a public endpoint for listing or reading historical questions and answers.
 
 ## API
 
@@ -260,6 +289,30 @@ curl -X POST http://127.0.0.1:8081/sources/search \
   -d '{"termQuery":"How do knowledge graphs improve retrieval?"}'
 ```
 
+The endpoint returns graph evidence separately from ranked chunks. UUIDs and scores below are illustrative; field names match the public response contract.
+
+```json
+{
+  "knowledgeGraph": [
+    {
+      "subject": "Knowledge graphs",
+      "predicate": "connect",
+      "object": "entities across passages",
+      "chunkId": "c4f2397a-c1a0-4eaa-92b7-117ef8cba3b9"
+    }
+  ],
+  "chunkContexts": [
+    {
+      "chunkId": "c4f2397a-c1a0-4eaa-92b7-117ef8cba3b9",
+      "content": "Knowledge graphs connect entities and relationships across passages.",
+      "rank": 1,
+      "score": 0.7812,
+      "source": "GRAPH"
+    }
+  ]
+}
+```
+
 ## Quick start
 
 ### Prerequisites
@@ -311,6 +364,16 @@ On Windows:
 Integration tests use Testcontainers and require an accessible Docker daemon. When Docker is unavailable, those tests are skipped by design; the GitHub Actions runner executes them with Docker enabled.
 
 ## Testing and CI/CD
+
+The quality gates validate implementation behavior and regressions. They do not, by themselves, prove retrieval gains in Recall@K, MRR, NDCG, or answer quality; those claims require a labeled evaluation set.
+
+Latest verified local run (`2026-07-29`, `./mvnw clean verify`):
+
+| Signal | Result |
+| --- | --- |
+| Tests | 262 executed; 0 failures, 0 errors, 9 skipped |
+| JaCoCo line coverage | 87.15% |
+| JaCoCo branch coverage | 73.00% |
 
 The repository uses three GitHub Actions workflows. CI, Qodana, and Security start independently for pull requests and pushes to `main` or `develop`.
 
