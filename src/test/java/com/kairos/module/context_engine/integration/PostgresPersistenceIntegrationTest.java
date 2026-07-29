@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -48,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         SpringHistoryRepositoryAdapter.class
 })
 @Testcontainers(disabledWithoutDocker = true)
+@Transactional
 class PostgresPersistenceIntegrationTest {
 
     @Container
