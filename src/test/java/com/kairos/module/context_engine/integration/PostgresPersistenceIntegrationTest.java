@@ -4,10 +4,15 @@ import com.kairos.module.context_engine.domain.model.content.Chunk;
 import com.kairos.module.context_engine.domain.model.content.Source;
 import com.kairos.module.context_engine.domain.model.content.TripleExtracted;
 import com.kairos.module.context_engine.domain.model.retrieval.ranking.ScoredPassage;
+import com.kairos.module.context_engine.domain.model.history.Answer;
+import com.kairos.module.context_engine.domain.model.history.AnswerSnapshot;
+import com.kairos.module.context_engine.domain.model.history.Question;
+import com.kairos.module.context_engine.domain.port.repository.HistoryRepository;
 import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
 import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.SpringChunkRepositoryAdapter;
 import com.kairos.module.context_engine.infrastructure.relational.repository.source.SpringSourceRepositoryAdapter;
 import com.kairos.module.context_engine.infrastructure.relational.repository.triple.SpringTripleRepositoryAdapter;
+import com.kairos.module.context_engine.infrastructure.relational.repository.history.SpringHistoryRepositoryAdapter;
 import com.kairos.module.context_engine.infrastructure.relational.semantic.SemanticSearchAdapter;
 import jakarta.persistence.EntityManager;
 import org.flywaydb.core.Flyway;
@@ -39,7 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         SemanticSearchAdapter.class,
         SpringSourceRepositoryAdapter.class,
         SpringChunkRepositoryAdapter.class,
-        SpringTripleRepositoryAdapter.class
+        SpringTripleRepositoryAdapter.class,
+        SpringHistoryRepositoryAdapter.class
 })
 @Testcontainers(disabledWithoutDocker = true)
 class PostgresPersistenceIntegrationTest {
@@ -66,6 +72,9 @@ class PostgresPersistenceIntegrationTest {
     private SemanticSearchAdapter semanticSearch;
 
     @Autowired
+    private HistoryRepository historyRepository;
+
+    @Autowired
     private JpaChunkRepository jpaChunkRepository;
 
     @Autowired
@@ -85,7 +94,7 @@ class PostgresPersistenceIntegrationTest {
 
     @Test
     void appliesInitialMigrationBeforeJpaValidation() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
     }
 
     @Test
@@ -170,6 +179,28 @@ class PostgresPersistenceIntegrationTest {
                 });
     }
 
+    @Test
+    void persistsVersionedAnswerSnapshotWithoutLoadingCurrentKnowledgeRecords() {
+        UUID userId = UUID.randomUUID();
+        Question question = Question.create(userId, "How does retrieval work?");
+        AnswerSnapshot snapshot = new AnswerSnapshot("hipporag-2",
+                new AnswerSnapshot.RetrievalParameters(10, 30, 10, 20, 0.45, 0.85), List.of(), List.of(), List.of());
+        Answer first = Answer.create(question.id(), snapshot);
+        Answer second = Answer.create(question.id(), snapshot);
+
+        historyRepository.saveQuestion(question);
+        historyRepository.saveAnswer(first);
+        historyRepository.saveAnswer(second);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(historyRepository.findQuestionByIdAndUserId(question.id(), userId)).contains(question);
+        assertThat(historyRepository.findAnswersByQuestionIdAndUserId(question.id(), userId))
+                .extracting(Answer::snapshot)
+                .containsExactly(snapshot, snapshot);
+        assertThat(historyRepository.findAnswersByQuestionIdAndUserId(question.id(), UUID.randomUUID())).isEmpty();
+    }
+
     private Source source(UUID authorId, String suffix) {
         return new Source(UUID.randomUUID(), "source-" + suffix, "content-" + suffix, authorId);
     }
@@ -197,7 +228,8 @@ class PostgresPersistenceIntegrationTest {
     @EnableJpaRepositories(basePackages = {
             "com.kairos.module.context_engine.infrastructure.relational.repository.chunk",
             "com.kairos.module.context_engine.infrastructure.relational.repository.source",
-            "com.kairos.module.context_engine.infrastructure.relational.repository.triple"
+            "com.kairos.module.context_engine.infrastructure.relational.repository.triple",
+            "com.kairos.module.context_engine.infrastructure.relational.repository.history"
     })
     static class IntegrationApplication {
     }

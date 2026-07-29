@@ -19,8 +19,10 @@ import com.kairos.module.context_engine.domain.model.retrieval.seed.PassageSeedT
 import com.kairos.module.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.module.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.module.context_engine.domain.port.graph.KnowledgeGraphSearch;
+import com.kairos.module.context_engine.domain.port.repository.HistoryRepository;
 import com.kairos.module.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.module.context_engine.domain.port.semantic.SemanticSearch;
+import com.kairos.module.context_engine.infrastructure.config.RetrievalProperties;
 import com.kairos.share.security.context.RequestContext;
 import com.kairos.share.security.context.RequestContextProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -64,6 +67,12 @@ class SearchSourceUseCaseTest {
 
     @Mock
     private RequestContextProvider requestContextProvider;
+
+    @Mock
+    private HistoryRepository historyRepository;
+
+    @Spy
+    private RetrievalProperties retrievalProperties = new RetrievalProperties(10, 20, 30, 10, 0.45, 0.85);
 
     @InjectMocks
     private SearchSourceUseCase useCase;
