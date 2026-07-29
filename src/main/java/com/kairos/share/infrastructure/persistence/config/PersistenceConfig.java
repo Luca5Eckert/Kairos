@@ -2,10 +2,14 @@ package com.kairos.share.infrastructure.persistence.config;
 
 import com.kairos.module.context_engine.infrastructure.graph.repository.Neo4jPassageNodeRepository;
 import com.kairos.module.context_engine.infrastructure.graph.repository.Neo4jPhraseNodeRepository;
+import com.kairos.module.context_engine.infrastructure.relational.entity.AnswerEntity;
 import com.kairos.module.context_engine.infrastructure.relational.entity.ChunkEntity;
+import com.kairos.module.context_engine.infrastructure.relational.entity.QuestionEntity;
 import com.kairos.module.context_engine.infrastructure.relational.entity.SourceEntity;
 import com.kairos.module.context_engine.infrastructure.relational.entity.TripleEntity;
 import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
+import com.kairos.module.context_engine.infrastructure.relational.repository.history.JpaAnswerRepository;
+import com.kairos.module.context_engine.infrastructure.relational.repository.history.JpaQuestionRepository;
 import com.kairos.module.context_engine.infrastructure.relational.repository.source.JpaSourceRepository;
 import com.kairos.module.context_engine.infrastructure.relational.repository.triple.JpaTripleRepository;
 import com.kairos.module.user.infrastructure.persistence.entity.UserEntity;
@@ -21,7 +25,9 @@ import org.springframework.data.neo4j.repository.config.EnableNeo4jRepositories;
                 UserEntityJpaRepository.class,
                 JpaChunkRepository.class,
                 JpaSourceRepository.class,
-                JpaTripleRepository.class
+                JpaTripleRepository.class,
+                JpaQuestionRepository.class,
+                JpaAnswerRepository.class
         }
 )
 @EntityScan(
@@ -29,7 +35,9 @@ import org.springframework.data.neo4j.repository.config.EnableNeo4jRepositories;
                 UserEntity.class,
                 ChunkEntity.class,
                 SourceEntity.class,
-                TripleEntity.class
+                TripleEntity.class,
+                QuestionEntity.class,
+                AnswerEntity.class
         }
 )
 @EnableNeo4jRepositories(

@@ -7,15 +7,18 @@ COPY pom.xml ./
 COPY .mvn .mvn
 COPY mvnw ./
 
+RUN chmod +x mvnw
+
 RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw -B -q dependency:go-offline || \
-    mvn -B -q dependency:go-offline
+    ./mvnw -B -q dependency:go-offline
+
+COPY infra/scripts/prepare-model.sh ./infra/scripts/prepare-model.sh
+RUN bash ./infra/scripts/prepare-model.sh
 
 COPY src ./src
 
 RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw -B -q clean package -DskipTests || \
-    mvn -B -q clean package -DskipTests
+    ./mvnw -B -q clean package -DskipTests
 
 
 FROM eclipse-temurin:21-jre-jammy AS runtime

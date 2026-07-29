@@ -3,6 +3,7 @@ package com.kairos.module.context_engine.integration;
 import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.module.context_engine.domain.model.knowledge.Passage;
 import com.kairos.module.context_engine.domain.model.retrieval.graph.GraphSearchRequest;
+import com.kairos.module.context_engine.domain.model.retrieval.ranking.ScoredPassage;
 import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
 import com.kairos.module.context_engine.infrastructure.graph.adapter.HippoRagKnowledgeGraphSearchAdapter;
 import com.kairos.module.context_engine.infrastructure.graph.adapter.KnowledgeGraphStoreAdapter;
@@ -67,7 +68,7 @@ class Neo4jGdsIntegrationTest {
         ));
 
         assertThat(result.scoredPassages())
-                .extracting(scored -> scored.chunkId())
+                .extracting(ScoredPassage::chunkId)
                 .containsExactly(chunkA);
         assertThat(result.activatedTriples())
                 .singleElement()

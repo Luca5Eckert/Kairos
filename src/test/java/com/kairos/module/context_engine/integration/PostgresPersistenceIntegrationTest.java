@@ -27,10 +27,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         SpringHistoryRepositoryAdapter.class
 })
 @Testcontainers(disabledWithoutDocker = true)
+@Transactional
 class PostgresPersistenceIntegrationTest {
 
     @Container
@@ -111,7 +115,7 @@ class PostgresPersistenceIntegrationTest {
                 .contains(sourceA.getId());
 
         Chunk closest = chunk(sourceA, "closest", vector(1f, 0f));
-        Chunk second = chunk(sourceA, "second", vector(0.8f, 0.6f));
+        Chunk second = chunk(sourceA, "second", 1, vector(0.8f, 0.6f));
         Chunk foreign = chunk(sourceB, "foreign", vector(1f, 0f));
         chunkRepository.save(closest);
         chunkRepository.save(second);
@@ -182,7 +186,8 @@ class PostgresPersistenceIntegrationTest {
     @Test
     void persistsVersionedAnswerSnapshotWithoutLoadingCurrentKnowledgeRecords() {
         UUID userId = UUID.randomUUID();
-        Question question = Question.create(userId, "How does retrieval work?");
+        Question question = new Question(
+                UUID.randomUUID(), userId, "How does retrieval work?", Instant.now().truncatedTo(ChronoUnit.MICROS));
         AnswerSnapshot snapshot = new AnswerSnapshot("hipporag-2",
                 new AnswerSnapshot.RetrievalParameters(10, 30, 10, 20, 0.45, 0.85), List.of(), List.of(), List.of());
         Answer first = Answer.create(question.id(), snapshot);
@@ -206,7 +211,11 @@ class PostgresPersistenceIntegrationTest {
     }
 
     private Chunk chunk(Source source, String content, float[] embedding) {
-        return Chunk.create(UUID.randomUUID(), source, content, 0, true, embedding);
+        return chunk(source, content, 0, embedding);
+    }
+
+    private Chunk chunk(Source source, String content, int index, float[] embedding) {
+        return Chunk.create(UUID.randomUUID(), source, content, index, true, embedding);
     }
 
     private TripleExtracted triple(String subject, String predicate, String object, Chunk chunk, float[] embedding) {

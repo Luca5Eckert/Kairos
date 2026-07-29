@@ -1,0 +1,14 @@
+version: "1.0"
+
+profile:
+  name: qodana.starter
+
+projectJDK: "21"
+
+failureConditions:
+  severityThresholds:
+    critical: 0
+
+# The Community linter runs without QODANA_TOKEN. A token is only needed to
+# connect this analysis to Qodana Cloud or to use a commercial linter.
+linter: jetbrains/qodana-jvm-community:2025.2
