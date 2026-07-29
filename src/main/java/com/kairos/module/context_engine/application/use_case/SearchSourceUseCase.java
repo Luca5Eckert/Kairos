@@ -1,6 +1,10 @@
 package com.kairos.module.context_engine.application.use_case;
 
 import com.kairos.module.context_engine.application.query.SearchSourceQuery;
+import com.kairos.module.context_engine.domain.model.SearchResult;
+import com.kairos.module.context_engine.domain.model.history.Answer;
+import com.kairos.module.context_engine.domain.model.history.AnswerSnapshot;
+import com.kairos.module.context_engine.domain.model.history.Question;
 import com.kairos.module.context_engine.domain.model.knowledge.KnowledgeTriple;
 import com.kairos.module.context_engine.domain.model.retrieval.candidate.PassageCandidate;
 import com.kairos.module.context_engine.domain.model.retrieval.candidate.TripleCandidate;
@@ -10,7 +14,7 @@ import com.kairos.module.context_engine.domain.model.retrieval.ranking.RankedChu
 import com.kairos.module.context_engine.domain.model.retrieval.seed.GraphSeed;
 import com.kairos.module.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.module.context_engine.domain.port.graph.KnowledgeGraphSearch;
-import com.kairos.module.context_engine.domain.model.SearchResult;
+import com.kairos.module.context_engine.domain.port.repository.HistoryRepository;
 import com.kairos.module.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.module.context_engine.domain.port.semantic.SemanticSearch;
 import com.kairos.share.security.context.RequestContextProvider;
@@ -21,25 +25,11 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * Orchestrates the HippoRAG 2 retrieval flow, combining dense vector search with
- * knowledge graph expansion to achieve multi-hop reasoning.
- * <p>
- * This use case follows a multiphase retrieval strategy:
- * <ol>
- * <li><b>Semantic Anchor Lookup:</b> Uses dense embeddings to find the most semantically relevant chunks in the vector store.</li>
- * <li><b>Graph Seeding & Expansion:</b> Uses the identified chunks as seeds for a Personalized PageRank (PPR) algorithm
- * over the knowledge graph, discovering structurally connected concepts and passages.</li>
- * <li><b>Hydration & Re-ranking:</b> Retrieves the full text payloads from the relational store while strictly preserving
- * the relevance ranking dictated by the graph's PPR convergence scores.</li>
- * </ol>
- * </p>
- */
 @Component
 @RequiredArgsConstructor
 public class SearchSourceUseCase {
@@ -49,6 +39,7 @@ public class SearchSourceUseCase {
     private final SemanticSearch semanticSearch;
     private final RecognitionMemory recognitionMemory;
     private final RequestContextProvider requestContextProvider;
+    private final HistoryRepository historyRepository;
 
     @Value("${kairos.retrieval.semantic-anchor-limit:10}")
     private int semanticAnchorLimit = 10;
@@ -68,66 +59,84 @@ public class SearchSourceUseCase {
     @Value("${kairos.retrieval.seed-relative-threshold:0.85}")
     private double seedRelativeThreshold = 0.85d;
 
-    /**
-     * Executes a search query against the knowledge graph, returning a ranked list of relevant chunks and activated triples.
-     * @param query the search query containing the search term and any additional parameters
-     * @return a SearchResult containing the activated triples from the knowledge graph and a ranked list of relevant chunks based on the search query
-     */
     public SearchResult execute(SearchSourceQuery query) {
         UUID userId = requestContextProvider.getRequestContext().userId();
+
+        Question question = questionFor(query, userId);
+
         float[] queryVector = embeddingPort.embed(query.searchTerm());
 
         List<PassageCandidate> passageCandidates = semanticSearch.findPassageCandidate(queryVector, userId, semanticAnchorLimit);
         List<TripleCandidate> tripleCandidates = semanticSearch.findTripleCandidates(queryVector, userId, tripleCandidateLimit);
+
         List<GraphSeed> conceptSeeds = tripleCandidates.isEmpty()
                 ? List.of()
-                : recognitionMemory.recognize(query.searchTerm(), tripleCandidates, recognitionSeedLimit);
+                : List.copyOf(Optional.ofNullable(
+                        recognitionMemory.recognize(query.searchTerm(), tripleCandidates, recognitionSeedLimit)).orElse(List.of()));
 
-        var seeds = instanceSeedsFromCandidates(passageCandidates, conceptSeeds);
+        List<GraphSeed> seeds = instanceSeedsFromCandidates(passageCandidates, conceptSeeds);
+        SearchResult result = retrieve(userId, seeds);
 
+        saveAnswer(question, seeds, passageCandidates, result);
+
+        return result;
+    }
+
+    private SearchResult retrieve(UUID userId, List<GraphSeed> seeds) {
         if (seeds.isEmpty()) {
             return SearchResult.empty();
         }
 
-        var graphSearchRequest = GraphSearchRequest.from(userId, seeds, graphPassageLimit);
-
-        GraphSearchResult result = knowledgeGraphSearch.expandKnowledge(graphSearchRequest);
-
-        List<RankedChunk> rankedChunks = result.scoredPassages().isEmpty()
+        GraphSearchResult graphResult = knowledgeGraphSearch.expandKnowledge(
+                GraphSearchRequest.from(userId, seeds, graphPassageLimit)
+        );
+        List<RankedChunk> chunks = graphResult.scoredPassages().isEmpty()
                 ? List.of()
-                : semanticSearch.hydrateAndRankChunks(result.scoredPassages(), userId);
+                : semanticSearch.hydrateAndRankChunks(graphResult.scoredPassages(), userId);
 
-        return SearchResult.from(filterActivatedTriples(result.activatedTriples(), rankedChunks), rankedChunks);
+        return SearchResult.from(filterActivatedTriples(graphResult.activatedTriples(), chunks), chunks);
     }
 
-
-    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates, List<GraphSeed> conceptSeeds) {
-        double passageThreshold = seedThreshold(
-                passageCandidates.stream()
-                        .mapToDouble(PassageCandidate::denseScore)
-                        .max()
-                        .orElse(0d)
+    private void saveAnswer(Question question, List<GraphSeed> seeds, List<PassageCandidate> candidates, SearchResult result) {
+        Map<UUID, Double> denseScores = candidates.stream()
+                .collect(Collectors.toMap(PassageCandidate::chunkId, PassageCandidate::denseScore, (first, ignored) -> first));
+        AnswerSnapshot snapshot = AnswerSnapshot.from(
+                parameters(), seeds, result.chunks(), denseScores, result.knowledgeTriples()
         );
 
-        var passageSeed = passageCandidates.stream()
+        historyRepository.saveAnswer(Answer.create(question.id(), snapshot));
+    }
+
+    private AnswerSnapshot.RetrievalParameters parameters() {
+        return new AnswerSnapshot.RetrievalParameters(semanticAnchorLimit, tripleCandidateLimit, recognitionSeedLimit,
+                graphPassageLimit, seedMinScore, seedRelativeThreshold);
+    }
+
+    private Question questionFor(SearchSourceQuery query, UUID userId) {
+        if (query.questionId() != null) {
+            return historyRepository.findQuestionByIdAndUserId(query.questionId(), userId)
+                    .orElseThrow(() -> new IllegalArgumentException("Question does not belong to the authenticated user"));
+        }
+
+        Question question = Question.create(userId, query.searchTerm());
+        historyRepository.saveQuestion(question);
+
+        return question;
+    }
+
+    private List<GraphSeed> instanceSeedsFromCandidates(List<PassageCandidate> passageCandidates, List<GraphSeed> conceptSeeds) {
+        double passageThreshold = seedThreshold(passageCandidates.stream()
+                .mapToDouble(PassageCandidate::denseScore).max().orElse(0d));
+        var passageSeeds = passageCandidates.stream()
                 .filter(candidate -> candidate.denseScore() >= passageThreshold)
                 .map(candidate -> GraphSeed.passage(candidate.chunkId(), candidate.denseScore()));
 
-        double conceptThreshold = seedThreshold(
-                conceptSeeds == null
-                        ? 0d
-                        : conceptSeeds.stream()
-                                .mapToDouble(GraphSeed::weight)
-                                .max()
-                                .orElse(0d)
-        );
+        double conceptThreshold = seedThreshold(conceptSeeds.stream()
+                .mapToDouble(GraphSeed::weight).max().orElse(0d));
+        var filteredConceptSeeds = conceptSeeds.stream()
+                .filter(seed -> seed.weight() >= conceptThreshold);
 
-        var conceptSeed = conceptSeeds == null
-                ? Stream.<GraphSeed>empty()
-                : conceptSeeds.stream()
-                        .filter(seed -> seed.weight() >= conceptThreshold);
-
-        return Stream.concat(passageSeed, conceptSeed).toList();
+        return Stream.concat(passageSeeds, filteredConceptSeeds).toList();
     }
 
     private double seedThreshold(double bestScore) {
@@ -143,7 +152,7 @@ public class SearchSourceUseCase {
             return List.of();
         }
 
-        Set<UUID> selectedChunkIds = rankedChunks.stream()
+        var selectedChunkIds = rankedChunks.stream()
                 .map(rankedChunk -> rankedChunk.chunk().getId())
                 .collect(Collectors.toSet());
 

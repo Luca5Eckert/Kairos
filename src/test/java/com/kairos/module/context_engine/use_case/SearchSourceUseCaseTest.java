@@ -19,6 +19,7 @@ import com.kairos.module.context_engine.domain.model.retrieval.seed.PassageSeedT
 import com.kairos.module.context_engine.domain.model.retrieval.source.RetrievalSource;
 import com.kairos.module.context_engine.domain.port.embedding.EmbeddingProvider;
 import com.kairos.module.context_engine.domain.port.graph.KnowledgeGraphSearch;
+import com.kairos.module.context_engine.domain.port.repository.HistoryRepository;
 import com.kairos.module.context_engine.domain.port.recognition.RecognitionMemory;
 import com.kairos.module.context_engine.domain.port.semantic.SemanticSearch;
 import com.kairos.share.security.context.RequestContext;
@@ -64,6 +65,9 @@ class SearchSourceUseCaseTest {
 
     @Mock
     private RequestContextProvider requestContextProvider;
+
+    @Mock
+    private HistoryRepository historyRepository;
 
     @InjectMocks
     private SearchSourceUseCase useCase;
