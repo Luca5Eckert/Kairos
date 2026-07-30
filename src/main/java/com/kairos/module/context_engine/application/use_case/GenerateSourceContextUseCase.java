@@ -14,14 +14,15 @@ import com.kairos.module.context_engine.domain.port.graph.KnowledgeGraphStore;
 import com.kairos.module.context_engine.domain.port.repository.SourceRepository;
 import com.kairos.module.context_engine.domain.port.repository.TripleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class GenerateSourceContextUseCase {
 
     private final TripleExtractor tripleExtractor;
@@ -37,7 +38,6 @@ public class GenerateSourceContextUseCase {
      * Generates context for a given source by chunking the content, extracting triples, and storing them in the knowledge graph.
      * @param command the command containing the source ID and content to process
      */
-    @Transactional
     public void execute(GenerateSourceContextCommand command) {
         Source source = sourceRepository.findById(command.sourceId())
                 .orElseThrow(() -> new RuntimeException("Source not found for id: " + command.sourceId()));
@@ -48,50 +48,65 @@ public class GenerateSourceContextUseCase {
         }
 
         List<Chunk> chunks = chunkRepository.findAllNotProcessedBySourceId(source.getId());
-
-        embedChunks(chunks);
-        generateKnowledgeGraph(chunks, userId);
-    }
-
-    /**
-     * Generates a knowledge graph context for the given source and its associated chunks.
-     * @param chunks the list of chunks associated with the source, from which to extract triples and of the knowledge graph context
-     */
-    private void generateKnowledgeGraph(List<Chunk> chunks, UUID userId) {
-        List<Passage> passages = chunks.stream()
-                .map(chunk -> Passage.fromChunkId(chunk.getId()))
-                .toList();
-        knowledgeGraphStore.savePassages(passages, userId);
-
-        createContextForKnowledgeGraph(chunks, passages, userId);
-    }
-
-
-    /**
-     * Extracts triples from the content of each chunk and saves them to the knowledge graph store, associating them with the corresponding chunk ID.
-     * @param chunks the list of chunks from which to extract triples and of the knowledge graph context
-     */
-    private void createContextForKnowledgeGraph(List<Chunk> chunks, List<Passage> passages, UUID userId) {
-        for (int i = 0; i < chunks.size(); i++) {
-            Chunk chunk = chunks.get(i);
-            Passage passage = passages.get(i);
-
-            List<Triple> triples = tripleExtractor.extract(chunk.getContent());
-
-            List<TripleExtracted> extractedTriples = triples.stream()
-                    .map(triple -> this.createEmbeddingTriple(triple, chunk))
-                    .toList();
-
-            List<KnowledgeTriple> knowledgeTriples = triples.stream()
-                    .map(triple -> KnowledgeTriple.create(triple, passage))
-                    .toList();
-
-            tripleRepository.saveAll(extractedTriples);
-            knowledgeGraphStore.saveAllForChunk(chunk.getId(), userId, knowledgeTriples);
-
-            chunk.markAsProcessed();
+        chunks.forEach(chunk -> {
+            chunk.markAsProcessing();
             chunkRepository.save(chunk);
+        });
+
+        processClaimedChunks(source, chunks);
+    }
+
+    public void executeClaimed(UUID sourceId, List<UUID> chunkIds) {
+        Source source = sourceRepository.findById(sourceId)
+                .orElseThrow(() -> new RuntimeException("Source not found for id: " + sourceId));
+
+        List<Chunk> chunks = chunkRepository.findAllByIds(chunkIds).stream()
+                .filter(chunk -> chunk.getSource().getId().equals(sourceId))
+                .filter(chunk -> chunk.getProcessingStatus() ==
+                        com.kairos.module.context_engine.domain.model.content.ChunkProcessingStatus.PROCESSING)
+                .toList();
+
+        processClaimedChunks(source, chunks);
+    }
+
+    private void processClaimedChunks(Source source, List<Chunk> chunks) {
+        UUID userId = source.getAuthorId();
+        if (userId == null) {
+            throw new IllegalStateException("Source author is required for context generation: " + source.getId());
         }
+
+        for (Chunk chunk : chunks) {
+            try {
+                processChunk(chunk, userId);
+                chunk.markAsProcessed();
+                chunkRepository.save(chunk);
+            } catch (RuntimeException exception) {
+                chunk.markAsFailed();
+                chunkRepository.save(chunk);
+                log.error("Failed to generate source context for sourceId={} chunkId={}",
+                        source.getId(), chunk.getId(), exception);
+            }
+        }
+    }
+
+    private void processChunk(Chunk chunk, UUID userId) {
+        float[] embedding = embeddingProvider.embed(chunk.getContent());
+        chunk.addEmbedding(embedding);
+        chunkRepository.save(chunk);
+
+        Passage passage = Passage.fromChunkId(chunk.getId());
+        knowledgeGraphStore.savePassages(List.of(passage), userId);
+
+        List<Triple> triples = tripleExtractor.extract(chunk.getContent());
+        List<TripleExtracted> extractedTriples = triples.stream()
+                .map(triple -> createEmbeddingTriple(triple, chunk))
+                .toList();
+        List<KnowledgeTriple> knowledgeTriples = triples.stream()
+                .map(triple -> KnowledgeTriple.create(triple, passage))
+                .toList();
+
+        tripleRepository.saveAll(extractedTriples);
+        knowledgeGraphStore.saveAllForChunk(chunk.getId(), userId, knowledgeTriples);
     }
 
     /**
@@ -113,18 +128,5 @@ public class GenerateSourceContextUseCase {
 
         return tripleExtracted;
     }
-
-    /**
-     * Embeds the content of each chunk using the embedding provider and saves the updated chunks back to the repository.
-     * @param chunks the list of chunks to embed and save
-     */
-    private void embedChunks(List<Chunk> chunks) {
-        for (Chunk chunk : chunks) {
-            float[] embedding = embeddingProvider.embed(chunk.getContent());
-            chunk.addEmbedding(embedding);
-            chunkRepository.save(chunk);
-        }
-    }
-
 
 }
