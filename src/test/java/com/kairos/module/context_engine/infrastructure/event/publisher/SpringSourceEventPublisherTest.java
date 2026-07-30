@@ -1,11 +1,13 @@
 package com.kairos.module.context_engine.infrastructure.event.publisher;
 
 import com.kairos.module.context_engine.domain.event.CreatedSourceEvent;
+import com.kairos.module.context_engine.domain.event.RetrySourceContextEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.UUID;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -39,6 +41,18 @@ class SpringSourceEventPublisherTest {
         assertThatThrownBy(() -> publisher.send(event))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Spring event bus unavailable");
+
+        verify(applicationEventPublisher).publishEvent(event);
+    }
+
+    @Test
+    void shouldPublishRetrySourceContextEvent() {
+        RetrySourceContextEvent event = new RetrySourceContextEvent(
+                UUID.randomUUID(),
+                List.of(UUID.randomUUID())
+        );
+
+        publisher.send(event);
 
         verify(applicationEventPublisher).publishEvent(event);
     }

@@ -1,6 +1,7 @@
 package com.kairos.module.context_engine.domain.port.event;
 
 import com.kairos.module.context_engine.domain.event.CreatedSourceEvent;
+import com.kairos.module.context_engine.domain.event.RetrySourceContextEvent;
 
 public interface SourceEventPublisher {
 
@@ -9,4 +10,6 @@ public interface SourceEventPublisher {
      * @param event The CreatedSourceEvent containing the source ID and content to be processed.
      */
     void send(CreatedSourceEvent event);
+
+    void send(RetrySourceContextEvent event);
 }

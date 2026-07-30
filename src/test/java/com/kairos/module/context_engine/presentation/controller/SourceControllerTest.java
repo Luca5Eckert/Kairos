@@ -3,7 +3,9 @@ package com.kairos.module.context_engine.presentation.controller;
 import com.kairos.module.context_engine.application.use_case.SearchSourceUseCase;
 import com.kairos.module.context_engine.application.use_case.GetAllSourceProgressUploadUseCase;
 import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
+import com.kairos.module.context_engine.application.use_case.RetrySourceContextUseCase;
 import com.kairos.module.context_engine.domain.model.SearchResult;
+import com.kairos.module.context_engine.domain.exception.SourceRetryConflictException;
 import com.kairos.module.context_engine.domain.model.content.Source;
 import com.kairos.module.context_engine.domain.model.progress.SourceProgressUpload;
 import com.kairos.module.context_engine.presentation.controller.SourceController;
@@ -23,6 +25,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,6 +46,9 @@ class SourceControllerTest {
     private GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase;
 
     @Mock
+    private RetrySourceContextUseCase retrySourceContextUseCase;
+
+    @Mock
     private SourceMapper mapper;
 
     private MockMvc mockMvc;
@@ -53,6 +59,7 @@ class SourceControllerTest {
                 uploadSourceUseCase,
                 searchSourceUseCase,
                 getAllSourceProgressUploadUseCase,
+                retrySourceContextUseCase,
                 mapper
         ))
                 .setControllerAdvice(new GlobalHandlerException())
@@ -209,9 +216,35 @@ class SourceControllerTest {
                 .andExpect(jsonPath("$.sourceProgressUploads[0].sourceId").value(source.getId().toString()))
                 .andExpect(jsonPath("$.sourceProgressUploads[0].sourceTitle").value("RAG notes"))
                 .andExpect(jsonPath("$.sourceProgressUploads[0].totalChunks").value(5))
-                .andExpect(jsonPath("$.sourceProgressUploads[0].processedChunks").value(3));
+                .andExpect(jsonPath("$.sourceProgressUploads[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].pendingChunks").value(2))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].processingChunks").value(0))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].completedChunks").value(3))
+                .andExpect(jsonPath("$.sourceProgressUploads[0].failedChunks").value(0));
 
         verify(getAllSourceProgressUploadUseCase).execute();
         verify(mapper).toProgressUploadResponse(progress);
+    }
+
+    @Test
+    void retrySourceContext_returnsAccepted() throws Exception {
+        UUID sourceId = UUID.randomUUID();
+
+        mockMvc.perform(post("/sources/{sourceId}/retry", sourceId))
+                .andExpect(status().isAccepted());
+
+        verify(retrySourceContextUseCase).execute(sourceId);
+    }
+
+    @Test
+    void retrySourceContext_withoutEligibleFailuresReturnsConflict() throws Exception {
+        UUID sourceId = UUID.randomUUID();
+        doThrow(new SourceRetryConflictException("Source has no failed chunks to retry"))
+                .when(retrySourceContextUseCase).execute(sourceId);
+
+        mockMvc.perform(post("/sources/{sourceId}/retry", sourceId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.message").value("Source retry conflict"));
     }
 }
