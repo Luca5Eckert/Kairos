@@ -57,6 +57,6 @@ For graph search, Kairos creates a GDS projection filtered by the authenticated 
 
 ## Recovery and operator limitations
 
-The model permits Neo4j to be reconstructed from durable PostgreSQL chunks and triples, but Kairos does not expose a supported command, endpoint, or job to perform that reconstruction. Similarly, source progress is observable through `GET /sources/progress`, but failed enrichment cannot be retried through the public API.
+The model permits Neo4j to be reconstructed from durable PostgreSQL chunks and triples, but Kairos does not expose a supported command, endpoint, or job to perform that reconstruction. Source progress is observable through `GET /sources/progress`, and the authenticated owner can retry failed enrichment with `POST /sources/{sourceId}/retry`. Automatic retries are not scheduled.
 
 For now, investigate failed enrichment through application logs and database state. Do not present restart, re-upload, or direct use-case invocation as a supported recovery procedure.

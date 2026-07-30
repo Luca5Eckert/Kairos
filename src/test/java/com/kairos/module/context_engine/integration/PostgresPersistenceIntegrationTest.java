@@ -97,8 +97,8 @@ class PostgresPersistenceIntegrationTest {
     }
 
     @Test
-    void appliesInitialMigrationBeforeJpaValidation() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
+    void appliesLatestMigrationBeforeJpaValidation() {
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
     }
 
     @Test

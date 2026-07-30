@@ -33,6 +33,12 @@ public class SpringSourceRepositoryAdapter implements SourceRepository {
     }
 
     @Override
+    public Optional<Source> findByIdAndAuthorIdForUpdate(UUID id, UUID authorId) {
+        return jpaSourceRepository.findByIdAndAuthorId(id, authorId)
+                .map(SourceEntity::toDomain);
+    }
+
+    @Override
     public Optional<Source> findByAuthorIdAndTitleAndContent(UUID authorId, String title, String content) {
         return jpaSourceRepository.findFirstByAuthorIdAndTitleAndContent(authorId, title, content)
                 .map(SourceEntity::toDomain);
@@ -55,9 +61,12 @@ public class SpringSourceRepositoryAdapter implements SourceRepository {
 
         return sourceProgressEntities.stream()
                 .map(projection -> new SourceProgressUpload(
-                        new Source(projection.getTitle(), projection.getContent()),
+                        new Source(projection.getId(), projection.getTitle(), projection.getContent(), projection.getAuthorId()),
                         projection.getTotalChunks(),
-                        projection.getProcessedChunks()
+                        projection.getPendingChunks(),
+                        projection.getProcessingChunks(),
+                        projection.getCompletedChunks(),
+                        projection.getFailedChunks()
                 ))
                 .toList();
     }

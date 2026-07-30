@@ -22,6 +22,8 @@ public interface SourceRepository {
      */
     Optional<Source> findById(UUID id);
 
+    Optional<Source> findByIdAndAuthorIdForUpdate(UUID id, UUID authorId);
+
     Optional<Source> findByAuthorIdAndTitleAndContent(UUID authorId, String title, String content);
 
     /**

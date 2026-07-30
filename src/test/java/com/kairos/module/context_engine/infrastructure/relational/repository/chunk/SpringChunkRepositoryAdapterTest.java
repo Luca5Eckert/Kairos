@@ -2,6 +2,7 @@ package com.kairos.module.context_engine.infrastructure.relational.repository.ch
 
 import com.kairos.module.context_engine.domain.model.content.Chunk;
 import com.kairos.module.context_engine.domain.model.content.Source;
+import com.kairos.module.context_engine.domain.model.content.ChunkProcessingStatus;
 import com.kairos.module.context_engine.infrastructure.relational.entity.ChunkEntity;
 import com.kairos.module.context_engine.infrastructure.relational.entity.SourceEntity;
 import com.kairos.module.context_engine.infrastructure.relational.repository.chunk.JpaChunkRepository;
@@ -55,7 +56,7 @@ class SpringChunkRepositoryAdapterTest {
                 source,
                 "chunk content",
                 3,
-                true,
+                ChunkProcessingStatus.COMPLETED,
                 new float[]{0.1f, 0.2f}
         );
 
@@ -81,7 +82,7 @@ class SpringChunkRepositoryAdapterTest {
                 SourceEntity.of(source),
                 chunk.getContent(),
                 chunk.getIndex(),
-                chunk.isProcessed(),
+                chunk.getProcessingStatus(),
                 chunk.getEmbedding()
         );
 

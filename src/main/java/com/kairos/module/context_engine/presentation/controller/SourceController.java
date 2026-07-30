@@ -4,6 +4,7 @@ import com.kairos.module.context_engine.application.command.UploadSourceCommand;
 import com.kairos.module.context_engine.application.query.SearchSourceQuery;
 import com.kairos.module.context_engine.application.use_case.GetAllSourceProgressUploadUseCase;
 import com.kairos.module.context_engine.application.use_case.SearchSourceUseCase;
+import com.kairos.module.context_engine.application.use_case.RetrySourceContextUseCase;
 import com.kairos.module.context_engine.application.use_case.UploadSourceUseCase;
 import com.kairos.module.context_engine.presentation.dto.request.GenerateSourceContextRequest;
 import com.kairos.module.context_engine.presentation.dto.request.UploadSourceRequest;
@@ -22,13 +23,17 @@ public class SourceController {
     private final UploadSourceUseCase uploadSourceUseCase;
     private final SearchSourceUseCase searchSourceUseCase;
     private final GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase;
+    private final RetrySourceContextUseCase retrySourceContextUseCase;
 
     private final SourceMapper mapper;
 
-    public SourceController(UploadSourceUseCase uploadSourceUseCase, SearchSourceUseCase searchSourceUseCase, GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase, SourceMapper mapper) {
+    public SourceController(UploadSourceUseCase uploadSourceUseCase, SearchSourceUseCase searchSourceUseCase,
+                            GetAllSourceProgressUploadUseCase getAllSourceProgressUploadUseCase,
+                            RetrySourceContextUseCase retrySourceContextUseCase, SourceMapper mapper) {
         this.uploadSourceUseCase = uploadSourceUseCase;
         this.searchSourceUseCase = searchSourceUseCase;
         this.getAllSourceProgressUploadUseCase = getAllSourceProgressUploadUseCase;
+        this.retrySourceContextUseCase = retrySourceContextUseCase;
         this.mapper = mapper;
     }
 
@@ -62,6 +67,12 @@ public class SourceController {
         var result = getAllSourceProgressUploadUseCase.execute();
 
         return ResponseEntity.ok(mapper.toProgressUploadResponse(result));
+    }
+
+    @PostMapping("/{sourceId}/retry")
+    public ResponseEntity<Void> retrySourceContext(@PathVariable java.util.UUID sourceId) {
+        retrySourceContextUseCase.execute(sourceId);
+        return ResponseEntity.accepted().build();
     }
 
 }

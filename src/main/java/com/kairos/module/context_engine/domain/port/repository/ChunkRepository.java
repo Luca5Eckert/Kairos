@@ -1,6 +1,7 @@
 package com.kairos.module.context_engine.domain.port.repository;
 
 import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.ChunkProcessingStatus;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,4 +12,8 @@ public interface ChunkRepository {
     List<Chunk> findAllBySourceId(UUID id);
 
     List<Chunk> findAllNotProcessedBySourceId(UUID sourceId);
+
+    List<Chunk> findAllBySourceIdAndStatus(UUID sourceId, ChunkProcessingStatus status);
+
+    List<Chunk> findAllByIds(List<UUID> ids);
 }

@@ -41,7 +41,8 @@ public interface JpaChunkRepository extends JpaRepository<ChunkEntity, UUID> {
             @Param("limit") int limit
     );
 
-    List<ChunkEntity> findAllBySource_IdAndProcessedFalse(UUID sourceId);
+    List<ChunkEntity> findAllBySource_IdAndProcessingStatus(UUID sourceId,
+                                                            com.kairos.module.context_engine.domain.model.content.ChunkProcessingStatus status);
 
     List<ChunkEntity> findAllByIdInAndSource_AuthorId(List<UUID> ids, UUID authorId);
 }

@@ -13,25 +13,27 @@ public class Chunk {
     private final String content;
 
     private final int index;
-    private boolean processed;
+    private ChunkProcessingStatus processingStatus;
 
     private float[] embedding;
 
     public Chunk(UUID id, Source source, String content, int index, boolean processed, float[] embedding) {
+        this(id, source, content, index,
+                processed ? ChunkProcessingStatus.COMPLETED : ChunkProcessingStatus.PENDING,
+                embedding);
+    }
+
+    public Chunk(UUID id, Source source, String content, int index, ChunkProcessingStatus processingStatus, float[] embedding) {
         this.id = id;
         this.source = source;
         this.content = content;
         this.index = index;
-        this.processed = processed;
+        this.processingStatus = processingStatus;
         this.embedding = embedding;
     }
 
     public Chunk(UUID id, Source source, String content, int index, boolean processed) {
-        this.id = id;
-        this.source = source;
-        this.content = content;
-        this.index = index;
-        this.processed = processed;
+        this(id, source, content, index, processed, null);
     }
 
 
@@ -56,7 +58,15 @@ public class Chunk {
     }
 
     public void markAsProcessed() {
-        this.processed = true;
+        this.processingStatus = ChunkProcessingStatus.COMPLETED;
+    }
+
+    public void markAsProcessing() {
+        this.processingStatus = ChunkProcessingStatus.PROCESSING;
+    }
+
+    public void markAsFailed() {
+        this.processingStatus = ChunkProcessingStatus.FAILED;
     }
 
     public UUID getId() {
@@ -76,11 +86,15 @@ public class Chunk {
     }
 
     public boolean isProcessed() {
-        return processed;
+        return processingStatus == ChunkProcessingStatus.COMPLETED;
     }
 
     public void setProcessed(boolean processed) {
-        this.processed = processed;
+        this.processingStatus = processed ? ChunkProcessingStatus.COMPLETED : ChunkProcessingStatus.PENDING;
+    }
+
+    public ChunkProcessingStatus getProcessingStatus() {
+        return processingStatus;
     }
 
     public float[] getEmbedding() {

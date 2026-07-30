@@ -24,14 +24,26 @@ class SpringSourceRepositoryAdapterTest {
     @Test
     void findAllSourcesProgressByAuthorId_mapsEveryProjectionFieldInOrder() {
         UUID authorId = UUID.randomUUID();
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        when(firstProjection.getId()).thenReturn(firstId);
+        when(firstProjection.getAuthorId()).thenReturn(authorId);
         when(firstProjection.getTitle()).thenReturn("First source");
         when(firstProjection.getContent()).thenReturn("first content");
         when(firstProjection.getTotalChunks()).thenReturn(5);
-        when(firstProjection.getProcessedChunks()).thenReturn(3);
+        when(firstProjection.getPendingChunks()).thenReturn(1);
+        when(firstProjection.getProcessingChunks()).thenReturn(0);
+        when(firstProjection.getCompletedChunks()).thenReturn(3);
+        when(firstProjection.getFailedChunks()).thenReturn(1);
+        when(secondProjection.getId()).thenReturn(secondId);
+        when(secondProjection.getAuthorId()).thenReturn(authorId);
         when(secondProjection.getTitle()).thenReturn("Second source");
         when(secondProjection.getContent()).thenReturn("second content");
         when(secondProjection.getTotalChunks()).thenReturn(2);
-        when(secondProjection.getProcessedChunks()).thenReturn(2);
+        when(secondProjection.getPendingChunks()).thenReturn(0);
+        when(secondProjection.getProcessingChunks()).thenReturn(0);
+        when(secondProjection.getCompletedChunks()).thenReturn(2);
+        when(secondProjection.getFailedChunks()).thenReturn(0);
         when(jpaSourceRepository.findAllSourcesProgressByAuthorId(authorId))
                 .thenReturn(List.of(firstProjection, secondProjection));
 
@@ -44,7 +56,8 @@ class SpringSourceRepositoryAdapterTest {
                         org.assertj.core.groups.Tuple.tuple("First source", "first content", 5, 3),
                         org.assertj.core.groups.Tuple.tuple("Second source", "second content", 2, 2)
                 );
-        assertThat(result).extracting(upload -> upload.source().getId()).doesNotHaveDuplicates();
+        assertThat(result).extracting(upload -> upload.source().getId())
+                .containsExactly(firstId, secondId);
         verify(jpaSourceRepository).findAllSourcesProgressByAuthorId(authorId);
     }
 

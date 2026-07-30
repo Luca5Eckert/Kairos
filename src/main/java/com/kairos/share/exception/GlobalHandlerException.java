@@ -2,6 +2,7 @@ package com.kairos.share.exception;
 
 import com.kairos.module.auth.infrastructure.email.EmailConfirmationDeliveryException;
 import com.kairos.module.context_engine.domain.exception.EmbeddingException;
+import com.kairos.module.context_engine.domain.exception.SourceRetryConflictException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,18 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 @Slf4j
 @ControllerAdvice
 public class GlobalHandlerException {
+
+    @ExceptionHandler(SourceRetryConflictException.class)
+    public ResponseEntity<ErrorResponse> handle(SourceRetryConflictException e, HttpServletRequest request) {
+        log.warn("[409 CONFLICT] {} {} | {}", request.getMethod(), request.getRequestURI(), e.getMessage());
+        var response = ErrorResponse.toInstance(
+                HttpStatus.CONFLICT.value(),
+                "Source retry conflict",
+                e.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
 
     @ExceptionHandler(EmailConfirmationDeliveryException.class)
     public ResponseEntity<ErrorResponse> handle(EmailConfirmationDeliveryException e, HttpServletRequest request) {
