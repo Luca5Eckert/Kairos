@@ -65,13 +65,13 @@ The current retrieval path is inspired by HippoRAG 2:
 | Authentication | Registration, email confirmation, login, JWT sessions, roles, and authenticated request context |
 | User isolation | Source, vector, graph, progress, and retrieval queries are scoped to the authenticated user |
 | Ingestion | Transactional source upload, overlapping chunking, durable persistence, and asynchronous enrichment after commit |
-| Resume behavior | Internal use case selects unprocessed chunks; no public reprocessing endpoint or retry scheduler exists yet |
+| Resume behavior | Failed chunks are visible in source progress and can be retried explicitly without reprocessing completed chunks |
 | Embeddings | Local ONNX Runtime inference with `all-MiniLM-L6-v2` and `vector(384)` storage |
 | Knowledge extraction | Gemini structured output for factual triple extraction and recognition-memory seed selection |
 | Semantic search | PostgreSQL and pgvector HNSW indexes for passage and triple candidate retrieval |
 | Graph retrieval | Neo4j 5.26 with Graph Data Science and weighted Personalized PageRank |
 | Retrieval history | Immutable, versioned `AnswerSnapshot` documents stored as PostgreSQL `JSONB` |
-| Progress | `GET /sources/progress` reports total and processed chunks for the current user |
+| Progress | `GET /sources/progress` reports aggregate status and chunk counts by processing state for the current user |
 | Delivery | Docker Compose for local infrastructure and GitHub Actions for build, quality, security, and container validation |
 
 ## Why graph-augmented retrieval
@@ -202,7 +202,7 @@ sequenceDiagram
     G->>PG: Mark chunk processed
 ```
 
-If enrichment fails, chunks already marked as processed remain complete and unprocessed chunks remain eligible for the internal use case. The current API has no reprocessing endpoint and there is no automatic retry scheduler, so an operator cannot trigger this recovery through a supported public interface yet.
+If enrichment fails, the affected chunk is marked as `FAILED`, chunks already completed remain complete, and processing continues with the remaining claimed chunks. The authenticated owner can retry only failed chunks through `POST /sources/{sourceId}/retry`; automatic retries remain intentionally out of scope.
 
 ## Retrieval and history flow
 
@@ -262,6 +262,7 @@ All `/sources/**` endpoints require a valid JWT bearer token. Authentication end
 | `POST` | `/sources` | JWT | Stores a source and starts asynchronous enrichment |
 | `POST` | `/sources/search` | JWT | Searches the authenticated user's graph-augmented knowledge base |
 | `GET` | `/sources/progress` | JWT | Lists source chunk progress for the authenticated user |
+| `POST` | `/sources/{sourceId}/retry` | JWT | Asynchronously retries only failed chunks owned by the authenticated user |
 
 OpenAPI/Swagger is not configured in the current build. The complete request collection, validation cases, authentication flow, and local environment are available in [docs/postman/Kairos.postman_collection.json](docs/postman/Kairos.postman_collection.json) and [docs/postman/Kairos.local.postman_environment.json](docs/postman/Kairos.local.postman_environment.json).
 
@@ -446,7 +447,7 @@ For the protected `main` branch, require the successful checks exposed by the wo
 | The health endpoint is unreachable | Services are still starting or the host port differs from `APP_PORT` | Run `docker compose ps`, inspect logs, and use the configured host port |
 | `/sources` or `/sources/search` returns `401` | The route requires a valid JWT | Log in or confirm the user and send `Authorization: Bearer $TOKEN` |
 | Upload returns `201` but search is empty | Enrichment runs asynchronously | Poll `/sources/progress` and wait for processed chunks |
-| A source remains partially processed | A chunk failed during enrichment | Inspect application logs and source progress. There is currently no supported public reprocessing operation. |
+| A source reports `FAILED` | A chunk failed during enrichment | Inspect application logs, then call `POST /sources/{sourceId}/retry` to retry only failed chunks. |
 | Graph results are empty | Neo4j GDS is unavailable or graph enrichment has not completed | Check Neo4j logs and the application warning about unavailable GDS procedures |
 | Existing local data fails schema validation | A volume was created with an older schema | For disposable development data, run `docker compose down --volumes` and recreate the stack |
 | Gemini extraction fails | The API key or model configuration is missing or invalid | Check `GEMINI_API_KEY`, `KAIROS_LLM_MODEL`, and Spring AI settings |
@@ -456,7 +457,7 @@ For the protected `main` branch, require the successful checks exposed by the wo
 
 The current V1 is experimental, not a complete end-user knowledge application or a security-audited production service. The main remaining gaps are:
 
-- a supported reprocessing endpoint, automatic retry scheduler, and Neo4j rebuild procedure;
+- an automatic retry scheduler and Neo4j rebuild procedure;
 - a public API for reading persisted questions and answer snapshots;
 - OpenAPI/Swagger publication;
 - a dense-search fallback when Neo4j GDS is unavailable;
