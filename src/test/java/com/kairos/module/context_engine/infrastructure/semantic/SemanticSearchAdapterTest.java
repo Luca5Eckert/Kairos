@@ -375,7 +375,9 @@ class SemanticSearchAdapterTest {
     }
 
     private ChunkEntity chunkEntity(UUID id, SourceEntity source, String content, int index) {
-        return new ChunkEntity(id, source, content, index, false, QUERY_VECTOR);
+        return new ChunkEntity(id, source, content, index,
+                com.kairos.module.context_engine.domain.model.content.ChunkProcessingStatus.PENDING,
+                QUERY_VECTOR);
     }
 
     private PassageCandidateProjection passageCandidateProjection(UUID chunkId, Double denseScore) {

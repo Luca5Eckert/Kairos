@@ -1,6 +1,7 @@
 package com.kairos.module.context_engine.infrastructure.relational.entity;
 
 import com.kairos.module.context_engine.domain.model.content.Chunk;
+import com.kairos.module.context_engine.domain.model.content.ChunkProcessingStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -34,7 +35,9 @@ public class ChunkEntity {
     @Column(name = "chunk_index", nullable = false)
     private int index;
 
-    private boolean processed;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "processing_status", nullable = false)
+    private ChunkProcessingStatus processingStatus;
 
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 384)
@@ -46,7 +49,7 @@ public class ChunkEntity {
                 new SourceEntity(chunk.getSource().getId()),
                 chunk.getContent(),
                 chunk.getIndex(),
-                chunk.isProcessed(),
+                chunk.getProcessingStatus(),
                 chunk.getEmbedding()
         );
     }
@@ -57,7 +60,7 @@ public class ChunkEntity {
                 source.toDomain(),
                 content,
                 index,
-                processed,
+                processingStatus,
                 embedding
         );
     }

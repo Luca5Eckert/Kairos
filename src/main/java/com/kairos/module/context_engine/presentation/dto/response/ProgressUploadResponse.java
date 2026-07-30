@@ -18,16 +18,24 @@ public record ProgressUploadResponse(
     record SourceProgressUploadResponse(
             String sourceId,
             String sourceTitle,
+            String status,
             int totalChunks,
-            int processedChunks
+            int pendingChunks,
+            int processingChunks,
+            int completedChunks,
+            int failedChunks
     ) {
 
         public static SourceProgressUploadResponse of(SourceProgressUpload upload) {
             return new SourceProgressUploadResponse(
                     upload.source().getId().toString(),
                     upload.source().getTitle(),
+                    upload.status().name(),
                     upload.totalChunks(),
-                    upload.processedChunks()
+                    upload.pendingChunks(),
+                    upload.processingChunks(),
+                    upload.completedChunks(),
+                    upload.failedChunks()
             );
         }
 

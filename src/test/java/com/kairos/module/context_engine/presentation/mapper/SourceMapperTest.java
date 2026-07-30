@@ -73,11 +73,15 @@ class SourceMapperTest {
         assertThat(uploadsJson.get(0).path("sourceId").asText()).isEqualTo(firstSourceId.toString());
         assertThat(uploadsJson.get(0).path("sourceTitle").asText()).isEqualTo("First source");
         assertThat(uploadsJson.get(0).path("totalChunks").asInt()).isEqualTo(4);
-        assertThat(uploadsJson.get(0).path("processedChunks").asInt()).isEqualTo(1);
+        assertThat(uploadsJson.get(0).path("status").asText()).isEqualTo("PENDING");
+        assertThat(uploadsJson.get(0).path("pendingChunks").asInt()).isEqualTo(3);
+        assertThat(uploadsJson.get(0).path("completedChunks").asInt()).isEqualTo(1);
         assertThat(uploadsJson.get(1).path("sourceId").asText()).isEqualTo(secondSourceId.toString());
         assertThat(uploadsJson.get(1).path("sourceTitle").asText()).isEqualTo("Second source");
         assertThat(uploadsJson.get(1).path("totalChunks").asInt()).isEqualTo(7);
-        assertThat(uploadsJson.get(1).path("processedChunks").asInt()).isEqualTo(7);
+        assertThat(uploadsJson.get(1).path("status").asText()).isEqualTo("COMPLETED");
+        assertThat(uploadsJson.get(1).path("pendingChunks").asInt()).isZero();
+        assertThat(uploadsJson.get(1).path("completedChunks").asInt()).isEqualTo(7);
     }
 
     @Test
