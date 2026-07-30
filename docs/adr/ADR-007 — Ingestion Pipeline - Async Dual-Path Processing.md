@@ -1,8 +1,22 @@
 # ADR-007 — Ingestion Pipeline - Async Dual-Path Processing
 
-- **Status:** Accepted
+- **Status:** Superseded in part — historical design record, not an implementation specification
 - **Date:** 2026-04-05
 - **Context:** Kairos — Personal Knowledge Engine
+
+---
+
+## Current implementation status (2026-07-29)
+
+The implementation differs materially from the proposal below:
+
+- `POST /sources` returns `201 Created` with no status payload; `GET /sources/{id}` is not implemented.
+- An in-process asynchronous `CreatedSourceEvent` starts enrichment after a successful upload transaction.
+- Chunks use a single `processed` flag. The proposed source-state machine is not implemented.
+- The code does not use the proposed parallel per-chunk paths, virtual-thread executor, retry/backoff policy, or synonymy workflow.
+- `POST /sources/{id}/reprocess` is **not** implemented. There is no scheduler, CLI command, or supported administrative operation for retrying failed enrichment.
+
+The sections below preserve the original design rationale and proposed future behavior. Refer to [Security, Privacy, and Operational Limitations](../operations.md) and the README for the behavior that exists today.
 
 ---
 
@@ -129,7 +143,9 @@ Chunks are processed **sequentially** (not in parallel) to respect Gemini Flash'
 |`PARTIAL_FAILURE`|Embeddings saved, but some chunks missing graph data (or vice versa)|
 |`FAILED`|Critical failure — source is not usable for retrieval|
 
-### Reprocessing
+### Proposed reprocessing (not implemented)
+
+This section is a future design proposal. The endpoint and source state described below do not exist in the current API.
 
 Sources with `PARTIAL_FAILURE` status expose a reprocessing endpoint:
 
