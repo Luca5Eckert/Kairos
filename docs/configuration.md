@@ -1,6 +1,6 @@
 # Kairos Configuration
 
-This file is the full configuration reference for local development and tuning.
+This file is the full configuration reference for local development and tuning. For data handling, security controls, and operational limitations, see [Security, Privacy, and Operational Limitations](operations.md).
 
 ## Environment Variables
 
