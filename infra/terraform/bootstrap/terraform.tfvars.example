@@ -1,0 +1,6 @@
+aws_region           = "us-east-1"
+state_bucket_name    = "kairos-terraform-state-change-me"
+budget_limit         = 10
+budget_email_addresses = ["you@example.com"]
+environment          = "dev"
+owner                = "Luca5Eckert"
