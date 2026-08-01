@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+exec > >(tee -a /var/log/kairos-bootstrap.log | logger -t kairos-bootstrap -s 2>/dev/console) 2>&1
+
+dnf install -y docker xfsprogs curl awscli2
+systemctl enable --now docker
+
+if ! rpm -q amazon-ssm-agent >/dev/null 2>&1; then
+  dnf install -y amazon-ssm-agent
+fi
+
+if ! id kairos >/dev/null 2>&1; then
+  useradd --create-home --shell /bin/bash kairos
+fi
+usermod -aG docker kairos
+
+install -d -m 0755 /usr/local/lib/docker/cli-plugins
+compose_arch="$(uname -m)"
+case "$compose_arch" in
+  x86_64) compose_arch=x86_64 ;;
+  aarch64) compose_arch=aarch64 ;;
+  *) echo "Unsupported architecture: $compose_arch"; exit 1 ;;
+esac
+compose_path=/usr/local/lib/docker/cli-plugins/docker-compose
+if ! "$compose_path" version 2>/dev/null | grep -q "v${docker_compose_version}"; then
+  curl --fail --location --retry 5 \
+    "https://github.com/docker/compose/releases/download/v${docker_compose_version}/docker-compose-linux-$compose_arch" \
+    --output "$compose_path"
+  chmod 0755 "$compose_path"
+fi
+
+volume_serial="${replace(data_volume_id, "-", "")}"
+data_device=""
+for attempt in $(seq 1 60); do
+  data_device="$(lsblk -ndo PATH,SERIAL | awk -v serial="$volume_serial" '$2 == serial {print $1; exit}')"
+  [ -n "$data_device" ] && break
+  sleep 5
+done
+[ -n "$data_device" ] || { echo "EBS data volume was not attached in time"; exit 1; }
+
+if ! blkid "$data_device" >/dev/null 2>&1; then
+  mkfs.xfs "$data_device"
+fi
+
+volume_uuid="$(blkid -s UUID -o value "$data_device")"
+install -d -m 0750 -o kairos -g kairos /srv/kairos
+fstab_entry="UUID=$volume_uuid /srv/kairos xfs defaults,nofail 0 2"
+grep -qE "^UUID=$volume_uuid[[:space:]]" /etc/fstab || printf '%s\n' "$fstab_entry" >> /etc/fstab
+mountpoint -q /srv/kairos || mount /srv/kairos
+
+for directory in postgres neo4j runtime backups logs; do
+  install -d -m 0750 -o kairos -g kairos "/srv/kairos/$directory"
+done
+chown kairos:kairos /srv/kairos
+chmod 0750 /srv/kairos
+
+systemctl enable amazon-ssm-agent
+systemctl restart amazon-ssm-agent
+
+docker version
+docker compose version
