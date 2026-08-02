@@ -36,6 +36,7 @@ The project is intentionally built as a retrieval backend rather than a chat int
 - [Quick start](#quick-start)
 - [Security, privacy, and operations](docs/operations.md)
 - [Testing and CI/CD](#testing-and-cicd)
+- [Agent issue workflow](#agent-issue-workflow)
 - [Troubleshooting](#troubleshooting)
 - [Limitations and roadmap](#limitations-and-roadmap)
 - [Technical references](#technical-references)
@@ -210,19 +211,14 @@ If enrichment fails, the affected chunk is marked as `FAILED`, chunks already co
 
 ```mermaid
 flowchart LR
-    query[Authenticated query] --> embedding[ONNX query embedding]
-    embedding --> passageCandidates[pgvector passage candidates]
-    embedding --> tripleCandidates[pgvector triple candidates]
-    tripleCandidates --> recognition[Recognition memory]
-    passageCandidates --> seeds[Graph seeds]
-    recognition --> seeds
-    seeds --> ppr[Weighted Personalized PageRank]
-    ppr --> ranked[Ranked passages and activated triples]
-    ranked --> hydrate[Hydrate chunks from PostgreSQL]
-    hydrate --> response[ContextResponse]
-    query --> question[Persist Question]
-    ranked --> snapshot[Persist AnswerSnapshot as JSONB]
-    question --> snapshot
+    event[Pull request or push] --> validation[Maven verify]
+    event --> container[Container validation]
+    event --> quality[Qodana Community]
+    event --> security[CodeQL]
+    event --> dependency[Dependency Review on pull requests]
+    validation --> reports[Test and coverage reports]
+    container --> sbom[CycloneDX SBOM]
+    container --> trivy[Trivy critical vulnerability gate]
 ```
 
 ### Retrieval defaults
@@ -385,44 +381,39 @@ Integration tests use Testcontainers and require an accessible Docker daemon. Wh
 
 The quality gates validate implementation behavior and regressions. They do not, by themselves, prove retrieval gains in Recall@K, MRR, NDCG, or answer quality; those claims require a labeled evaluation set.
 
-Latest verified local run (`2026-07-29`, `./mvnw clean verify`):
+Latest verified local run (`2026-08-02`, `bash scripts/ai/validate.sh`):
 
 | Signal | Result |
 | --- | --- |
-| Tests | 262 executed; 0 failures, 0 errors, 9 skipped |
-| JaCoCo line coverage | 87.15% |
-| JaCoCo branch coverage | 73.00% |
+| Tests | 251 executed; 0 failures, 0 errors, 9 skipped |
+| JaCoCo line coverage | 86% |
+| JaCoCo branch coverage | 72% |
 
-The repository uses three GitHub Actions workflows. CI, Qodana, and Security start independently for pull requests and pushes to `main` or `develop`.
+The repository uses four GitHub Actions workflows. Validation, container CI, Qodana, and Security start independently for pull requests and pushes to `main` or `develop`.
 
 ```mermaid
 flowchart LR
-    event[Pull request or push] --> ci[Maven verify]
+    event[Pull request or push] --> validation[Maven verify]
+    event --> container[Container validation]
     event --> quality[Qodana Community]
     event --> security[CodeQL]
     event --> dependency[Dependency Review on pull requests]
-    ci --> reports[Test and coverage reports]
-    ci --> gate{Maven passed?}
-    gate -->|yes| container[Build image, start services, smoke test]
-    gate -->|no| skipped[Container job skipped]
+    validation --> reports[Test and coverage reports]
     container --> sbom[CycloneDX SBOM]
     container --> trivy[Trivy critical vulnerability gate]
 ```
 
-### CI workflow
+### Validation and CI workflows
 
-The `CI` workflow runs the following sequence:
+The `Validation` workflow runs the canonical local validation script:
 
 1. Set up Java 21 and Maven caching.
-2. Download the pinned ONNX model with `infra/scripts/prepare-model.sh`.
-3. Verify the model SHA-256 checksum.
-4. Run `./mvnw clean verify`, including unit tests, Testcontainers integration tests, packaging, and JaCoCo enforcement.
-5. Upload test, coverage, and application artifacts.
-6. Only after Maven succeeds, validate Compose and build the application image.
-7. Start PostgreSQL and Neo4j, run Kairos, and wait for `/actuator/health`.
-8. Generate a CycloneDX SBOM and scan the image with Trivy.
+2. Run `bash scripts/ai/validate.sh`, which prepares the pinned model and runs `./mvnw clean verify`.
+3. Upload test, coverage, and application artifacts.
 
-The container job depends on `Maven verify`. A Maven failure therefore makes the container job `skipped`; it is not a second independent failure.
+The `CI container` workflow validates Compose, builds the application image, starts PostgreSQL and Neo4j, performs the health check, generates a CycloneDX SBOM, and runs the Trivy critical-vulnerability gate.
+
+The two workflows are intentionally independent: Maven validation and container validation report separate failures.
 
 ### Quality and security gates
 
@@ -433,11 +424,15 @@ The container job depends on `Maven verify`. A Maven failure therefore makes the
 - **Trivy**: creates the container SBOM and blocks fixable critical vulnerabilities in OS and library packages.
 - **Dependabot**: checks Maven, Docker, and GitHub Actions weekly.
 
-CI retains test and coverage reports plus the JAR for 14 days. The container SBOM is retained for 30 days.
+Validation retains test and coverage reports plus the JAR for 14 days. The container SBOM is retained for 30 days.
 
 ### Branch rules
 
 For the protected `main` branch, require the successful checks exposed by the workflows, including Maven, container validation, Qodana, CodeQL, and Dependency Review. The exact check names should be selected from a completed run in the repository ruleset UI. Enable the `merge_group` trigger before using merge queue with required checks.
+
+## Agent issue workflow
+
+`AGENTS.md` is the short entry point for AI-assisted issue work. The detailed sequence, evidence requirements, and documentation decision rules are versioned in [`docs/ai/issue-workflow.md`](docs/ai/issue-workflow.md) and [`docs/ai/documentation-policy.md`](docs/ai/documentation-policy.md). Temporary issue snapshots and validation logs belong in `.ai-runs/`, which is ignored by Git.
 
 ## Troubleshooting
 
