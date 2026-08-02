@@ -6,6 +6,7 @@ target/
 .env
 src/main/resources/model/*.onnx
 ./.m2
+.ai-runs/
 
 
 ### STS ###
