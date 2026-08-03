@@ -67,6 +67,9 @@ spring:
 
 ```yaml
 kairos:
+  history:
+    default-page-size: ${KAIROS_HISTORY_DEFAULT_PAGE_SIZE:20}
+    max-page-size: ${KAIROS_HISTORY_MAX_PAGE_SIZE:100}
   retrieval:
     semantic-anchor-limit: ${KAIROS_SEMANTIC_ANCHOR_LIMIT:10}
     graph-passage-limit: ${KAIROS_GRAPH_PASSAGE_LIMIT:20}
@@ -86,6 +89,8 @@ kairos:
 | `KAIROS_GRAPH_PASSAGE_LIMIT` | `20` | Maximum graph-ranked passages returned |
 | `KAIROS_SEED_MIN_SCORE` | `0.45` | Minimum score required for a seed |
 | `KAIROS_SEED_RELATIVE_THRESHOLD` | `0.85` | Seed must be within this fraction of the best score |
+| `KAIROS_HISTORY_DEFAULT_PAGE_SIZE` | `20` | Default page size for history endpoints |
+| `KAIROS_HISTORY_MAX_PAGE_SIZE` | `100` | Maximum accepted page size for history endpoints |
 
 ## Graph Search
 

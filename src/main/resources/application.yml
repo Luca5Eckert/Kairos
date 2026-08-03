@@ -73,6 +73,9 @@ logging:
 kairos:
   mail:
     from: ${MAIL_FROM:no-reply@kairos.local}
+  history:
+    default-page-size: ${KAIROS_HISTORY_DEFAULT_PAGE_SIZE:20}
+    max-page-size: ${KAIROS_HISTORY_MAX_PAGE_SIZE:100}
   retrieval:
     semantic-anchor-limit: ${KAIROS_SEMANTIC_ANCHOR_LIMIT:10}
     graph-passage-limit: ${KAIROS_GRAPH_PASSAGE_LIMIT:20}
