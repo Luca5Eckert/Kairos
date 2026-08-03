@@ -247,4 +247,26 @@ class SourceControllerTest {
                 .andExpect(jsonPath("$.code").value(409))
                 .andExpect(jsonPath("$.message").value("Source retry conflict"));
     }
+    @Test
+    void searchSourceContext_passesExistingQuestionId() throws Exception {
+        UUID questionId = UUID.randomUUID();
+        SearchResult result = SearchResult.empty();
+        ContextResponse response = new ContextResponse(List.of(), List.of());
+        when(searchSourceUseCase.execute(argThat(query ->
+                query.searchTerm().equals("Repeat this question") && questionId.equals(query.questionId())
+        ))).thenReturn(result);
+        when(mapper.toContextResponse(result)).thenReturn(response);
+
+        mockMvc.perform(post("/sources/search")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "termQuery": "Repeat this question",
+                                  "questionId": "%s"
+                                }
+                                """.formatted(questionId)))
+                .andExpect(status().isOk());
+
+        verify(searchSourceUseCase).execute(argThat(query -> questionId.equals(query.questionId())));
+    }
 }

@@ -56,7 +56,7 @@ public class SourceController {
     public ResponseEntity<ContextResponse> searchSourceContext(
             @RequestBody @Valid GenerateSourceContextRequest request
     ) {
-        var query = SearchSourceQuery.of(request.termQuery());
+        var query = new SearchSourceQuery(request.termQuery(), request.questionId());
         var result = searchSourceUseCase.execute(query);
 
         return ResponseEntity.ok(mapper.toContextResponse(result));

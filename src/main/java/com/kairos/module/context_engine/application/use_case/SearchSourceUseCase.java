@@ -19,6 +19,7 @@ import com.kairos.module.context_engine.domain.port.recognition.RecognitionMemor
 import com.kairos.module.context_engine.domain.port.semantic.SemanticSearch;
 import com.kairos.module.context_engine.infrastructure.config.RetrievalProperties;
 import com.kairos.share.security.context.RequestContextProvider;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -107,7 +108,7 @@ public class SearchSourceUseCase {
     private Question questionFor(SearchSourceQuery query, UUID userId) {
         if (query.questionId() != null) {
             return historyRepository.findQuestionByIdAndUserId(query.questionId(), userId)
-                    .orElseThrow(() -> new IllegalArgumentException("Question does not belong to the authenticated user"));
+                    .orElseThrow(() -> new EntityNotFoundException("History resource not found"));
         }
 
         Question question = Question.create(userId, query.searchTerm());
