@@ -33,6 +33,7 @@ done
 grep -Fq 'docs/ai/issue-workflow.md' AGENTS.md || fail 'AGENTS.md does not route to the issue workflow'
 grep -Fq 'docs/ai/documentation-policy.md' AGENTS.md || fail 'AGENTS.md does not route to the documentation policy'
 grep -Fq 'scripts/ai/validate.sh' .github/workflows/validation.yml || fail 'CI does not reuse validate.sh'
+grep -Fq 'disabledWithoutDocker is true' scripts/ai/validate.sh || fail 'validate.sh does not reject skipped Docker tests'
 grep -Fq '.ai-runs/' .gitignore || fail '.ai-runs/ is not ignored'
 grep -Fq 'issue' .github/pull_request_template.md || fail 'PR template does not request issue evidence'
 grep -Fq 'validation' docs/ai/issue-workflow.md || fail 'issue workflow does not describe complete validation'
