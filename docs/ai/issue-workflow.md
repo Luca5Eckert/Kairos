@@ -104,7 +104,7 @@ Run the canonical validation from the repository root:
 bash scripts/ai/validate.sh
 ```
 
-This prepares the pinned model and runs `./mvnw --batch-mode --no-transfer-progress clean verify`, including tests, packaging, and JaCoCo enforcement. The `validation.yml` workflow reuses this script. Container smoke tests and vulnerability scanning remain in the CI container job because they require Docker and GitHub Actions services.
+This prepares the pinned model and runs `./mvnw --batch-mode --no-transfer-progress clean verify`, including tests, packaging, and JaCoCo enforcement. The script also fails when Testcontainers reports Docker-backed tests as skipped, so a successful complete validation means those integration tests actually ran. The `validation.yml` workflow reuses this script. Container smoke tests and vulnerability scanning remain in the CI container job because they require Docker and GitHub Actions services.
 
 Run focused tests during development, then run the complete validation before delivery. Report skipped tests and environmental limitations explicitly.
 
