@@ -207,7 +207,7 @@ If enrichment fails, the affected chunk is marked as `FAILED`, chunks already co
 
 ## Retrieval and history flow
 
-`POST /sources/search` is user-scoped from the request context. Every execution persists the question and an immutable answer snapshot, while the public response remains focused on ranked chunks and activated triples.
+`POST /sources/search` is user-scoped from the request context. Every execution persists the question and an immutable answer snapshot, while the public response remains focused on ranked chunks and activated triples. Pass an existing `questionId` to append a new immutable answer without overwriting earlier executions. The `/history/questions` and `/history/answers` endpoints expose those records with user-scoped pagination; detailed answers are served entirely from the stored JSONB snapshot.
 
 ```mermaid
 flowchart LR
@@ -233,8 +233,10 @@ These defaults are bound from `kairos.retrieval` and can be overridden through t
 | `recognition-seed-limit` | 10 | Maximum concept seeds selected from triple candidates |
 | `seed-min-score` | 0.45 | Minimum score required for a graph seed |
 | `seed-relative-threshold` | 0.85 | Relative score threshold applied to seed selection |
+| `history.default-page-size` | 20 | Default page size for history endpoints |
+| `history.max-page-size` | 100 | Maximum accepted page size for history endpoints |
 
-All Spring configuration options are documented in [docs/configuration.md](docs/configuration.md). The history model is implemented internally, but there is not yet a public endpoint for listing or reading historical questions and answers.
+All Spring configuration options are documented in [docs/configuration.md](docs/configuration.md). History responses use `content`, `page`, `size`, `totalElements`, `totalPages`, `first`, and `last`; list endpoints default to page `0`, size `20`, and reject sizes above the configurable maximum.
 
 ## Data locality and external processing
 
@@ -248,7 +250,7 @@ Do not submit sensitive content unless its processing by the configured Gemini p
 
 ## API
 
-All `/sources/**` endpoints require a valid JWT bearer token. Authentication endpoints are public.
+All `/sources/**` and `/history/**` endpoints require a valid JWT bearer token. Authentication endpoints are public.
 
 | Method | Path | Authentication | Description |
 | --- | --- | --- | --- |
@@ -256,7 +258,11 @@ All `/sources/**` endpoints require a valid JWT bearer token. Authentication end
 | `POST` | `/auth/confirm-email` | Public | Confirms a user and returns a JWT |
 | `POST` | `/auth/login` | Public | Authenticates by username or email and returns a JWT |
 | `POST` | `/sources` | JWT | Stores a source and starts asynchronous enrichment |
-| `POST` | `/sources/search` | JWT | Searches the authenticated user's graph-augmented knowledge base |
+| `POST` | `/sources/search` | JWT | Searches the authenticated user's graph-augmented knowledge base; accepts optional `questionId` to append a new answer |
+| `GET` | `/history/questions` | JWT | Lists the authenticated user's questions with pagination |
+| `GET` | `/history/questions/{questionId}` | JWT | Returns question metadata and execution counts |
+| `GET` | `/history/questions/{questionId}/answers` | JWT | Lists persisted answer summaries with pagination |
+| `GET` | `/history/answers/{answerId}` | JWT | Returns a complete immutable answer snapshot |
 | `GET` | `/sources/progress` | JWT | Lists source chunk progress for the authenticated user |
 | `POST` | `/sources/{sourceId}/retry` | JWT | Asynchronously retries only failed chunks owned by the authenticated user |
 
@@ -290,7 +296,7 @@ curl http://127.0.0.1:8081/sources/progress \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Search the authenticated knowledge base after enrichment has processed the chunks:
+Search the authenticated knowledge base after enrichment has processed the chunks. To re-execute an existing question, include its `questionId` in the same body: `{"termQuery":"How do knowledge graphs improve retrieval?","questionId":"<question-id>"}`.
 
 ```bash
 curl -X POST http://127.0.0.1:8081/sources/search \
@@ -299,7 +305,11 @@ curl -X POST http://127.0.0.1:8081/sources/search \
   -d '{"termQuery":"How do knowledge graphs improve retrieval?"}'
 ```
 
-The endpoint returns graph evidence separately from ranked chunks. UUIDs and scores below are illustrative; field names match the public response contract.
+The endpoint returns graph evidence separately from ranked chunks. UUIDs and scores below are illustrative; field names match the public response contract. History can then be read with:
+
+```bash
+curl "http://127.0.0.1:8081/history/questions?page=0&size=20" -H "Authorization: Bearer $TOKEN"
+```
 
 ```json
 {
@@ -453,7 +463,6 @@ For the protected `main` branch, require the successful checks exposed by the wo
 The current V1 is experimental, not a complete end-user knowledge application or a security-audited production service. The main remaining gaps are:
 
 - an automatic retry scheduler and Neo4j rebuild procedure;
-- a public API for reading persisted questions and answer snapshots;
 - OpenAPI/Swagger publication;
 - a dense-search fallback when Neo4j GDS is unavailable;
 - request-size limits, rate limiting, and upload-abuse controls;

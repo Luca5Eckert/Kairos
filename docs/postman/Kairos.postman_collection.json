@@ -16,7 +16,9 @@
     { "key": "confirmationCode", "value": "", "type": "string" },
     { "key": "sourceTitle", "value": "RAG e grafos de conhecimento", "type": "string" },
     { "key": "sourceContent", "value": "Retrieval augmented generation combina um recuperador com um modelo de linguagem. Grafos de conhecimento representam entidades e relacionamentos explicitamente. Personalized PageRank propaga relevância através de conceitos conectados.", "type": "string" },
-    { "key": "searchQuery", "value": "Como um grafo de conhecimento melhora retrieval augmented generation?", "type": "string" }
+    { "key": "searchQuery", "value": "Como um grafo de conhecimento melhora retrieval augmented generation?", "type": "string" },
+    { "key": "questionId", "value": "", "type": "string" },
+    { "key": "answerId", "value": "", "type": "string" }
   ],
   "event": [
     {
@@ -118,6 +120,35 @@
       ]
     },
     {
+      "name": "History (authenticated)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "List questions",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/history/questions?page=0&size=20", "description": "Lista perguntas persistidas do usuário autenticado em ordem decrescente de criação." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.test('Retorna página de histórico', () => { pm.expect(body.content).to.be.an('array'); pm.expect(body).to.include.all.keys('page', 'size', 'totalElements', 'totalPages', 'first', 'last'); });", "if (body.content.length) pm.collectionVariables.set('questionId', body.content[0].questionId);"] } }]
+        },
+        {
+          "name": "Get question metadata",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/history/questions/{{questionId}}", "description": "Abre uma pergunta sem carregar automaticamente seus snapshots." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json()).to.have.all.keys('questionId', 'text', 'createdAt', 'answerCount', 'latestExecutionAt');"] } }]
+        },
+        {
+          "name": "List question answers",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/history/questions/{{questionId}}/answers?page=0&size=20", "description": "Lista os resumos das execuções persistidas da pergunta." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.expect(body.content).to.be.an('array');", "if (body.content.length) pm.collectionVariables.set('answerId', body.content[0].answerId);"] } }]
+        },
+        {
+          "name": "Get answer snapshot",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/history/answers/{{answerId}}", "description": "Recupera o snapshot completo e imutável armazenado em JSONB." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.expect(body).to.include.all.keys('answerId', 'questionId', 'schemaVersion', 'createdAt', 'snapshot');", "pm.expect(body.snapshot).to.include.all.keys('retrievalVersion', 'parameters', 'seeds', 'rankedPassages', 'activatedTriples');"] } }]
+        },
+        {
+          "name": "Re-execute existing question",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"termQuery\": \"{{searchQuery}}\",\n  \"questionId\": \"{{questionId}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/sources/search", "description": "Executa novamente uma pergunta existente e anexa um novo answer sem sobrescrever snapshots anteriores." }
+        }
+      ]
+    },    {
       "name": "Security (negative)",
       "item": [
         {
