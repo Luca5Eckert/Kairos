@@ -29,6 +29,11 @@ public class UserEntityRepository implements UserRepository {
         return mapper.toDomain(entity);
     }
 
+    @Override
+    public boolean existsByUsernameIgnoreCaseAndIdNot(String username, UUID userId) {
+        return jpaRepository.existsByUsernameIgnoreCaseAndIdNot(username, userId);
+    }
+
     public Optional<User> findById(UUID id) {
         var entity = jpaRepository.findById(id);
         return entity.map(mapper::toDomain);

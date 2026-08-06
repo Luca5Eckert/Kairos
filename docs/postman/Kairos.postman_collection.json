@@ -120,6 +120,27 @@
       ]
     },
     {
+      "name": "Account self-service (authenticated)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/users/me", "description": "Returns only the public profile of the bearer-token owner." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Returns 200', () => pm.response.to.have.status(200));", "const body = pm.response.json();", "pm.test('Returns a safe profile', () => { pm.expect(body).to.include.all.keys('id', 'name', 'username', 'email', 'emailConfirmed', 'roles'); pm.expect(body).to.not.have.any.keys('hashPassword', 'password', 'confirmationCodeHash'); });"] } }]
+        },
+        {
+          "name": "Update my profile",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman Updated User\",\n  \"username\": \"{{username}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/me", "description": "Updates the current user only; email and roles are not accepted." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Returns 200', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().name).to.eql('Postman Updated User');"] } }]
+        },
+        {
+          "name": "Change my password",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{password}}\",\n  \"newPasswordConfirmation\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/me/password", "description": "Use a distinct, valid new password in a real run. Existing JWTs remain valid until expiry." },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Returns 204', () => pm.response.to.have.status(204));"] } }]
+        }
+      ]
+    },
+    {
       "name": "History (authenticated)",
       "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }] },
       "item": [

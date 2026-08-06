@@ -1,5 +1,6 @@
 package com.kairos.module.user.domain.model;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public class User {
@@ -20,7 +21,9 @@ public class User {
 
     private String confirmationCodeHash;
 
-    protected User(UUID id, String name, String username, String email, String hashPassword, Role role, boolean emailConfirmed, String confirmationCodeHash) {
+    private Instant createdAt;
+
+    protected User(UUID id, String name, String username, String email, String hashPassword, Role role, boolean emailConfirmed, String confirmationCodeHash, Instant createdAt) {
         this.id = id;
         this.name = name;
         this.username = username;
@@ -29,6 +32,7 @@ public class User {
         this.role = role;
         this.emailConfirmed = emailConfirmed;
         this.confirmationCodeHash = confirmationCodeHash;
+        this.createdAt = createdAt;
     }
 
     public User(Builder builder) {
@@ -40,6 +44,7 @@ public class User {
         this.role = builder.role;
         this.emailConfirmed = builder.emailConfirmed;
         this.confirmationCodeHash = builder.confirmationCodeHash;
+        this.createdAt = builder.createdAt;
     }
 
     public UUID getId() {
@@ -74,6 +79,23 @@ public class User {
         return confirmationCodeHash;
     }
 
+    public void changePassword(String hashPassword) {
+        this.hashPassword = hashPassword;
+    }
+
+    public void updateProfile(String name, String username) {
+        if(name != null) {
+            this.name = name;
+        }
+        if(username != null) {
+            this.username = username;
+        }
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public static class Builder {
         private UUID id;
         private String name;
@@ -83,6 +105,7 @@ public class User {
         private Role role;
         private boolean emailConfirmed;
         private String confirmationCodeHash;
+        private Instant createdAt;
 
         public Builder id(UUID id) {
             this.id = id;
@@ -124,8 +147,13 @@ public class User {
             return this;
         }
 
+        public Builder createdAt(Instant createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
         public User build() {
-            return new User(id, name, username, email, hashPassword, role, emailConfirmed, confirmationCodeHash);
+            return new User(this);
         }
     }
 

@@ -78,7 +78,7 @@ class HistoryPersistenceIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("4");
         assertThat(historyRepository.findQuestionsByUserId(userId, new HistoryPageRequest(0, 20)).content())
                 .extracting(question -> question.id())
                 .containsExactly(second.id(), first.id());
