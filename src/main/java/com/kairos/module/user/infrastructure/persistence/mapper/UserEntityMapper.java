@@ -17,6 +17,7 @@ public class UserEntityMapper {
                 .role(user.getRole())
                 .emailConfirmed(user.isEmailConfirmed())
                 .confirmationCodeHash(user.getConfirmationCodeHash())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 
@@ -30,6 +31,7 @@ public class UserEntityMapper {
                 .role(userEntity.getRole())
                 .emailConfirmed(userEntity.isEmailConfirmed())
                 .confirmationCodeHash(userEntity.getConfirmationCodeHash())
+                .createdAt(userEntity.getCreatedAt())
                 .build();
     }
 

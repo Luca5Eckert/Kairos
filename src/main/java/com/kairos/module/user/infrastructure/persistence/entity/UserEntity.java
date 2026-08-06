@@ -3,8 +3,10 @@ package com.kairos.module.user.infrastructure.persistence.entity;
 
 import com.kairos.module.user.domain.model.Role;
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 import lombok.*;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -41,5 +43,9 @@ public class UserEntity {
 
     @Column(name = "confirmation_code_hash")
     private String confirmationCodeHash;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
 }
