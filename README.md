@@ -250,13 +250,16 @@ Do not submit sensitive content unless its processing by the configured Gemini p
 
 ## API
 
-All `/sources/**` and `/history/**` endpoints require a valid JWT bearer token. Authentication endpoints are public.
+All `/sources/**`, `/history/**`, and `/users/**` endpoints require a valid JWT bearer token. Authentication endpoints are public.
 
 | Method | Path | Authentication | Description |
 | --- | --- | --- | --- |
 | `POST` | `/auth/register` | Public | Creates a pending user and sends an email confirmation code |
 | `POST` | `/auth/confirm-email` | Public | Confirms a user and returns a JWT |
 | `POST` | `/auth/login` | Public | Authenticates by username or email and returns a JWT |
+| `GET` | `/users/me` | JWT | Returns the authenticated user public profile |
+| `PATCH` | `/users/me` | JWT | Updates only the authenticated user name and username |
+| `POST` | `/users/me/password` | JWT | Changes password after current-password confirmation |
 | `POST` | `/sources` | JWT | Stores a source and starts asynchronous enrichment |
 | `POST` | `/sources/search` | JWT | Searches the authenticated user's graph-augmented knowledge base; accepts optional `questionId` to append a new answer |
 | `GET` | `/history/questions` | JWT | Lists the authenticated user's questions with pagination |
@@ -266,7 +269,9 @@ All `/sources/**` and `/history/**` endpoints require a valid JWT bearer token. 
 | `GET` | `/sources/progress` | JWT | Lists source chunk progress for the authenticated user |
 | `POST` | `/sources/{sourceId}/retry` | JWT | Asynchronously retries only failed chunks owned by the authenticated user |
 
-OpenAPI/Swagger is not configured in the current build. The complete request collection, validation cases, authentication flow, and local environment are available in [docs/postman/Kairos.postman_collection.json](docs/postman/Kairos.postman_collection.json) and [docs/postman/Kairos.local.postman_environment.json](docs/postman/Kairos.local.postman_environment.json).
+The versioned API contract is available in [docs/openapi.yaml](docs/openapi.yaml). Runtime Swagger UI is not configured. The complete request collection, validation cases, authentication flow, and local environment are available in [docs/postman/Kairos.postman_collection.json](docs/postman/Kairos.postman_collection.json) and [docs/postman/Kairos.local.postman_environment.json](docs/postman/Kairos.local.postman_environment.json).
+
+Password changes do not revoke JWTs already issued: they remain valid until their normal expiration. The API never returns password hashes, confirmation codes, or other security internals.
 
 ### Try the API locally
 
