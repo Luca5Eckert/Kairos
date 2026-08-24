@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw -B -q clean package -DskipTests
 
 
-FROM eclipse-temurin:21-jre-jammy AS runtime
+FROM eclipse-temurin:22-jre-jammy AS runtime
 
 LABEL org.opencontainers.image.title="Spring Boot Application"
 LABEL org.opencontainers.image.description="Robust production-ready Spring Boot container"
