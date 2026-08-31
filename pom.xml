@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.7</version> <relativePath/>
+        <version>4.1.1</version> <relativePath/>
     </parent>
     <groupId>com</groupId>
     <artifactId>kairos</artifactId>
@@ -14,9 +14,9 @@
 
     <properties>
         <java.version>21</java.version>
-        <spring-ai.version>2.0.0-M6</spring-ai.version>
-        <lombok.version>1.18.44</lombok.version>
-        <testcontainers.version>1.20.6</testcontainers.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
+        <lombok.version>1.18.46</lombok.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencyManagement>
@@ -82,12 +82,12 @@
         <dependency>
             <groupId>io.github.resilience4j</groupId>
             <artifactId>resilience4j-spring-boot3</artifactId>
-            <version>2.3.0</version>
+            <version>2.4.0</version>
         </dependency>
         <dependency>
             <groupId>com.microsoft.onnxruntime</groupId>
             <artifactId>onnxruntime</artifactId>
-            <version>1.20.0</version>
+            <version>1.29.0</version>
         </dependency>
         <dependency>
             <groupId>ai.djl.huggingface</groupId>
@@ -183,7 +183,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.14</version>
+                <version>0.8.15</version>
                 <executions>
                     <execution>
                         <goals>
