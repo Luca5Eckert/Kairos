@@ -42,15 +42,16 @@ jobs:
       - name: Compile, test, package, and enforce coverage
         run: bash scripts/ai/validate.sh
 
-      - name: Upload test and coverage reports
+      - name: Upload test, coverage, and evaluation reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-and-coverage-reports
+          name: test-coverage-and-evaluation-reports
           path: |
             target/surefire-reports/
             target/failsafe-reports/
             target/site/jacoco/
+            target/evaluation/
           if-no-files-found: warn
           retention-days: 14
 
