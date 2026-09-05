@@ -1,6 +1,7 @@
 # Kairos
 
 [![CI](https://github.com/Luca5Eckert/Kairos/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Luca5Eckert/Kairos/actions/workflows/ci.yml)
+[![Retrieval Evaluation](https://github.com/Luca5Eckert/Kairos/actions/workflows/retrieval-evaluation.yml/badge.svg?branch=main)](https://github.com/Luca5Eckert/Kairos/actions/workflows/retrieval-evaluation.yml)
 [![Code quality](https://github.com/Luca5Eckert/Kairos/actions/workflows/qodana_code_quality.yml/badge.svg?branch=main)](https://github.com/Luca5Eckert/Kairos/actions/workflows/qodana_code_quality.yml)
 [![Security](https://github.com/Luca5Eckert/Kairos/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Luca5Eckert/Kairos/actions/workflows/security.yml)
 
@@ -71,9 +72,10 @@ The current retrieval path is inspired by HippoRAG 2:
 | Knowledge extraction | Gemini structured output for factual triple extraction and recognition-memory seed selection |
 | Semantic search | PostgreSQL and pgvector HNSW indexes for passage and triple candidate retrieval |
 | Graph retrieval | Neo4j 5.26 with Graph Data Science and weighted Personalized PageRank |
+| Retrieval evaluation | Versioned IR evaluation with a pull-request quality gate plus scheduled/manual full benchmark |
 | Retrieval history | Immutable, versioned `AnswerSnapshot` documents stored as PostgreSQL `JSONB` |
 | Progress | `GET /sources/progress` reports aggregate status and chunk counts by processing state for the current user |
-| Delivery | Docker Compose for local infrastructure and GitHub Actions for build, quality, security, and container validation |
+| Delivery | Docker Compose for local infrastructure and GitHub Actions for build, retrieval quality, security, and container validation |
 
 ## Why graph-augmented retrieval
 
@@ -86,6 +88,23 @@ Vector search is strong at finding passages close to a query embedding. It is we
 | Relies on the LLM to infer most relationships at answer time | Surfaces relationship evidence before generation |
 | Often depends on an external embedding service | Runs embeddings locally in the JVM |
 | Rebuilds context from current data | Persists self-contained retrieval snapshots for history |
+
+### Measured retrieval evaluation
+
+Kairos includes a versioned, controlled offline evaluation instead of relying only on architectural claims. Dataset v1 contains 60 labeled natural-language queries: 30 single-hop and 30 multi-hop, with graded passage relevance and semantic distractors.
+
+The first reference execution compared the same corpus and queries using vector-only retrieval and the graph-augmented path with production ONNX embeddings, real PostgreSQL/pgvector, and real Neo4j GDS Personalized PageRank. Recognition-memory seed selection was frozen deterministically to isolate the retrieval core from Gemini latency and variance.
+
+| Segment | Vector nDCG@10 | Graph nDCG@10 | Relative lift |
+| --- | ---: | ---: | ---: |
+| All queries | 0.8249 | **0.9797** | **+18.8%** |
+| Multi-hop | 0.6498 | **0.9593** | **+47.6%** |
+
+`Recall@10` reached `1.0000` in both modes, so the result is specifically a **ranking-quality gain**, not a Recall@10 gain. In the reference run, 29 of 30 multi-hop queries improved nDCG, one was unchanged, and none regressed.
+
+The gain has a measurable latency cost: vector-only p95 was `19.03 ms`, while graph-augmented p95 was `418.36 ms`. Neo4j GDS/PPR accounted for `400.80 ms` p95 in the graph-stage breakdown, making graph projection/PageRank the primary optimization target exposed by the benchmark.
+
+These are reproducible CI/offline measurements, **not production SLAs**, and they do not include live Gemini recognition. The complete methodology, boundaries, commands, and continuous-evaluation policy are documented in [docs/evaluation/retrieval-benchmark.md](docs/evaluation/retrieval-benchmark.md).
 
 ## Architecture
 
@@ -208,18 +227,6 @@ If enrichment fails, the affected chunk is marked as `FAILED`, chunks already co
 ## Retrieval and history flow
 
 `POST /sources/search` is user-scoped from the request context. Every execution persists the question and an immutable answer snapshot, while the public response remains focused on ranked chunks and activated triples. Pass an existing `questionId` to append a new immutable answer without overwriting earlier executions. The `/history/questions` and `/history/answers` endpoints expose those records with user-scoped pagination; detailed answers are served entirely from the stored JSONB snapshot.
-
-```mermaid
-flowchart LR
-    event[Pull request or push] --> validation[Maven verify]
-    event --> container[Container validation]
-    event --> quality[Qodana Community]
-    event --> security[CodeQL]
-    event --> dependency[Dependency Review on pull requests]
-    validation --> reports[Test and coverage reports]
-    container --> sbom[CycloneDX SBOM]
-    container --> trivy[Trivy critical vulnerability gate]
-```
 
 ### Retrieval defaults
 
@@ -378,60 +385,86 @@ For a complete configuration reference and retrieval tuning options, see [docs/c
 
 ### Run Maven locally
 
-The Maven wrapper can compile and test the project without running the application container:
+The canonical validation command is:
 
 ```bash
-./mvnw --batch-mode --no-transfer-progress clean verify
+bash scripts/ai/validate.sh
 ```
 
-On Windows:
+It prepares the pinned ONNX model and runs Maven `clean verify`, including the lightweight retrieval quality regression gate. Integration tests use Testcontainers and require an accessible Docker daemon.
 
-```powershell
-.\mvnw.cmd --batch-mode --no-transfer-progress clean verify
+Run the complete 60-query retrieval benchmark separately with:
+
+```bash
+bash scripts/ai/evaluate-retrieval.sh
 ```
-
-Integration tests use Testcontainers and require an accessible Docker daemon. When Docker is unavailable, those tests are skipped by design; the GitHub Actions runner executes them with Docker enabled.
 
 ## Testing and CI/CD
 
-The quality gates validate implementation behavior and regressions. They do not, by themselves, prove retrieval gains in Recall@K, MRR, NDCG, or answer quality; those claims require a labeled evaluation set.
+Kairos treats retrieval quality as a continuously evaluated property rather than a one-off benchmark. Merge-time regression protection is intentionally separated from the complete evaluation so pull requests stay deterministic while full quality/performance evidence remains reproducible.
 
-Latest verified local run (`2026-08-02`, `bash scripts/ai/validate.sh`):
+### Pull-request retrieval quality gate
 
-| Signal | Result |
-| --- | --- |
-| Tests | 251 executed; 0 failures, 0 errors, 9 skipped |
-| JaCoCo line coverage | 86% |
-| JaCoCo branch coverage | 72% |
+Every normal `Validation` run executes a stable 12-query regression subset through real production boundaries:
 
-The repository uses four GitHub Actions workflows. Validation, container CI, Qodana, and Security start independently for pull requests and pushes to `main` or `develop`.
+- 6 single-hop and 6 multi-hop queries;
+- production `all-MiniLM-L6-v2` ONNX embeddings;
+- PostgreSQL/pgvector dense retrieval;
+- Neo4j GDS Personalized PageRank;
+- deterministic recognition seeds constrained to actual triple candidates.
+
+The merge-time gate fails if graph multi-hop nDCG@10 falls below vector-only on that subset, if graph multi-hop nDCG@10 falls below `0.90`, or if overall graph nDCG@10 falls below `0.95`.
+
+Latency is deliberately **not** a hard pull-request threshold. p95/p99 on shared GitHub-hosted runners is noisy; using an absolute timing cutoff would make CI flaky and conflate infrastructure variance with retrieval regressions.
+
+### Full retrieval evaluation
+
+The complete 60-query evaluation is excluded from normal Maven verification and runs in the dedicated `Retrieval Evaluation` workflow:
+
+- manually through `workflow_dispatch`;
+- every Monday at `09:00 UTC`;
+- with the full quality table plus p50/p95/p99 and graph-stage latency breakdown;
+- with `run-metadata.json`, raw query results, structured report, and Markdown summary uploaded as workflow artifacts for 30 days.
+
+Locally, the same workflow boundary is available through `bash scripts/ai/evaluate-retrieval.sh`. See [the retrieval evaluation specification](docs/evaluation/retrieval-benchmark.md) for the exact protocol and guardrails.
+
+### CI topology
+
+Validation, container CI, Qodana, and Security start independently for pull requests and pushes to `main` or `develop`. Full retrieval evaluation has its own manual/scheduled cadence.
 
 ```mermaid
 flowchart LR
-    event[Pull request or push] --> validation[Maven verify]
-    event --> container[Container validation]
-    event --> quality[Qodana Community]
-    event --> security[CodeQL]
-    event --> dependency[Dependency Review on pull requests]
+    pr[Pull request or push] --> validation[Maven verify]
+    pr --> container[Container validation]
+    pr --> quality[Qodana Community]
+    pr --> security[CodeQL]
+    pr --> dependency[Dependency Review on PRs]
+    validation --> qualityGate[12-query retrieval quality gate]
     validation --> reports[Test and coverage reports]
     container --> sbom[CycloneDX SBOM]
     container --> trivy[Trivy critical vulnerability gate]
+
+    schedule[Weekly or manual] --> evaluation[60-query Retrieval Evaluation]
+    evaluation --> metrics[nDCG / Recall / MRR + latency percentiles]
+    evaluation --> artifacts[Versioned evaluation artifacts]
 ```
 
-### Validation and CI workflows
+### Validation and container workflows
 
-The `Validation` workflow runs the canonical local validation script:
+The `Validation` workflow:
 
-1. Set up Java 21 and Maven caching.
-2. Run `bash scripts/ai/validate.sh`, which prepares the pinned model and runs `./mvnw clean verify`.
-3. Upload test, coverage, and application artifacts.
+1. sets up Java 21 and Maven caching;
+2. runs `bash scripts/ai/validate.sh`;
+3. executes unit tests, integration tests, the 12-query retrieval quality gate, packaging, and JaCoCo enforcement;
+4. uploads test, coverage, and application artifacts.
 
 The `CI container` workflow validates Compose, builds the application image, starts PostgreSQL and Neo4j, performs the health check, generates a CycloneDX SBOM, and runs the Trivy critical-vulnerability gate.
 
-The two workflows are intentionally independent: Maven validation and container validation report separate failures.
+The workflows are intentionally independent: Maven validation, container/runtime security, static analysis, and full retrieval evaluation report separate classes of failure.
 
 ### Quality and security gates
 
+- **Retrieval quality**: graph multi-hop ranking is protected by deterministic nDCG@10 regression floors on the 12-query PR subset.
 - **JaCoCo**: the build fails below 80% line coverage or 70% branch coverage.
 - **Qodana Community**: publishes annotations and workflow artifacts; it runs without `QODANA_TOKEN` and is not connected to Qodana Cloud.
 - **CodeQL**: performs Java/Kotlin security analysis and publishes findings in the repository Security tab.
@@ -439,11 +472,15 @@ The two workflows are intentionally independent: Maven validation and container 
 - **Trivy**: creates the container SBOM and blocks fixable critical vulnerabilities in OS and library packages.
 - **Dependabot**: checks Maven, Docker, and GitHub Actions weekly.
 
-Validation retains test and coverage reports plus the JAR for 14 days. The container SBOM is retained for 30 days.
+The container gate remains strict. During issue #113 it surfaced critical vulnerabilities in the Spring Boot 4.0.7-managed Tomcat `11.0.22`; Kairos overrides the managed Tomcat line to the security-fixed `11.0.25` rather than suppressing the scan.
+
+Validation retains test/coverage artifacts and the JAR for 14 days. Container SBOM and full retrieval-evaluation artifacts are retained for 30 days.
 
 ### Branch rules
 
-For the protected `main` branch, require the successful checks exposed by the workflows, including Maven, container validation, Qodana, CodeQL, and Dependency Review. The exact check names should be selected from a completed run in the repository ruleset UI. Enable the `merge_group` trigger before using merge queue with required checks.
+For the protected `main` branch, require the successful checks exposed by the pull-request workflows, including Maven validation/retrieval quality, container validation, Qodana, CodeQL, and Dependency Review. The scheduled full retrieval benchmark is observational and should not be configured as a required pull-request check.
+
+The exact check names should be selected from a completed run in the repository ruleset UI. Enable the `merge_group` trigger before using merge queue with required checks.
 
 ## Agent issue workflow
 
@@ -475,10 +512,11 @@ The current V1 is experimental, not a complete end-user knowledge application or
 - a published software license, contribution guide, and vulnerability-disclosure policy;
 - broader user-management features beyond authentication and source ownership.
 
-Search the repository's [open GitHub Issues](https://github.com/Luca5Eckert/Kairos/issues) for the current roadmap. Completed retrieval work, including HippoRAG 2 search and JSONB retrieval history, is documented as current capability rather than future work.
+Search the repository's [open GitHub Issues](https://github.com/Luca5Eckert/Kairos/issues) for the current roadmap. Completed retrieval work, including HippoRAG 2 search, continuous retrieval evaluation, and JSONB retrieval history, is documented as current capability rather than future work.
 
 ## Technical references
 
+- [Retrieval evaluation and continuous quality policy](docs/evaluation/retrieval-benchmark.md)
 - [Configuration reference](docs/configuration.md)
 - [Security, privacy, and operations](docs/operations.md)
 - [ADR index](docs/adr/)
