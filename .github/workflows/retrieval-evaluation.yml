@@ -1,0 +1,48 @@
+name: Retrieval Evaluation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retrieval-evaluation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  full-retrieval-evaluation:
+    name: Full 60-query retrieval evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Prepare Maven wrapper
+        run: chmod +x mvnw
+
+      - name: Run complete retrieval evaluation
+        run: bash scripts/ai/evaluate-retrieval.sh
+
+      - name: Upload retrieval evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: retrieval-evaluation-${{ github.run_id }}
+          path: |
+            target/evaluation/retrieval
+            target/surefire-reports/TEST-com.kairos.module.context_engine.evaluation.RetrievalEvaluationIntegrationTest.xml
+          if-no-files-found: warn
+          retention-days: 30

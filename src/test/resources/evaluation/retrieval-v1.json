@@ -1,0 +1,308 @@
+{
+  "version": "1.0.0",
+  "description": "Curated controlled retrieval benchmark for graph expansion versus vector-only retrieval. Natural-language embeddings use the production all-MiniLM-L6-v2 ONNX provider; recognition-memory seed selection is deterministic to remove external Gemini variance.",
+  "scenarios": [
+    {
+      "id": "atlas",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Atlas",
+      "queries": [
+        {"id": "atlas-1", "text": "Where does Project Atlas ultimately persist its audit records?"},
+        {"id": "atlas-2", "text": "Which technology stores the audit records produced by Project Atlas?"},
+        {"id": "atlas-3", "text": "Follow Project Atlas's processing chain: what backend holds the audit records?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Atlas routes its audit records through the Quill component.", "triples": [{"subject": "Project Atlas", "predicate": "USES", "object": "Quill"}]},
+        {"key": "target", "content": "Quill persists audit records in PostgreSQL for durable storage.", "triples": [{"subject": "Quill", "predicate": "STORES_IN", "object": "PostgreSQL"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "orion",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Orion",
+      "queries": [
+        {"id": "orion-1", "text": "Where does Project Orion ultimately persist its session state?"},
+        {"id": "orion-2", "text": "Which technology stores the session state produced by Project Orion?"},
+        {"id": "orion-3", "text": "Follow Project Orion's processing chain: what backend holds the session state?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Orion routes its session state through the Beacon component.", "triples": [{"subject": "Project Orion", "predicate": "USES", "object": "Beacon"}]},
+        {"key": "target", "content": "Beacon persists session state in Redis for durable storage.", "triples": [{"subject": "Beacon", "predicate": "STORES_IN", "object": "Redis"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "meridian",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Meridian",
+      "queries": [
+        {"id": "meridian-1", "text": "Where does Project Meridian ultimately persist its domain events?"},
+        {"id": "meridian-2", "text": "Which technology stores the domain events produced by Project Meridian?"},
+        {"id": "meridian-3", "text": "Follow Project Meridian's processing chain: what backend holds the domain events?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Meridian routes its domain events through the Forge component.", "triples": [{"subject": "Project Meridian", "predicate": "USES", "object": "Forge"}]},
+        {"key": "target", "content": "Forge persists domain events in Kafka for durable storage.", "triples": [{"subject": "Forge", "predicate": "STORES_IN", "object": "Kafka"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "nimbus",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Nimbus",
+      "queries": [
+        {"id": "nimbus-1", "text": "Where does Project Nimbus ultimately persist its relationship data?"},
+        {"id": "nimbus-2", "text": "Which technology stores the relationship data produced by Project Nimbus?"},
+        {"id": "nimbus-3", "text": "Follow Project Nimbus's processing chain: what backend holds the relationship data?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Nimbus routes its relationship data through the Lantern component.", "triples": [{"subject": "Project Nimbus", "predicate": "USES", "object": "Lantern"}]},
+        {"key": "target", "content": "Lantern persists relationship data in Neo4j for durable storage.", "triples": [{"subject": "Lantern", "predicate": "STORES_IN", "object": "Neo4j"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "aurora",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Aurora",
+      "queries": [
+        {"id": "aurora-1", "text": "Where does Project Aurora ultimately persist its notification messages?"},
+        {"id": "aurora-2", "text": "Which technology stores the notification messages produced by Project Aurora?"},
+        {"id": "aurora-3", "text": "Follow Project Aurora's processing chain: what backend holds the notification messages?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Aurora routes its notification messages through the Relay component.", "triples": [{"subject": "Project Aurora", "predicate": "USES", "object": "Relay"}]},
+        {"key": "target", "content": "Relay persists notification messages in RabbitMQ for durable storage.", "triples": [{"subject": "Relay", "predicate": "STORES_IN", "object": "RabbitMQ"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "helios",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Helios",
+      "queries": [
+        {"id": "helios-1", "text": "Where does Project Helios ultimately persist its binary artifacts?"},
+        {"id": "helios-2", "text": "Which technology stores the binary artifacts produced by Project Helios?"},
+        {"id": "helios-3", "text": "Follow Project Helios's processing chain: what backend holds the binary artifacts?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Helios routes its binary artifacts through the Archive component.", "triples": [{"subject": "Project Helios", "predicate": "USES", "object": "Archive"}]},
+        {"key": "target", "content": "Archive persists binary artifacts in Amazon S3 for durable storage.", "triples": [{"subject": "Archive", "predicate": "STORES_IN", "object": "Amazon S3"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "vega",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Vega",
+      "queries": [
+        {"id": "vega-1", "text": "Where does Project Vega ultimately persist its search documents?"},
+        {"id": "vega-2", "text": "Which technology stores the search documents produced by Project Vega?"},
+        {"id": "vega-3", "text": "Follow Project Vega's processing chain: what backend holds the search documents?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Vega routes its search documents through the Compass component.", "triples": [{"subject": "Project Vega", "predicate": "USES", "object": "Compass"}]},
+        {"key": "target", "content": "Compass persists search documents in Elasticsearch for durable storage.", "triples": [{"subject": "Compass", "predicate": "STORES_IN", "object": "Elasticsearch"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "nova",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Nova",
+      "queries": [
+        {"id": "nova-1", "text": "Where does Project Nova ultimately persist its time-series records?"},
+        {"id": "nova-2", "text": "Which technology stores the time-series records produced by Project Nova?"},
+        {"id": "nova-3", "text": "Follow Project Nova's processing chain: what backend holds the time-series records?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Nova routes its time-series records through the Chronicle component.", "triples": [{"subject": "Project Nova", "predicate": "USES", "object": "Chronicle"}]},
+        {"key": "target", "content": "Chronicle persists time-series records in Cassandra for durable storage.", "triples": [{"subject": "Chronicle", "predicate": "STORES_IN", "object": "Cassandra"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "solaris",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Solaris",
+      "queries": [
+        {"id": "solaris-1", "text": "Where does Project Solaris ultimately persist its flexible documents?"},
+        {"id": "solaris-2", "text": "Which technology stores the flexible documents produced by Project Solaris?"},
+        {"id": "solaris-3", "text": "Follow Project Solaris's processing chain: what backend holds the flexible documents?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Solaris routes its flexible documents through the Prism component.", "triples": [{"subject": "Project Solaris", "predicate": "USES", "object": "Prism"}]},
+        {"key": "target", "content": "Prism persists flexible documents in MongoDB for durable storage.", "triples": [{"subject": "Prism", "predicate": "STORES_IN", "object": "MongoDB"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "eclipse",
+      "type": "MULTI_HOP",
+      "seedConcept": "Project Eclipse",
+      "queries": [
+        {"id": "eclipse-1", "text": "Where does Project Eclipse ultimately persist its billing records?"},
+        {"id": "eclipse-2", "text": "Which technology stores the billing records produced by Project Eclipse?"},
+        {"id": "eclipse-3", "text": "Follow Project Eclipse's processing chain: what backend holds the billing records?"}
+      ],
+      "passages": [
+        {"key": "anchor", "content": "Project Eclipse routes its billing records through the Harbor component.", "triples": [{"subject": "Project Eclipse", "predicate": "USES", "object": "Harbor"}]},
+        {"key": "target", "content": "Harbor persists billing records in MySQL for durable storage.", "triples": [{"subject": "Harbor", "predicate": "STORES_IN", "object": "MySQL"}]}
+      ],
+      "judgments": [{"passageKey": "anchor", "grade": 1}, {"passageKey": "target", "grade": 2}]
+    },
+    {
+      "id": "cedar",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Cedar",
+      "queries": [
+        {"id": "cedar-1", "text": "Which technology does Project Cedar use for local cache?"},
+        {"id": "cedar-2", "text": "What does Project Cedar use to provide local cache?"},
+        {"id": "cedar-3", "text": "Name the local cache technology used by Project Cedar."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Cedar uses SQLite for local cache.", "triples": [{"subject": "Project Cedar", "predicate": "USES", "object": "SQLite"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "lumen",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Lumen",
+      "queries": [
+        {"id": "lumen-1", "text": "Which technology does Project Lumen use for container orchestration?"},
+        {"id": "lumen-2", "text": "What does Project Lumen use to provide container orchestration?"},
+        {"id": "lumen-3", "text": "Name the container orchestration technology used by Project Lumen."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Lumen uses Kubernetes for container orchestration.", "triples": [{"subject": "Project Lumen", "predicate": "USES", "object": "Kubernetes"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "mosaic",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Mosaic",
+      "queries": [
+        {"id": "mosaic-1", "text": "Which technology does Project Mosaic use for service communication?"},
+        {"id": "mosaic-2", "text": "What does Project Mosaic use to provide service communication?"},
+        {"id": "mosaic-3", "text": "Name the service communication technology used by Project Mosaic."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Mosaic uses gRPC for service communication.", "triples": [{"subject": "Project Mosaic", "predicate": "USES", "object": "gRPC"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "tundra",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Tundra",
+      "queries": [
+        {"id": "tundra-1", "text": "Which technology does Project Tundra use for authorization?"},
+        {"id": "tundra-2", "text": "What does Project Tundra use to provide authorization?"},
+        {"id": "tundra-3", "text": "Name the authorization technology used by Project Tundra."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Tundra uses OAuth 2.0 for authorization.", "triples": [{"subject": "Project Tundra", "predicate": "USES", "object": "OAuth 2.0"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "ember",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Ember",
+      "queries": [
+        {"id": "ember-1", "text": "Which technology does Project Ember use for runtime?"},
+        {"id": "ember-2", "text": "What does Project Ember use to provide runtime?"},
+        {"id": "ember-3", "text": "Name the runtime technology used by Project Ember."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Ember uses Java 21 for runtime.", "triples": [{"subject": "Project Ember", "predicate": "USES", "object": "Java 21"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "delta",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Delta",
+      "queries": [
+        {"id": "delta-1", "text": "Which technology does Project Delta use for metrics collection?"},
+        {"id": "delta-2", "text": "What does Project Delta use to provide metrics collection?"},
+        {"id": "delta-3", "text": "Name the metrics collection technology used by Project Delta."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Delta uses Prometheus for metrics collection.", "triples": [{"subject": "Project Delta", "predicate": "USES", "object": "Prometheus"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "quartz",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Quartz",
+      "queries": [
+        {"id": "quartz-1", "text": "Which technology does Project Quartz use for database migrations?"},
+        {"id": "quartz-2", "text": "What does Project Quartz use to provide database migrations?"},
+        {"id": "quartz-3", "text": "Name the database migrations technology used by Project Quartz."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Quartz uses Flyway for database migrations.", "triples": [{"subject": "Project Quartz", "predicate": "USES", "object": "Flyway"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "willow",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Willow",
+      "queries": [
+        {"id": "willow-1", "text": "Which technology does Project Willow use for real-time updates?"},
+        {"id": "willow-2", "text": "What does Project Willow use to provide real-time updates?"},
+        {"id": "willow-3", "text": "Name the real-time updates technology used by Project Willow."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Willow uses WebSocket for real-time updates.", "triples": [{"subject": "Project Willow", "predicate": "USES", "object": "WebSocket"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "summit",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project Summit",
+      "queries": [
+        {"id": "summit-1", "text": "Which technology does Project Summit use for distributed tracing?"},
+        {"id": "summit-2", "text": "What does Project Summit use to provide distributed tracing?"},
+        {"id": "summit-3", "text": "Name the distributed tracing technology used by Project Summit."}
+      ],
+      "passages": [{"key": "answer", "content": "Project Summit uses OpenTelemetry for distributed tracing.", "triples": [{"subject": "Project Summit", "predicate": "USES", "object": "OpenTelemetry"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    },
+    {
+      "id": "river",
+      "type": "SINGLE_HOP",
+      "seedConcept": "Project River",
+      "queries": [
+        {"id": "river-1", "text": "Which technology does Project River use for local orchestration?"},
+        {"id": "river-2", "text": "What does Project River use to provide local orchestration?"},
+        {"id": "river-3", "text": "Name the local orchestration technology used by Project River."}
+      ],
+      "passages": [{"key": "answer", "content": "Project River uses Docker Compose for local orchestration.", "triples": [{"subject": "Project River", "predicate": "USES", "object": "Docker Compose"}]}],
+      "judgments": [{"passageKey": "answer", "grade": 2}]
+    }
+  ],
+  "distractors": [
+    {"key": "borealis", "content": "Project Borealis stores audit records in MySQL.", "triples": [{"subject": "Project Borealis", "predicate": "STORES_IN", "object": "MySQL"}]},
+    {"key": "cirrus", "content": "Project Cirrus stores session state in PostgreSQL.", "triples": [{"subject": "Project Cirrus", "predicate": "STORES_IN", "object": "PostgreSQL"}]},
+    {"key": "drift", "content": "Project Drift publishes domain events through RabbitMQ.", "triples": [{"subject": "Project Drift", "predicate": "USES", "object": "RabbitMQ"}]},
+    {"key": "echo", "content": "Project Echo keeps relationship data in MongoDB.", "triples": [{"subject": "Project Echo", "predicate": "STORES_IN", "object": "MongoDB"}]},
+    {"key": "fable", "content": "Project Fable sends notification messages through Kafka.", "triples": [{"subject": "Project Fable", "predicate": "USES", "object": "Kafka"}]},
+    {"key": "grove", "content": "Project Grove archives binary artifacts in Cassandra.", "triples": [{"subject": "Project Grove", "predicate": "STORES_IN", "object": "Cassandra"}]},
+    {"key": "horizon", "content": "Project Horizon indexes search documents in Redis.", "triples": [{"subject": "Project Horizon", "predicate": "STORES_IN", "object": "Redis"}]},
+    {"key": "iris", "content": "Project Iris stores time-series records in Elasticsearch.", "triples": [{"subject": "Project Iris", "predicate": "STORES_IN", "object": "Elasticsearch"}]},
+    {"key": "juno", "content": "Project Juno keeps flexible documents in Neo4j.", "triples": [{"subject": "Project Juno", "predicate": "STORES_IN", "object": "Neo4j"}]},
+    {"key": "kepler", "content": "Project Kepler stores billing records in Amazon S3.", "triples": [{"subject": "Project Kepler", "predicate": "STORES_IN", "object": "Amazon S3"}]},
+    {"key": "lotus", "content": "Project Lotus uses Redis for local cache.", "triples": [{"subject": "Project Lotus", "predicate": "USES", "object": "Redis"}]},
+    {"key": "matrix", "content": "Project Matrix uses Docker Swarm for container orchestration.", "triples": [{"subject": "Project Matrix", "predicate": "USES", "object": "Docker Swarm"}]},
+    {"key": "north", "content": "Project North uses REST for service communication.", "triples": [{"subject": "Project North", "predicate": "USES", "object": "REST"}]},
+    {"key": "onyx", "content": "Project Onyx uses API keys for authorization.", "triples": [{"subject": "Project Onyx", "predicate": "USES", "object": "API keys"}]},
+    {"key": "pulse", "content": "Project Pulse runs on Python 3.13.", "triples": [{"subject": "Project Pulse", "predicate": "USES", "object": "Python 3.13"}]},
+    {"key": "raven", "content": "Project Raven uses Grafana for metrics visualization.", "triples": [{"subject": "Project Raven", "predicate": "USES", "object": "Grafana"}]},
+    {"key": "sierra", "content": "Project Sierra uses Liquibase for database migrations.", "triples": [{"subject": "Project Sierra", "predicate": "USES", "object": "Liquibase"}]},
+    {"key": "terra", "content": "Project Terra uses server-sent events for real-time updates.", "triples": [{"subject": "Project Terra", "predicate": "USES", "object": "Server-Sent Events"}]},
+    {"key": "umbra", "content": "Project Umbra uses Zipkin for distributed tracing.", "triples": [{"subject": "Project Umbra", "predicate": "USES", "object": "Zipkin"}]},
+    {"key": "vertex", "content": "Project Vertex uses Podman Compose for local orchestration.", "triples": [{"subject": "Project Vertex", "predicate": "USES", "object": "Podman Compose"}]},
+    {"key": "wave", "content": "The Wave platform persists audit records in PostgreSQL after asynchronous processing.", "triples": [{"subject": "Wave platform", "predicate": "STORES_IN", "object": "PostgreSQL"}]},
+    {"key": "xenon", "content": "The Xenon service keeps session state in Redis for fast access.", "triples": [{"subject": "Xenon service", "predicate": "STORES_IN", "object": "Redis"}]},
+    {"key": "yarrow", "content": "The Yarrow platform streams domain events through Kafka topics.", "triples": [{"subject": "Yarrow platform", "predicate": "USES", "object": "Kafka"}]},
+    {"key": "zenith", "content": "The Zenith graph service stores relationship data in Neo4j.", "triples": [{"subject": "Zenith graph service", "predicate": "STORES_IN", "object": "Neo4j"}]},
+    {"key": "amber", "content": "The Amber worker delivers notification messages over RabbitMQ.", "triples": [{"subject": "Amber worker", "predicate": "USES", "object": "RabbitMQ"}]},
+    {"key": "birch", "content": "The Birch archive uploads binary artifacts to Amazon S3.", "triples": [{"subject": "Birch archive", "predicate": "STORES_IN", "object": "Amazon S3"}]},
+    {"key": "cobalt", "content": "The Cobalt search engine indexes documents in Elasticsearch.", "triples": [{"subject": "Cobalt search engine", "predicate": "STORES_IN", "object": "Elasticsearch"}]},
+    {"key": "denim", "content": "The Denim telemetry store writes time-series records to Cassandra.", "triples": [{"subject": "Denim telemetry store", "predicate": "STORES_IN", "object": "Cassandra"}]},
+    {"key": "elm", "content": "The Elm document service stores flexible documents in MongoDB.", "triples": [{"subject": "Elm document service", "predicate": "STORES_IN", "object": "MongoDB"}]},
+    {"key": "fjord", "content": "The Fjord billing service persists records in MySQL.", "triples": [{"subject": "Fjord billing service", "predicate": "STORES_IN", "object": "MySQL"}]}
+  ]
+}
