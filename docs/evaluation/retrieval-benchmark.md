@@ -1,10 +1,10 @@
 # Retrieval evaluation
 
-This document defines the reproducible benchmark introduced by issue #113.
+This document defines the reproducible retrieval evaluation introduced by issue #113 and how it is enforced continuously in CI/CD.
 
 ## Question being measured
 
-The benchmark tests whether Kairos graph-augmented retrieval improves passage retrieval over a vector-only baseline, especially when the relevant evidence is split across connected passages.
+The evaluation tests whether Kairos graph-augmented retrieval improves passage ranking over a vector-only baseline, especially when the relevant evidence is split across connected passages.
 
 It is intentionally an **offline retrieval evaluation**, not an answer-generation benchmark and not a production SLA.
 
@@ -48,7 +48,7 @@ The graph path executes the production `SearchSourceUseCase` with:
 
 Recognition-memory selection is deterministic for the reference benchmark because the production implementation calls Gemini. A concept is selected only when it is present in the actual dense triple-candidate set. This removes external API variance while preserving the retrieval boundary that feeds graph expansion.
 
-The benchmark therefore measures the deterministic retrieval core. It does **not** measure live Gemini recognition quality or latency.
+The evaluation therefore measures the deterministic retrieval core. It does **not** measure live Gemini recognition quality or latency.
 
 ## Metrics
 
@@ -68,19 +68,104 @@ Latency is recorded as p50/p95/p99 for both query paths. The graph path also rec
 - Neo4j GDS/PPR;
 - hydration.
 
-No assertion requires the graph path to outperform the baseline. The benchmark records regressions as results rather than hiding them behind a passing threshold.
+The complete benchmark records regressions as results rather than requiring the graph path to win. The pull-request quality gate is intentionally different: it protects a small, stable subset against known ranking regressions.
 
-## Running
+## Continuous evaluation strategy
 
-The canonical complete validation command is:
+Kairos separates **merge-time regression protection** from **full benchmark measurement**.
+
+### Pull-request quality gate
+
+Normal `bash scripts/ai/validate.sh` / Maven `verify` executes `RetrievalQualityRegressionIntegrationTest`.
+
+The gate uses 12 stable queries from dataset v1:
+
+- 6 single-hop queries;
+- 6 multi-hop queries;
+- the same distractor corpus;
+- production ONNX embeddings;
+- real PostgreSQL/pgvector;
+- real Neo4j GDS/PPR;
+- deterministic recognition constrained to actual dense triple candidates.
+
+It blocks a merge when:
+
+- graph multi-hop nDCG@10 falls below vector-only nDCG@10 on the stable subset;
+- graph multi-hop nDCG@10 falls below `0.90`;
+- overall graph nDCG@10 falls below `0.95`.
+
+Those thresholds are regression floors, not claims about production quality. If the evaluation dataset or ranking protocol changes materially, the floors must be reviewed as part of the same change rather than silently weakened.
+
+**Latency is not a pull-request gate.** Shared GitHub-hosted runner timing varies enough that a strict p95/p99 threshold would create flaky builds. Performance remains visible in the complete benchmark and should be investigated through trend/regression analysis rather than an arbitrary absolute merge threshold.
+
+### Full benchmark
+
+The 60-query `RetrievalEvaluationIntegrationTest` is excluded from normal Maven verification and is re-enabled only by the `retrieval-evaluation` Maven profile.
+
+Canonical command:
+
+```bash
+bash scripts/ai/evaluate-retrieval.sh
+```
+
+The dedicated GitHub Actions workflow `.github/workflows/retrieval-evaluation.yml` runs:
+
+- manually through `workflow_dispatch`;
+- every Monday at `09:00 UTC` through `schedule`.
+
+The scheduled/manual run measures the full quality table plus p50/p95/p99 and stage-level latency. It uploads the generated artifacts for 30 days.
+
+This split keeps pull requests deterministic and reasonably fast while preserving periodic end-to-end evidence from the complete benchmark.
+
+## Reference execution — dataset v1.0.0
+
+The first reference run used 60 queries, a 5-query warm-up and 2 measured repetitions per query.
+
+| Segment | Mode | Recall@5 | Recall@10 | MRR@10 | nDCG@10 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| All | Vector-only | 0.9917 | 1.0000 | 1.0000 | 0.8249 |
+| All | Graph-augmented | 1.0000 | 1.0000 | 1.0000 | **0.9797** |
+| Single-hop | Vector-only | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| Single-hop | Graph-augmented | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| Multi-hop | Vector-only | 0.9833 | 1.0000 | 1.0000 | 0.6498 |
+| Multi-hop | Graph-augmented | 1.0000 | 1.0000 | 1.0000 | **0.9593** |
+
+Observed ranking lift:
+
+- overall nDCG@10: **+18.8%**;
+- multi-hop nDCG@10: **+47.6%**;
+- Recall@10: no lift because both modes saturated at `1.0000`.
+
+The correct interpretation is therefore a **ranking-quality improvement**, not a Recall@10 improvement.
+
+Reference query-path latency:
+
+| Mode | p50 | p95 | p99 |
+| --- | ---: | ---: | ---: |
+| Vector-only | 11.12 ms | 19.03 ms | 24.32 ms |
+| Graph-augmented | 221.16 ms | 418.36 ms | 568.27 ms |
+
+Neo4j GDS/PPR accounted for `400.80 ms` p95 in the graph-stage breakdown, making projection/PageRank the primary performance optimization target observed by the reference run.
+
+## Running locally
+
+### Merge-time validation
 
 ```bash
 bash scripts/ai/validate.sh
 ```
 
-The evaluation is a Docker-backed integration test and therefore requires Docker. The validation script treats skipped Docker-backed tests as a failure.
+This executes the lightweight retrieval quality gate together with the normal unit/integration suite, packaging and coverage enforcement.
 
-Reference artifacts are written to:
+### Complete retrieval evaluation
+
+```bash
+bash scripts/ai/evaluate-retrieval.sh
+```
+
+Both paths require Docker. The scripts treat skipped Docker-backed evaluation as a failure.
+
+The full evaluation writes:
 
 ```text
 target/evaluation/retrieval/run-metadata.json
@@ -88,8 +173,6 @@ target/evaluation/retrieval/raw-results.json
 target/evaluation/retrieval/report.json
 target/evaluation/retrieval/summary.md
 ```
-
-The pull-request Validation workflow uploads this directory together with test and coverage reports.
 
 ## Reproducibility metadata
 
@@ -106,8 +189,21 @@ The pull-request Validation workflow uploads this directory together with test a
 - `k`;
 - benchmark boundary.
 
-## Interpretation
+## Security gate note
+
+The pull request that introduced this evaluation exposed a pre-existing container scan failure in `tomcat-embed-core 11.0.22`. The container workflow was not bypassed. Kairos overrides Spring Boot 4.0.7's managed Tomcat version to `11.0.25`, the Apache Tomcat release that contains the relevant security fixes, and keeps the Trivy critical-vulnerability gate enabled.
+
+Dependency/security upgrades are independent of retrieval-quality thresholds: a green evaluation must never be used to suppress a failing security scan.
+
+## Interpretation and guardrails
 
 Numbers from this benchmark may be described as reproducible local/CI measurements for dataset v1. They must not be presented as production latency guarantees or as evidence about live Gemini behavior.
+
+Do not claim:
+
+- Recall@10 improvement from the v1 reference run;
+- production SLA from GitHub-hosted runner latency;
+- live Gemini quality or latency from the deterministic recognition boundary;
+- online user/business impact from this offline evaluation.
 
 If the dataset, model, retrieval configuration or benchmark boundary changes, results should be treated as a new benchmark version rather than silently compared against v1.
