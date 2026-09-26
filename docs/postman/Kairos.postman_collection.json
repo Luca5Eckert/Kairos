@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "9bd406a2-0848-4e63-9d11-84217bd6712b",
     "name": "Kairos API",
-    "description": "Coleção de integração para todos os endpoints HTTP atualmente expostos pelo Kairos.\n\nFluxo recomendado: **Health → Login → Sources / Upload → Sources / Search**. O enriquecimento de fontes é assíncrono; aguarde alguns segundos após o upload antes de buscar.\n\nAs requisições de validação e segurança são negativas intencionalmente e não devem ser usadas como pré-requisito do fluxo principal. `Register` exige SMTP configurado e `Confirm email` requer o código recebido por e-mail.",
+    "description": "Coleção de exemplos e testes. Importe docs/openapi.yaml como contrato oficial; esta coleção não define a API.\n\nColeção de integração para todos os endpoints HTTP atualmente expostos pelo Kairos.\n\nFluxo recomendado: **Health → Login → Sources / Upload → Sources / Search**. O enriquecimento de fontes é assíncrono; aguarde alguns segundos após o upload antes de buscar.\n\nAs requisições de validação e segurança são negativas intencionalmente e não devem ser usadas como pré-requisito do fluxo principal. `Register` exige SMTP configurado e `Confirm email` requer o código recebido por e-mail.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

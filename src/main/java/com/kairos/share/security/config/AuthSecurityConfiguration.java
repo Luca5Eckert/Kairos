@@ -38,12 +38,15 @@ public class AuthSecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthProperties properties) {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthProperties properties,
+                                                  @org.springframework.beans.factory.annotation.Value("${kairos.api-docs.enabled:false}") boolean apiDocsEnabled) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api-docs/openapi.yaml", "/swagger-ui", "/swagger-ui/")
+                        .access((authentication, context) -> new org.springframework.security.authorization.AuthorizationDecision(apiDocsEnabled))
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(server -> server

@@ -276,7 +276,9 @@ All `/sources/**`, `/history/**`, and `/users/**` endpoints require a valid JWT 
 | `GET` | `/sources/progress` | JWT | Lists source chunk progress for the authenticated user |
 | `POST` | `/sources/{sourceId}/retry` | JWT | Asynchronously retries only failed chunks owned by the authenticated user |
 
-The versioned API contract is available in [docs/openapi.yaml](docs/openapi.yaml). Runtime Swagger UI is not configured. The complete request collection, validation cases, authentication flow, and local environment are available in [docs/postman/Kairos.postman_collection.json](docs/postman/Kairos.postman_collection.json) and [docs/postman/Kairos.local.postman_environment.json](docs/postman/Kairos.local.postman_environment.json).
+The official HTTP contract is [docs/openapi.yaml](docs/openapi.yaml). CI validates its structure, rejects duplicate YAML keys, and checks every controller operation against it. Import the OpenAPI file into Postman to generate requests; the [legacy Postman collection](docs/postman/Kairos.postman_collection.json) remains only as a collection of examples and test scripts, not an independently maintained contract.
+
+Set `KAIROS_API_DOCS_ENABLED=true` to expose `/api-docs/openapi.yaml` and `/swagger-ui` (enabled by default with the `local` Spring profile; disabled by default elsewhere). In the UI use **Authorize** with the JWT returned by `/auth/login` or `/auth/confirm-email`. The UI loads pinned Swagger UI assets from jsDelivr and needs browser access to that CDN.
 
 Password changes do not revoke JWTs already issued: they remain valid until their normal expiration. The API never returns password hashes, confirmation codes, or other security internals.
 
@@ -505,7 +507,6 @@ The exact check names should be selected from a completed run in the repository 
 The current V1 is experimental, not a complete end-user knowledge application or a security-audited production service. The main remaining gaps are:
 
 - an automatic retry scheduler and Neo4j rebuild procedure;
-- OpenAPI/Swagger publication;
 - a dense-search fallback when Neo4j GDS is unavailable;
 - request-size limits, rate limiting, and upload-abuse controls;
 - a stable Spring AI release (the current `2.0.0-M6` dependency is a milestone release);

@@ -28,6 +28,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Validate HTTP contract and controller coverage
+        run: |
+          python -m pip install openapi-spec-validator==0.7.2
+          python scripts/ai/check-openapi.py
+
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
