@@ -14,7 +14,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <spring-ai.version>2.0.0-M6</spring-ai.version>
+        <spring-ai.version>2.0.0</spring-ai.version>
         <lombok.version>1.18.44</lombok.version>
         <testcontainers.version>1.20.6</testcontainers.version>
         <!-- Spring Boot 4.0.7 manages Tomcat 11.0.22. Override to the security-fixed 11.0.25 line. -->
