@@ -91,6 +91,7 @@ kairos:
 | `KAIROS_SEED_RELATIVE_THRESHOLD` | `0.85` | Seed must be within this fraction of the best score |
 | `KAIROS_HISTORY_DEFAULT_PAGE_SIZE` | `20` | Default page size for history endpoints |
 | `KAIROS_HISTORY_MAX_PAGE_SIZE` | `100` | Maximum accepted page size for history endpoints |
+| `KAIROS_API_DOCS_ENABLED` | `false` (`true` in the `local` profile) | Expose `/api-docs/openapi.yaml` and `/swagger-ui` without authentication; the UI loads pinned assets from jsDelivr |
 
 ## Graph Search
 

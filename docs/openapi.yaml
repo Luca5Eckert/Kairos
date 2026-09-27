@@ -2,79 +2,327 @@ openapi: 3.1.0
 info:
   title: Kairos API
   version: 1.0.0
+  description: >-
+    HTTP contract for Kairos. Upload and retry start asynchronous processing; poll
+    /sources/progress. All protected routes require a JWT issued by /auth/login
+    or /auth/confirm-email.
+security:
+  - bearerAuth: []
 paths:
+  /auth/login:
+    post:
+      summary: Authenticate with username or email
+      security: []
+      requestBody:
+        $ref: '#/components/requestBodies/Login'
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /auth/register:
+    post:
+      summary: Register an account pending email confirmation
+      security: []
+      requestBody:
+        $ref: '#/components/requestBodies/Register'
+      responses:
+        '201': { description: Account registered; confirmation sent by email }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /auth/confirm-email:
+    post:
+      summary: Confirm email and obtain a JWT
+      security: []
+      requestBody:
+        $ref: '#/components/requestBodies/ConfirmEmail'
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /users/me:
     get:
-      summary: Get the authenticated user's public profile
-      security: [{ bearerAuth: [] }]
+      summary: Get the authenticated user's profile
       responses:
-        '200':
-          description: Public profile
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/UserProfile' }
-        '401': { description: Missing or invalid JWT }
+        '200': { description: Profile, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfile' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
     patch:
-      summary: Update the authenticated user's name and username
-      security: [{ bearerAuth: [] }]
+      summary: Update name or username
       requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/UpdateProfileRequest' }
+        $ref: '#/components/requestBodies/UpdateProfile'
       responses:
-        '200':
-          description: Updated public profile
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/UserProfile' }
-        '400': { description: Validation error }
-        '401': { description: Missing or invalid JWT }
-        '400': { description: Validation error or username already in use }
+        '200': { description: Updated profile, content: { application/json: { schema: { $ref: '#/components/schemas/UserProfile' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /users/me/password:
     post:
-      summary: Change the authenticated user's password
-      description: Existing JWTs remain valid until expiry; this endpoint does not revoke tokens.
-      security: [{ bearerAuth: [] }]
+      summary: Change password
+      description: Previously issued JWTs remain valid until expiry.
       requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+        $ref: '#/components/requestBodies/ChangePassword'
       responses:
         '204': { description: Password changed }
-        '400': { description: Validation error or confirmation mismatch }
-        '401': { description: Missing or invalid JWT, or invalid current password }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /sources:
+    post:
+      summary: Store a source and start asynchronous enrichment
+      requestBody:
+        $ref: '#/components/requestBodies/UploadSource'
+      responses:
+        '201': { description: Source accepted for enrichment; no response body }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /sources/search:
+    post:
+      summary: Retrieve graph and passage context
+      requestBody:
+        $ref: '#/components/requestBodies/SearchSource'
+      responses:
+        '200': { description: Retrieved context, content: { application/json: { schema: { $ref: '#/components/schemas/Context' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /sources/progress:
+    get:
+      summary: List source ingestion progress for the current user
+      responses:
+        '200': { description: Source progress, content: { application/json: { schema: { $ref: '#/components/schemas/Progress' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /sources/{sourceId}/retry:
+    post:
+      summary: Retry failed chunks of an owned source
+      parameters:
+        - $ref: '#/components/parameters/SourceId'
+      responses:
+        '202': { description: Retry accepted; no response body }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /history/questions:
+    get:
+      summary: List questions of the current user
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200': { description: Page of questions, content: { application/json: { schema: { $ref: '#/components/schemas/QuestionPage' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /history/questions/{questionId}:
+    get:
+      summary: Get question metadata
+      parameters:
+        - $ref: '#/components/parameters/QuestionId'
+      responses:
+        '200': { description: Question, content: { application/json: { schema: { $ref: '#/components/schemas/Question' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /history/questions/{questionId}/answers:
+    get:
+      summary: List answers for a question
+      parameters:
+        - $ref: '#/components/parameters/QuestionId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200': { description: Page of answer summaries, content: { application/json: { schema: { $ref: '#/components/schemas/AnswerPage' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /history/answers/{answerId}:
+    get:
+      summary: Get an immutable answer snapshot
+      parameters:
+        - $ref: '#/components/parameters/AnswerId'
+      responses:
+        '200': { description: Answer snapshot, content: { application/json: { schema: { $ref: '#/components/schemas/Answer' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    SourceId: { name: sourceId, in: path, required: true, schema: { type: string, format: uuid } }
+    QuestionId: { name: questionId, in: path, required: true, schema: { type: string, format: uuid } }
+    AnswerId: { name: answerId, in: path, required: true, schema: { type: string, format: uuid } }
+    Page: { name: page, in: query, description: Zero-based page index; defaults to 0, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+    Size: { name: size, in: query, description: Defaults to 20; maximum configured by kairos.history.max-page-size (100 by default), required: false, schema: { type: integer, minimum: 1, default: 20 } }
+  requestBodies:
+    Login: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+    Register: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RegisterRequest' } } } }
+    ConfirmEmail: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ConfirmEmailRequest' } } } }
+    UpdateProfile: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateProfileRequest' } } } }
+    ChangePassword: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } } } }
+    UploadSource: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UploadSourceRequest' } } } }
+    SearchSource: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SearchSourceRequest' } } } }
+  responses:
+    Session: { description: JWT session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+    BadRequest: { description: Invalid input or domain rule, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Missing or invalid JWT; produced by Spring Security and may have no JSON body }
+    NotFound: { description: Entity not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Source retry conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unavailable: { description: Email delivery unavailable, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   schemas:
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties: { identifier: { type: string, minLength: 1, description: Username or email }, password: { type: string, minLength: 1, format: password } }
+    RegisterRequest:
+      type: object
+      required: [name, username, email, password]
+      properties: { name: { type: string, minLength: 1 }, username: { type: string, minLength: 1 }, email: { type: string, minLength: 1 }, password: { type: string, minLength: 1, format: password } }
+    ConfirmEmailRequest:
+      type: object
+      required: [code, email]
+      properties: { code: { type: string, minLength: 1 }, email: { type: string, minLength: 1 } }
+    UpdateProfileRequest:
+      type: object
+      properties: { name: { type: [string, 'null'], maxLength: 255 }, username: { type: [string, 'null'], maxLength: 100 } }
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword, newPasswordConfirmation]
+      properties: { currentPassword: { type: string, minLength: 1, format: password }, newPassword: { type: string, minLength: 1, format: password }, newPasswordConfirmation: { type: string, minLength: 1, format: password } }
+    UploadSourceRequest:
+      type: object
+      required: [title, content]
+      properties: { title: { type: string, minLength: 1 }, content: { type: string, minLength: 1 } }
+    SearchSourceRequest:
+      type: object
+      required: [termQuery]
+      properties: { termQuery: { type: string, minLength: 1 }, questionId: { type: [string, 'null'], format: uuid } }
+    Session:
+      type: object
+      required: [accessToken, roles]
+      properties: { accessToken: { type: string }, roles: { type: array, items: { type: string } } }
     UserProfile:
       type: object
-      required: [id, name, username, email, emailConfirmed, roles]
+      required: [id, name, username, email, emailConfirmed, roles, createdAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
         username: { type: string }
-        email: { type: string, format: email }
+        email: { type: string }
         emailConfirmed: { type: boolean }
-        roles:
-          type: array
-          items: { type: string }
+        roles: { type: array, items: { type: string } }
         createdAt: { type: string, format: date-time }
-    UpdateProfileRequest:
+    InvalidField: { type: object, properties: { field: { type: string }, message: { type: string } } }
+    Error:
       type: object
-      minProperties: 1
+      required: [code, message, description, path]
       properties:
-        name: { type: string, maxLength: 255 }
-        username: { type: string, maxLength: 100 }
-    ChangePasswordRequest:
+        code: { type: integer }
+        message: { type: string }
+        description: { type: string }
+        path: { type: string }
+        fieldErrors: { type: [array, 'null'], items: { $ref: '#/components/schemas/InvalidField' } }
+    Triple:
       type: object
-      required: [currentPassword, newPassword, newPasswordConfirmation]
+      properties: { subject: { type: string }, predicate: { type: string }, object: { type: string }, chunkId: { type: string, format: uuid } }
+    Chunk:
+      type: object
+      properties: { chunkId: { type: string, format: uuid }, content: { type: string }, rank: { type: integer }, score: { type: number }, source: { type: string } }
+    Context:
+      type: object
       properties:
-        currentPassword: { type: string, format: password }
-        newPassword: { type: string, format: password }
-        newPasswordConfirmation: { type: string, format: password }
+        knowledgeGraph: { type: array, items: { $ref: '#/components/schemas/Triple' } }
+        chunkContexts: { type: array, items: { $ref: '#/components/schemas/Chunk' } }
+    SourceProgress:
+      type: object
+      properties:
+        sourceId: { type: string, format: uuid }
+        sourceTitle: { type: string }
+        status: { type: string, description: Current aggregate ingestion status }
+        totalChunks: { type: integer }
+        pendingChunks: { type: integer }
+        processingChunks: { type: integer }
+        completedChunks: { type: integer }
+        failedChunks: { type: integer }
+    Progress:
+      type: object
+      properties: { sourceProgressUploads: { type: array, items: { $ref: '#/components/schemas/SourceProgress' } } }
+    Question:
+      type: object
+      properties:
+        questionId: { type: string, format: uuid }
+        text: { type: string }
+        createdAt: { type: string, format: date-time }
+        answerCount: { type: integer, format: int64 }
+        latestExecutionAt: { type: [string, 'null'], format: date-time }
+    RetrievalParameters:
+      type: object
+      properties:
+        semanticAnchorLimit: { type: integer }
+        tripleCandidateLimit: { type: integer }
+        recognitionSeedLimit: { type: integer }
+        graphPassageLimit: { type: integer }
+        seedMinScore: { type: number }
+        seedRelativeThreshold: { type: number }
+    AnswerSummary:
+      type: object
+      properties:
+        answerId: { type: string, format: uuid }
+        schemaVersion: { type: integer }
+        createdAt: { type: string, format: date-time }
+        retrievalVersion: { type: string }
+        parameters: { $ref: '#/components/schemas/RetrievalParameters' }
+        seedsCount: { type: integer }
+        passagesCount: { type: integer }
+        triplesCount: { type: integer }
+    Page:
+      type: object
+      properties:
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1 }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        first: { type: boolean }
+        last: { type: boolean }
+    QuestionPage:
+      allOf:
+        - { $ref: '#/components/schemas/Page' }
+        - { type: object, properties: { content: { type: array, items: { $ref: '#/components/schemas/Question' } } } }
+    AnswerPage:
+      allOf:
+        - { $ref: '#/components/schemas/Page' }
+        - { type: object, properties: { content: { type: array, items: { $ref: '#/components/schemas/AnswerSummary' } } } }
+    GraphSeed:
+      type: object
+      properties: { type: { type: string }, chunkId: { type: [string, 'null'], format: uuid }, concept: { type: [string, 'null'] }, weight: { type: number }, order: { type: integer } }
+    RankedPassage:
+      type: object
+      properties:
+        chunkId: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        content: { type: string }
+        rank: { type: integer }
+        finalScore: { type: number }
+        denseScore: { type: [number, 'null'] }
+        graphScore: { type: number }
+        retrievalSource: { type: string }
+    ActivatedTriple:
+      type: object
+      properties:
+        tripleKey: { type: string }
+        chunkId: { type: string, format: uuid }
+        subject: { type: string }
+        predicate: { type: string }
+        object: { type: string }
+        activationScore: { type: [number, 'null'] }
+        structuralWeight: { type: number }
+        order: { type: integer }
+    Snapshot:
+      type: object
+      properties:
+        retrievalVersion: { type: string }
+        parameters: { $ref: '#/components/schemas/RetrievalParameters' }
+        seeds: { type: array, items: { $ref: '#/components/schemas/GraphSeed' } }
+        rankedPassages: { type: array, items: { $ref: '#/components/schemas/RankedPassage' } }
+        activatedTriples: { type: array, items: { $ref: '#/components/schemas/ActivatedTriple' } }
+    Answer:
+      type: object
+      properties:
+        answerId: { type: string, format: uuid }
+        questionId: { type: string, format: uuid }
+        schemaVersion: { type: integer }
+        createdAt: { type: string, format: date-time }
+        snapshot: { $ref: '#/components/schemas/Snapshot' }
