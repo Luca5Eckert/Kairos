@@ -8,7 +8,7 @@
 <p>
   <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21">
   <img src="https://img.shields.io/badge/Spring%20Boot-4.0.7-green" alt="Spring Boot 4.0.7">
-  <img src="https://img.shields.io/badge/Spring%20AI-2.0.0--M6-green" alt="Spring AI 2.0.0-M6">
+  <img src="https://img.shields.io/badge/Spring%20AI-2.0.1-green" alt="Spring AI 2.0.1">
   <img src="https://img.shields.io/badge/PostgreSQL-16-blue" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/Neo4j-5.26-blue" alt="Neo4j 5.26">
   <img src="https://img.shields.io/badge/pgvector-HNSW-blue" alt="pgvector HNSW">
@@ -509,7 +509,6 @@ The current V1 is experimental, not a complete end-user knowledge application or
 - an automatic retry scheduler and Neo4j rebuild procedure;
 - a dense-search fallback when Neo4j GDS is unavailable;
 - request-size limits, rate limiting, and upload-abuse controls;
-- a stable Spring AI release (the current `2.0.0-M6` dependency is a milestone release);
 - a published software license, contribution guide, and vulnerability-disclosure policy;
 - broader user-management features beyond authentication and source ownership.
 
