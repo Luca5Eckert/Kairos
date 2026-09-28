@@ -22,10 +22,9 @@ spring:
       genai:
         api-key: ${GEMINI_API_KEY}
         chat:
-          options:
-            model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
-            temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
-            max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
+          model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
+          temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
+          max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
 
   data:
     neo4j:
@@ -92,15 +91,3 @@ auth:
     issuer: ${AUTH_SESSION_ISSUER:https://auth.kairos.local}
     audience: ${AUTH_SESSION_AUDIENCE:kairos-api}
     access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:2h}
-
-gemini:
-  apiKey: ${GEMINI_API_KEY}
-  model: ${GEMINI_MODEL:gpt-4.0}
-  temperature: 0.7
-  maxOutputTokens: 2048
-  timeoutSeconds: 30
-  retry:
-    maxRetries: 3
-    delay: 2000
-    multiplier: 2.0
-    maxDelay: 60000
