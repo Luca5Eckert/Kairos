@@ -57,11 +57,14 @@ spring:
       genai:
         api-key: ${GEMINI_API_KEY}
         chat:
-          options:
-            model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
-            temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
-            max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
+          model: ${KAIROS_LLM_MODEL:gemini-2.5-flash}
+          temperature: ${KAIROS_LLM_TEMPERATURE:0.0}
+          max-output-tokens: ${KAIROS_LLM_MAX_OUTPUT_TOKENS:4096}
 ```
+
+Spring AI 2.0.1 binds these values directly under `spring.ai.google.genai.chat`.
+The old `chat.options` and standalone `gemini` blocks are no longer used.
+The provider credentials, model, temperature and output limit remain externalized.
 
 ## Retrieval Tuning
 
