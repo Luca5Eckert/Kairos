@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -31,7 +31,7 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run Qodana
-        uses: JetBrains/qodana-action@v2025.2
+        uses: JetBrains/qodana-action@v2026.2
         with:
           pr-mode: ${{ github.event_name == 'pull_request' }}
           use-caches: true
