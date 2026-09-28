@@ -8,7 +8,7 @@ Kairos is an experimental retrieval backend. It has automated Maven, coverage, c
 
 The repository currently has no published software license, `CONTRIBUTING.md`, or vulnerability-disclosure policy. Do not assume redistribution rights, contribution rules, or a security-response SLA until those policies are published.
 
-Spring AI is currently pinned to `2.0.0-M6`, a milestone release. Upgrades can introduce compatibility changes and should be tested before deployment.
+Spring AI is pinned to stable `2.0.1` with Spring Boot `4.0.7`. Provider calls still require Gemini credentials and live provider validation before deployment.
 
 ## Data locality and Gemini
 
