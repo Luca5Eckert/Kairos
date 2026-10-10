@@ -106,6 +106,38 @@ The gain has a measurable latency cost: vector-only p95 was `19.03 ms`, while gr
 
 These are reproducible CI/offline measurements, **not production SLAs**, and they do not include live Gemini recognition. The complete methodology, boundaries, commands, and continuous-evaluation policy are documented in [docs/evaluation/retrieval-benchmark.md](docs/evaluation/retrieval-benchmark.md).
 
+## Architectural trade-offs
+
+Kairos deliberately uses different mechanisms for different workloads instead of forcing one database or one AI component to own the entire retrieval path.
+
+### PostgreSQL authority, Neo4j projection
+
+A single-store design was considered implicitly in both directions. Neo4j can represent graph structure and vector search, but users, ownership, sources, chunks, retrieval history, and relational constraints benefit from PostgreSQL's transactional/relational model. PostgreSQL can hold graph-shaped data, but Neo4j GDS provides graph-native propagation that is central to the experiment.
+
+The result is explicit: PostgreSQL/pgvector is durable authority; Neo4j is a rebuildable derived projection. The accepted cost is two-store operation and reconciliation.
+
+### Graph augmentation only where the quality gain pays for it
+
+Vector-only retrieval is dramatically cheaper and remains a legitimate fallback. The reference evaluation shows why graph augmentation exists: multi-hop nDCG@10 improved from 0.6498 to 0.9593, while p95 rose from 19.03 ms to 418.36 ms. Kairos therefore treats graph retrieval as a measured quality/latency trade-off rather than assuming a graph is always better.
+
+### Why Personalized PageRank
+
+Weighted Personalized PageRank propagates relevance from query-derived seeds through the connected subgraph rather than relying on a fixed hop count or shortest path. Neo4j GDS provides a mature implementation, but the benchmark also exposes its cost: GDS/PPR accounts for about 400.80 ms p95 and is the primary optimization target.
+
+### Local embeddings, external relational interpretation
+
+all-MiniLM-L6-v2 runs locally through ONNX Runtime to keep embedding behavior reproducible and remove an embedding API/Python-sidecar dependency from the hot path. Gemini remains at boundaries where semantic proximity alone is insufficient: structured relation extraction and recognition-memory seed selection.
+
+That means Kairos is not a fully local AI pipeline; the external dependency is intentionally narrower and explicit.
+
+### Sequential recovery before parallel throughput
+
+Enrichment currently processes chunks sequentially after the initial source/chunk transaction commits. Each chunk crosses PostgreSQL, Neo4j, and an external LLM. The implementation prioritizes visible failure state, per-chunk retry, and simpler correctness reasoning before adding virtual-thread/parallel coordination. Throughput is the accepted cost until measurement shows it is the limiting problem.
+
+### Immutable execution history
+
+Answer history is stored as versioned JSONB snapshots rather than reconstructed from current chunks/graph state. A retrieval result is treated as a self-contained execution document. The accepted cost is intentional duplication and schema-version handling; the benefit is that historical answers do not silently change when the knowledge base is reprocessed.
+
 ## Architecture
 
 Kairos separates business decisions from framework and storage details. The domain owns retrieval concepts and ports; application use cases orchestrate workflows; infrastructure adapters integrate PostgreSQL, Neo4j, ONNX Runtime, Spring AI, mail, and security.
