@@ -16,11 +16,17 @@
   <img src="https://img.shields.io/badge/Docker-Compose-blue" alt="Docker Compose">
 </p>
 
-**Standard RAG retrieves similar passages. Kairos is designed to retrieve connected knowledge.**
+**The engineering question:** When does graph-based propagation improve retrieval enough to justify another data store and a slower query path?
+
+A vector index can retrieve semantically similar passages while ranking multi-hop evidence poorly. Kairos tests a hybrid approach rather than assuming that adding a knowledge graph is always better. Its retrieval quality is measured against a vector-only baseline, and the latency penalty remains visible.
 
 Kairos is a JVM-native personal knowledge graph engine for graph-augmented retrieval. It turns source material into durable chunks, extracts factual triples, creates local embeddings, and combines vector search with graph propagation to recover context that is related by meaning and structure.
 
-The project is intentionally built as a retrieval backend rather than a chat interface. Its boundaries are explicit: PostgreSQL stores durable text, vectors, and retrieval history; Neo4j stores the graph projection; Gemini is used for extraction and recognition-memory decisions; the embedding model runs locally on the JVM.
+The project is intentionally a **retrieval backend**, not a chat interface. PostgreSQL/pgvector owns durable sources, vectors and immutable retrieval history. Neo4j/GDS is a **derived graph projection** for weighted Personalized PageRank, while ONNX embeddings run on the JVM. Gemini is reserved for structured extraction and relational recognition; the offline benchmark freezes the external recognition boundary so the retrieval comparison remains reproducible.
+
+**What the evaluation actually found:** In a controlled 60-query fixture (30 multi-hop), graph-augmented retrieval raised multi-hop nDCG@10 from **0.6498 to 0.9593 (+47.6%)**, but increased p95 from **19.03 ms to 418.36 ms**. Recall@10 was **1.0 for both paths**; the improvement is ranking, not recall. A 12-query Docker-backed CI gate protects selected quality regressions, not performance SLAs.
+
+**Trade-offs still open:** operating two stores requires reconciliation; an automated graph rebuild and fallback from unavailable GDS to dense retrieval are not yet supported end-to-end.
 
 > **Maturity:** experimental retrieval backend. Kairos has automated quality and security checks, but it has not undergone an independent security audit and does not claim production readiness. No software license or contribution policy has been published yet.
 
