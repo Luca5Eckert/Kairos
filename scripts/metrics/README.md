@@ -14,8 +14,9 @@ The same 60-query run measures nDCG@10, Recall@10 and p50/p95/p99 for
 both retrieval modes. No live Gemini is included. Reference artifacts
 are under target/evaluation/retrieval and are retained in CI for 30 days.
 
-M12 — Opt-in isolated JVM benchmark:
+M12 — Opt-in isolated JVM benchmark (prepare the pinned model first):
 
+    bash infra/scripts/prepare-model.sh
     ./mvnw -Dtest=EmbeddingPerformanceBenchmarkIT \
       -Dmetrics.commitSha="$(git rev-parse HEAD)" test
 
