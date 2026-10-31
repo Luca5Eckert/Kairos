@@ -62,8 +62,10 @@ class EmbeddingPerformanceBenchmarkIT {
                     long start = System.nanoTime();
                     for (int i = 0; i < SAMPLES; i++) {
                         long t0 = System.nanoTime();
-                        assertThat(provider.embed(input)).hasSize(384);
-                        milliseconds.add((System.nanoTime() - t0) / 1_000_000.0);
+                        float[] vector = provider.embed(input);
+                        long elapsed = System.nanoTime() - t0;
+                        assertThat(vector).hasSize(384);
+                        milliseconds.add(elapsed / 1_000_000.0);
                     }
                     double durationSeconds = (System.nanoTime() - start) / 1_000_000_000.0;
                     double[] ordered = milliseconds.stream().mapToDouble(Double::doubleValue).sorted().toArray();
