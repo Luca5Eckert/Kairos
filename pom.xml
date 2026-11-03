@@ -16,7 +16,7 @@
         <java.version>21</java.version>
         <spring-ai.version>2.0.1</spring-ai.version>
         <lombok.version>1.18.44</lombok.version>
-        <testcontainers.version>1.20.6</testcontainers.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <!-- Keep Tomcat on the security-fixed 11.0.25 line. -->
         <tomcat.version>11.0.25</tomcat.version>
         <!-- Align all Netty modules on the release fixing CVE-2026-75595. -->
