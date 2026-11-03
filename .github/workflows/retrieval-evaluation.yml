@@ -2,6 +2,13 @@ name: Retrieval Evaluation
 
 on:
   workflow_dispatch:
+  # Normal PRs keep the small 12-query gate; only changes to this
+  # metrics harness trigger the full 60-query evaluation.
+  pull_request:
+    paths:
+      - 'scripts/metrics/analyze_outcomes.py'
+      - 'tests/test_analyze_outcomes.py'
+      - '.github/workflows/retrieval-evaluation.yml'
   schedule:
     - cron: "0 9 * * 1"
 
@@ -16,7 +23,7 @@ jobs:
   full-retrieval-evaluation:
     name: Full 60-query retrieval evaluation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -33,8 +40,23 @@ jobs:
       - name: Prepare Maven wrapper
         run: chmod +x mvnw
 
+      - name: Validate offline analysis contracts
+        run: python3 -m unittest discover -s tests -p 'test_analyze_outcomes.py' -v
+
+      - name: Record exact checked-out source revision
+        run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       - name: Run complete retrieval evaluation
         run: bash scripts/ai/evaluate-retrieval.sh
+
+      - name: Measure local JVM ONNX embeddings on the same checked-out SHA
+        run: |
+          ./mvnw --batch-mode --no-transfer-progress \
+            -Dtest=EmbeddingPerformanceBenchmarkIT \
+            -Dmetrics.commitSha="${SOURCE_SHA}" test
+
+      - name: Generate per-query and ONNX evidence
+        run: python3 scripts/metrics/analyze_outcomes.py --sha "${SOURCE_SHA}"
 
       - name: Upload retrieval evaluation reports
         if: always()
@@ -43,6 +65,9 @@ jobs:
           name: retrieval-evaluation-${{ github.run_id }}
           path: |
             target/evaluation/retrieval
+            target/metrics/achievement-outcomes.json
+            target/metrics/achievement-outcomes.md
+            target/metrics/embedding-performance.json
             target/surefire-reports/TEST-com.kairos.module.context_engine.evaluation.RetrievalEvaluationIntegrationTest.xml
           if-no-files-found: warn
           retention-days: 30
