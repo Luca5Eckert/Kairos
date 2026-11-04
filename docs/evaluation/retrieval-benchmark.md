@@ -207,3 +207,27 @@ Do not claim:
 - online user/business impact from this offline evaluation.
 
 If the dataset, model, retrieval configuration or benchmark boundary changes, results should be treated as a new benchmark version rather than silently compared against v1.
+
+
+## Per-query outcome and trade-off evidence — issue #126
+
+The existing aggregate nDCG and latency table answers *how much* quality
+changes on average. The additional `scripts/metrics/analyze_outcomes.py`
+answers *for how many specific queries* graph retrieval helps and quantifies
+the paired absolute delta. Results are grouped by SINGLE_HOP and MULTI_HOP;
+the 95% bootstrap interval resamples the ten independent scenario groups,
+not three correlated paraphrases as independent observations.
+
+The [31 October 2026 SHA-bound reference](https://github.com/Luca5Eckert/Kairos/actions/runs/41245447107)
+showed **29/30 multi-hop queries improved, one tied and zero worsened**.
+Mean paired absolute multi-hop nDCG@10 change: **+0.3096**, descriptively
+cluster-bootstrapped **[+0.2462, +0.3616]**. Single-hop: 30 ties, no gain.
+The corresponding retrieval p95 was **21.87 ms vector-only** and
+**511.23 ms graph-augmented** *in the same run*.
+
+These metrics reinforce a qualified engineering conclusion: graph
+propagation improves ranking on the *fixture's* multi-hop cases, but costs
+substantially more time; it is not always the best retrieval path.
+No live Gemini, unseen corpus, online relevance or production SLA is
+measured by this result. See `scripts/metrics/README.md` for exact
+commands and the separately scoped ONNX numbers.

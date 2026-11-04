@@ -53,3 +53,44 @@ to the resume without inspecting original artifacts and limitations.
 M17 (Orca/AI): maintain a manually reviewed PR/commit audit with evidence
 of human review, backend scope and tests. Do not infer causal speedup from
 commit counts, raw number of PRs, or agent-generated text.
+
+
+## Measured accomplishment analysis — issue #126
+
+Use `scripts/metrics/analyze_outcomes.py` **after actual benchmark execution** to
+calculate paired per-query nDCG@10 differences, wins/ties/losses, descriptive
+scenario-cluster bootstrap intervals and same-run vector/graph p95.
+If a matching-SHA `embedding-performance.json` exists, include throughput
+and p95 for each ONNX input size. In its absence, mark ONNX `MISSING`.
+
+```sh
+python3 -m unittest discover -s tests -p 'test_analyze_outcomes.py' -v
+python3 scripts/metrics/analyze_outcomes.py --sha "$(git rev-parse HEAD)"
+```
+
+Outputs are `target/metrics/achievement-outcomes.{json,md}`. The dedicated
+`retrieval-evaluation.yml` reruns the 60-query real PostgreSQL/pgvector +
+Neo4j GDS suite and the isolated ONNX measurement only on a scoped metrics
+harness PR, scheduled evaluation or manual invocation.
+
+The dataset contains **10 multi-hop scenarios with three query paraphrases
+each**, so bootstrap resampling uses **scenario clusters**, not 30
+independent queries. The resulting interval describes this synthetic fixture:
+it is not an out-of-sample population confidence claim.
+
+Original dated reference: [GitHub Actions 41245447107](https://github.com/Luca5Eckert/Kairos/actions/runs/41245447107),
+`1595d0d5954a38171822f95b3cdb4eb56b3ca53c`:
+- Graph retrieval improves **29/30 multi-hop queries**, ties one,
+  worsens none; the mean *paired absolute* nDCG@10 gain is **0.3096**
+  (cluster bootstrap 95% interval approximately **0.2462–0.3616**).
+  This is distinct from **+47.6% relative lift**.
+- No single-hop queries improved (30 ties). Same-run p95 vector
+  **21.87 ms** vs graph **511.23 ms**; not a latency improvement.
+- Local warm ONNX tokenizer+inference measured **128.86 embeddings/s**
+  for approximately 32-word synthetic inputs; **49.00** for 128 words,
+  **47.10** for 256 words. This is *not* documents/s or end-to-end
+  ingestion throughput.
+
+Higher-value future work would benchmark actual ingest end-to-end
+(chunks/documents/s, memory and cold-start) or use a held-out query
+corpus to validate quality generalization. Never invent those figures.
