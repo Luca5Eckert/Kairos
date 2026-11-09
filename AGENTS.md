@@ -13,3 +13,18 @@ After implementation, read [`docs/ai/documentation-policy.md`](docs/ai/documenta
 Use `scripts/ai/preflight.sh` to capture the issue, checkout state, commit conventions, and baseline. Use `scripts/ai/validate.sh` as the source of truth for the complete Maven validation. Keep `.ai-runs/` local, preserve unrelated working-tree changes, and add or update focused tests with implementation changes.
 
 The final report must include the issue, branch, files changed, commit hashes, tests and validation commands with results, documentation decision, and known risks. Explicitly report any unrelated user-owned files left uncommitted.
+
+## Backend agent skills
+
+Load only the relevant skill for the task, in addition to (never instead of) the issue workflow above:
+
+- Java/Spring, persistence and boundaries: .agents/skills/spring-backend-engineering/SKILL.md
+- Unit, integration and contract testing: .agents/skills/backend-testing/SKILL.md
+- Failed checks or behavior regressions: .agents/skills/systematic-debugging/SKILL.md
+- JWT, user ownership or cross-tenant access: .agents/skills/security-authorization-review/SKILL.md
+- Vector/graph ranking and experiments: .agents/skills/retrieval-evaluation/SKILL.md
+- Architecture rules and dual-store ownership: .agents/skills/architecture-fitness-review/SKILL.md
+- Before PR delivery / merge readiness: .agents/skills/backend-change-verification/SKILL.md
+
+These skills add task-specific checks; they do not override existing scripts/ai validation, the issue contract, CI quality gates, documentation policy or security boundaries. Never report a skipped Docker-backed test or old benchmark as current validation.
+
